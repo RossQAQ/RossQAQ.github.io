@@ -1,20 +1,17 @@
 ---
-title: Hello World
-description: Welcome to Hugo Theme Stack
+title: Hello Hugo
+description: Roses 建立。
 slug: hello-world
-date: 2022-03-06 00:00:00+0000
-image: cover.jpg
+date: 2023-12-18 00:00:00+0000
+image: cover.png
 categories:
-    - Example Category
+    - timeline
 tags:
-    - Example Tag
 weight: 1       # You can add weight to some posts to override the default sorting (date descending)
 ---
 
-Welcome to Hugo theme Stack. This is your first post. Edit or delete it, then start writing!
+终于，经过几天的折腾，拥有了自己的博客。
 
-For more information about this theme, check the documentation: https://stack.jimmycai.com/
+这里应该会记录关于我的一切，如果我想的话。
 
-Want a site like this? Check out [hugo-theme-stack-stater](https://github.com/CaiJimmy/hugo-theme-stack-starter)
-
-> Photo by [Pawel Czerwinski](https://unsplash.com/@pawel_czerwinski) on [Unsplash](https://unsplash.com/)
+但重要的自然是 C++。
