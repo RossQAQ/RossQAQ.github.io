@@ -8,6 +8,7 @@ categories:
     - timeline
 tags:
 weight: 1       # You can add weight to some posts to override the default sorting (date descending)
+comments: false
 ---
 
 终于，经过几天的折腾，拥有了自己的博客。

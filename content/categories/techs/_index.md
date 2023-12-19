@@ -1,6 +1,6 @@
 ---
-title: 技术杂谈
-description: 记录有趣的内容。
+title: 技术
+description: 纯粹的技术，有趣的技术。
 image:
 
 # Badge style
