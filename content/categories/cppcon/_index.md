@@ -1,7 +1,7 @@
 ---
 title: CppCon
-description: The C++ Conference.
-image:
+description: The C++ Conference. CppCon 翻译、总结。
+image: category_logo.png
 
 # Badge style
 style:
