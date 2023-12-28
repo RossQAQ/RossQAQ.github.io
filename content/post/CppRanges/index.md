@@ -1,7 +1,7 @@
 ---
 title: C++20 Ranges overview
 description: 初学 C++20 Ranges
-slug: C++ Notes
+slug: Ranges overview
 date: 2023-12-27 00:00:00+0000
 image: ranges-cover.png
 categories:

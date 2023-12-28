@@ -294,4 +294,29 @@ int main() {
 
   构造函数获取资源，析构函数释放资源，在赋值运算符中 `copy-and-swap` 以及其他特殊成员函数
 
-  
+## The Rule of Five
+
+在 C++11 之后，有了移动语义加持，我们引入了 The rule of five.
+
+如果你的类直接管理某些资源（例如 new 出的指针），那么你需要**手写五个特殊成员函数**来确保正确的行为：
+
+- **析构函数** 释放资源
+- **拷贝构造函数** 拷贝资源
+- **移动构造函数** 转义资源的所有权
+- **拷贝赋值运算符** 释放 left-hand 资源，拷贝 right-hand 资源
+- **移动赋值运算符** 释放 left-hand 资源，将 right-hand 的资源所有权转移
+
+> 所有权，ownership，C++11之后 std::unique_ptr 等即代表独占所有权，配合移动语义，是一个较为重要的概念。但也有人不太喜欢这种说法。
+
+赋值运算符很容易出错，所以活用 `copy-and-swap`
+
+那么移动赋值运算符怎么写 `copy-and-swap` 呢？
+
+```cpp
+NaiveVector& NaiveVector::opeartor=(NaiveVector&& rhs) {
+    NaiveVector copy(std::move(rhs));
+    copy.swap(*this);
+    return *this;
+}
+```
+
