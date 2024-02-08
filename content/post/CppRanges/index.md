@@ -6,6 +6,7 @@ date: 2023-12-27 00:00:00+0000
 image: ranges-cover.png
 categories:
     - cppnotes
+    - finished
 tags: 
 weight: 1       # You can add weight to some posts to override the default sorting (date descending)
 comments: false
