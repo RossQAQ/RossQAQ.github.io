@@ -850,3 +850,53 @@ class MyClass {
 现在我已经列出了许多 C++ 允许你使用 promise 和 awaiter 干的事情。所以原则上你已经有了足够的知识可以上路了。
 
 但是可能再展示一些有趣的例子会更有帮助。
+
+### 深入 producer/adapter/consumer 链
+
+协程最初的用法之一 —— 可能是最早的用法，是 The Art of Computer Programming 中的展示。其中一个协程生产一系列对象，另一个进行消费。协程的特性会产生一种每一部分代码都是一个子例程的错觉，并且允许它以它认为最好的控制流执行代码，即使其中包括多个循环或者 if 语句，调用其他不同的例程。
+
+最明显的扩展就是增加链长，使其拥有超过2个例程。这样中间的协程就可以从其左边的协程接收消息流，然后把它处理后传递给右边的协程。意味着中间的协程需要有两种暂停方式：收到新消息/有消息要传递。
+
+C++ 中，我们恰好有两个语义代表这两种不同的行为：协程可以使用 co_await 来表明他正要等待一个值，使用 co_yield 来将值提供给消费者。当然，如果我们自定义了 awaiter，我们就可以让协程自动转移控制权并且沿着整个链前进，只有最终输出的值准备好时才返回给 caller。
+
+（有很多种方法实现这个过程。另外一个可选的方法是在 main 中实现一个 'executor' 循环，其拥有一些暂停的协程，当一个协程暂停自己时，它就被传递给 executor 并且表明下一个应该恢复哪个协程。在某些情况下你需要选择这个方法，例如在线程间迁移信息，或者轮询 IO 源。但在这个例子中我想描述的是如何使用自定义 awaiters 来实现一个纯计算的多协程装置，*不需要* 单独的 executor。
+
+我们来举一个例子：我会用协程来实现一个著名的 FizzBuzz 例子，从 1 开始迭代连续的整数，如果是3 的倍数输出 Fizz，5 的倍数输出 Buzz。如果既是3的倍数又是5的倍数就输出 FizzBuzz，都不是就输出数字自己。
+
+为了让协程之间互相直接传递，他们需要以某种方式连接起来，这样才能互相找到对方。我们通过传递协程的用户感知对象作为函数参数以此构造下一个对象。
+
+换句话说，我们大概是想写：
+
+```cpp
+UserFacing generate_numbers(int limit) {
+    for (int i = 1; i <= limit; ++i) {
+        Value v;
+        v.number = i;
+        co_yield v;
+    }
+}
+
+UserFacing check_multiple(UserFacing source, int divisor, std::string fizz) {
+    while (std::optional<Value> vopt = co_await source) {
+        Value& v = *vopt;
+        if (v.number % divisor == 0) {
+            v.fizzes.push_back(fizz);
+        }
+        co_yield v;
+    }
+}
+```
+
+在 main 函数中的调用会像
+
+```cpp
+int main() {
+    UserFacing c = generator_numbers(200);
+    c = check_multiple(std::move(c), 3, "Fizz");
+    c = check_multiple(std::move(c), 5, "Buzz");
+    while (std::optional<Value> vopt = c.next_value()) {
+        // print;
+    }
+}
+```
+
