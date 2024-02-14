@@ -900,3 +900,15 @@ int main() {
 }
 ```
 
+我们先构造一个只生成一系列整数的协程，并且将他们包进 Value 中（where later coroutines can accumulate the fizzes and buzzes that will be printed for that number）。之后我们调用第二个协程 check_multiple() 来检查 3 和 5 的倍数并分别为其标记。
+
+每个用户感知对象都被以 std::move 传递作为参数并消费它的输出，因为我们的用户感知对象是 uncopyable 以此来避免协程的 double free。
+
+每个协程都通过 co_await 表达式，使用参数中的用户感知对象来请求输入，这代表我们的 promise type 必须实现 await_transform(UserFacing&) 这样才能返回正确的 awaiter。每个协程通过 co_yield 传递输出，这意味着我们需要实现 promise type 的 yield_value(Value) 来返回不同的 awaiter。
+
+注意，协程们知道他们正在 *从哪* await 值，但不知道要把值 yield *给谁*。特别的，check_multiple() 的两个实例会根据 co_yield 做出两个完全不同的反应：Fizz 协程会将生成的值传递给 Buzz 协程，但是 Buzz 协程会执行完全一样的代码，但是 *它的* 输出值会传回 main 并且从 c.next_value() 返回。
+
+同样，每个协程以 Value 形式生成值，但是当 values 到达消费者时（不管是另一个协程还是 main，都会变成 std::optional\<Value>。这允许我们通过 std::nullopt 来表示当前流是否结束）
+
+好了，我们现在应该实现它了！
+
