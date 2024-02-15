@@ -6,7 +6,6 @@ date: 2024-02-14 00:00:00+0000
 image: cppcon2021-cover.png
 categories:
     - cppcon
-    - techs
     - unfinished
 tags: 
 weight: 1       # You can add weight to some posts to override the default sorting (date descending)

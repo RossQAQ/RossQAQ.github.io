@@ -6,8 +6,7 @@ date: 2023-12-23 00:00:00+0000
 image: cppcon2019-cover.png
 categories:
     - cppcon
-    - techs
-    - unfinished
+    - finished
 tags: 
 weight: 1       # You can add weight to some posts to override the default sorting (date descending)
 comments: false
@@ -283,6 +282,8 @@ int main() {
 
 你也可以自己写 swap，也许会提高一些性能（编译器会ADL查找非成员函数的 swap）
 
+(这里的意思是针对那 5 个成员函数，而不是针对构造函数，你可以实现一些构造函数，不会打破 rule of zero.)
+
 ## 尽可能多选择 Rule of Zero
 
 以下两种值语义的类都是 well-designed :
@@ -325,3 +326,125 @@ NaiveVector& NaiveVector::opeartor=(NaiveVector&& rhs) {
 }
 ```
 
+## The Rule of Four(and a half)
+
+### By-value 的赋值运算符？
+
+虽然看似传值可以行为正确，但 STL 总是分开写移动和复制，所以你也应该将他们分开。更不能把 operator= 写成模板函数。
+
+### The Rule of Four (and a half)
+
+如果你的类直接管理某些资源（例如 new 出的指针），那么你需要**手写四个特殊成员函数**来确保正确的行为
+
+- **析构函数** 释放资源
+- **拷贝构造函数** 拷贝资源
+- **移动构造函数** 转义资源的所有权
+- **By-value** 的赋值运算符，释放 left-hand 资源，转移 right-hand 资源的所有权
+
+1/2 - （非成员 swap 函数，理想情况下还要有一个成员函数版本）
+
+## copy-and-swap
+
+你需要编写一个 swap 函数才能实现 copy-and-swap，不然要么编译错误，要么使用 `std::swap`
+
+那 `std::swap` 干了什么？
+
+调用移动构造，调用移动赋值，再调用一次移动赋值。
+
+如果你的赋值运算符的实现使用了 swap，然后还调用了 std::swap，然后 std::swap 又调用你的移动赋值运算符。恭喜你。
+
+所以强烈推荐你，如果使用 copy-and-swap，那么就自己实现一个 `swap` 函数。
+
+## 不再 Naive 的 vector
+
+```cpp
+class NaiveVector {
+    int* ptr_;
+    size_t size_;
+    ...
+    Vec(const Vec& rhs) {
+        ptr_ = new int[rhs.size_];
+        size_ = rhs.size_;
+        std::copy(rhs.ptr_, rhs.ptr_ + size_, ptr_);
+    }
+    Vec(Vec&& rhs) noexcept {
+        ptr_ = std::exchange(rhs.ptr_, nullptr);
+        size_ = std::exchange(rhs.size_, 0);
+    } 
+    
+    // 两个参数的 swap，让你的类 std::swappable
+    friend void swap(Vec& a, Vec& b) noexcept {
+        a.swap(b);
+    }
+    
+    ~Vec() { delete[] ptr_; }
+    
+    Vec& operator=(const Vec& vec) {
+        Vec copy(vec);
+        copy.swap(*this);
+        return *this;
+    }
+    
+    Vec& operator=(Vec&& vec) noexcept {
+        Vec copy(std::move(vec));
+        copy.swap(*this);
+        return *this;
+    }
+    
+    void swap(Vec& rhs) noexcept {
+        using std::swap;
+        swap(ptr_, rhs.ptr_);
+        swap(size_, rhs.size_);
+    }
+};
+```
+
+> std::exchange，以 new_value 替换 obj 的值，并返回 obj 的旧值。
+
+注意两个参数的 swap，这里使用了叫 "hidden friend idiom"。
+
+让两个参数的 swap 被 friend 标记，这样编译器就知道他不是成员函数（不是成员函数所以需要两个参数），这个 swap 支持 ADL 查找。这里他唯一做的就是调用一下成员函数 swap。
+
+## 管理资源类的例子
+
+### std::unique_ptr
+
+以 `std::unique_ptr` 为例，它管理了堆内存的裸指针。
+
+- **构造函数**释放资源
+  - 对裸指针调用 delete
+- **拷贝构造函数**复制资源
+  - 显然不应该复制，它独占了这个资源的所有权。故 =delete
+- **移动构造函数**转移资源所有权
+  - 转移裸指针，确保 rhs 清空
+- **拷贝赋值运算符**释放 left-hand 资源，并复制 right-hand 资源
+  - 同拷贝构造
+- **移动赋值运算符**释放 left-hand 资源，并转移 right-hand 资源所有权
+  - 对 left-hand 调用 delete，转移 right-hand 资源并情况
+
+### std::shared_ptr
+
+以 `std::shared_ptr` 为例，它管理的是引用计数。
+
+- **构造函数**释放资源
+  - 减少引用计数（清理资源，如果引用计数归零）
+- **拷贝构造函数**复制资源
+  - 增加引用计数
+- **移动构造函数**转移资源所有权
+  - 保持引用计数不变，释放（disengages）右侧
+- **拷贝赋值运算符**释放 left-hand 资源，并复制 right-hand 资源
+  - 减少 left-hand 引用计数，增加 right-hand 引用计数
+- **移动赋值运算符**释放 left-hand 资源，并转移 right-hand 资源所有权
+  - 减少引用计数，释放（disengages）右侧
+
+## “盗取”暗示了“空”状态
+
+每个例子的移动操作，都释放了右侧的资源，也就是清空右侧状态。
+
+如果你忘了，那么可能会 double-free
+
+如果你忘记 destroy 右侧的对象，那么他可能就会处于空状态。
+
+你可以只做 copy 和 destroy，如果你的对象复制开销不大的话。
+
+当然 RAII 也可以 *只* 用于 destroy，单纯 =delete 你的复制和移动操作，就像 std::lock_guard
