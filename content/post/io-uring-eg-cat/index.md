@@ -983,16 +983,16 @@ io_uring_queue_init(QUEUE_DEPTH, &ring, 0);
 2. 从 CQE 中获取信息
 3. 将该 CQE 标记为已被消费
 
-| 步骤                            | 函数API                                                      |
-| ------------------------------- | ------------------------------------------------------------ |
+| 步骤                            | 函数API                                                                             |
+| ------------------------------- | ----------------------------------------------------------------------------------- |
 | 初始化 io_uring                 | `int io_uring_queue_init(unsigned entries, struct io_uring *ring, unsigned flags);` |
-| 初始化 SQE                      | struct io_uring_sqe *io_uring_get_sqe(struct io_uring *ring); |
-| 指明 io_uring 对该 SQE 的操作   | io_uring_prep_action_name                                    |
-| 指明 io_uring 存储结果的位置    | void io_uring_sqe_set_data(struct io_uring_sqe *sqe, void *user_data); |
-| 提交该 ring 的请求              | int io_uring_submit(struct io_uring *ring);                  |
-| 声明 CQE, 等待该 CQE 被操作完成 | int io_uring_wait_cqe(struct io_uring *ring, struct io_uring_cqe **cqe_ptr); |
-| 从 CQE 中获取信息               | void *io_uring_cqe_get_data(struct io_uring_cqe *cqe);       |
-| 将该 CQE 标记为已被消费         | void io_uring_cqe_seen(struct io_uring *ring, struct io_uring_cqe *cqe); |
+| 初始化 SQE                      | struct io_uring_sqe *io_uring_get_sqe(struct io_uring *ring);                       |
+| 指明 io_uring 对该 SQE 的操作   | io_uring_prep_action_name                                                           |
+| 指明 io_uring 存储结果的位置    | void io_uring_sqe_set_data(struct io_uring_sqe *sqe, void *user_data);              |
+| 提交该 ring 的请求              | int io_uring_submit(struct io_uring *ring);                                         |
+| 声明 CQE, 等待该 CQE 被操作完成 | int io_uring_wait_cqe(struct io_uring *ring, struct io_uring_cqe **cqe_ptr);        |
+| 从 CQE 中获取信息               | void *io_uring_cqe_get_data(struct io_uring_cqe *cqe);                              |
+| 将该 CQE 标记为已被消费         | void io_uring_cqe_seen(struct io_uring *ring, struct io_uring_cqe *cqe);            |
 
 参考资料：
 
