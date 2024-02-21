@@ -912,3 +912,7 @@ int main() {
 
 好了，我们现在应该实现它了！
 
+要实现上述的协程，我们从 yielded_value 的例子开始，调用用户感知对象的 next_value 可以获取值。新的难点是消费者协程 C 必须 co_await 另一个协程 P，大概是以下的方式
+
+- C 通过调用 co_await 自定义 Awaiter 来在暂停时将控制权给 P
+- 
