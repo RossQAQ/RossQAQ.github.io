@@ -914,5 +914,95 @@ int main() {
 
 要实现上述的协程，我们从 yielded_value 的例子开始，调用用户感知对象的 next_value 可以获取值。新的难点是消费者协程 C 必须 co_await 另一个协程 P，大概是以下的方式
 
-- C 通过调用 co_await 自定义 Awaiter 来在暂停时将控制权给 P
-- 
+- C 通过调用 co_await P 让自定义 Awaiter 来在暂停时将控制权给 P
+- C 要告诉 P 它自己的身份，这样 P 才能知道把控制权给谁
+- P 把控制权传递给 C 通过 co_yield 自定义 Awaiter
+  - 但如果协程执行 co_yield 时 *不是* 先被其他协程 awaited，那么同一个 awaiter 必须暂停，将值返回给 main 的最终调用者。
+- 当 C 的 awaiter 恢复 C，它必须取回 P 生成的值，这样才能变成 co_await 返回的值
+
+我们通过两个 Awaiter 来完成这个事情，`InputAwaiter` 来解决 co_await 的数据请求，`OutputAwaiter` 解决 co_yield 生成值
+
+以下是 InputAwaiter，它通过 await_transform() 创建
+
+```cpp
+class UserFacing {
+    //...
+    class InputAwaiter {
+        promise_type* promise_;
+        public:
+        InputAwaiter(promise_type* promise) : promise_(promise) {}
+        
+        bool await_ready() {return false;}
+        
+        std::coroutine_handle<> await_suspend(std::coroutine_handle<>) {
+            promise->yielded_value = std::nullopt;
+            return handle_type::from_promise(*promise);
+        }
+    }
+    // ...
+    
+    class promise_type {
+        promise_type* consumer_;
+        
+        //...
+        InputAwaiter await_transform(UserFacing& uf) {
+            promise_type& producer = uf.handle.promise();
+            producer.consumer_ = this;
+            return InputAwaiter{&producer};
+        }
+    };
+};
+```
+
+> 译者：想看懂这个例子需要搞清楚前文所有的协程执行流程。译者翻译这里的时间和翻译前文的事件隔了很久，看了很久。
+
+上面的代码中，await_ready() 总是暂停协程。await_suspend() 将控制权交给我们输入的 awaiting 我们的结果的协程，实现方式是将指向那个协程 promise 对象的指针传递给 InputAwaiter 的构造函数。
+
+为了获取 producer 传给我们这个协程的生成值，await_resume() 通过其他 promise 对象的 yielded_value 恢复，就像之前的[例子](https://www.chiark.greenend.org.uk/~sgtatham/quasiblog/coroutines-c++20/#co_yield)中 UserFacing::next_value() 的行为一样。同样，为了检测 producer 协程 *没有* 生成任何值结束了，`await_suspend()` 清除之前 yieled_value 的值，之后再传递控制权。所以获取值的逻辑在这（链中值被传递给下一个协程）和 next_value() 中（被返回给 main）是一样的。
+
+另外一个要点是我们的 promise 对象需要一个新的字段，这样 promise 对象才知道它的 consumer 是什么。就是说，协程要传递值的对象。这个通过 await_transform() 初始化：当一个 consumer 协程想要 await 一个 producer 的时候，它会被传递给 producer 的 `consumer_` 字段，指向他自己。`OutputAwaiter` 通过这个就可以知道将控制权传递给谁了。
+
+以下是 OutputAwaiter，yield_value 方法返回他
+
+```cpp
+class UserFacing {
+    // ...
+    class OutputAwaiter {
+        promise_type* promise_;
+    public:
+        OutputAwaiter(promise* promise) : promise_(promise) {}
+        
+        bool await_ready() {return false;}
+        
+        std::coroutine_handle<> await_suspend(std::coroutine_handle<>) {
+            if(promise)
+                return handle_type::from_promise(*promise);
+        	else
+                return std::noop_coroutine();
+        }
+        
+        void await_resume() {}
+        
+    };
+    
+    class promise_type {
+        //...
+    	OutputAwaiter yield_value(Value val) {
+            yielded_value = val
+        	return OutputAwaiter{consumer};
+        }
+    };
+};
+```
+
+比 InputAwaiter 简单很多，yield_value() 要填写 promise 对象的 yielded_value 字段，但是它并不需要知道消费者是谁，因为工作原理是一样的。
+
+但是 await_suspend()  *需要* 知道，因为它要决定是将控制权交给 consumer 还是暂停自己返回给 main。就像之前说过的，通过 std::noop_coroutine 完成；
+
+Full source code for this example: [`co_shuttle.cpp`](https://www.chiark.greenend.org.uk/~sgtatham/quasiblog/coroutines-c++20/co_shuttle.cpp). (As I warned in the introduction, the real code will have to move some methods out of line that are shown inside the class definitions above.)
+
+---
+
+### 有栈生成器
+
+很难不把C++ 和 python 的生成器一起比较。我在文章中已经提到了很多了。
