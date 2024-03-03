@@ -692,3 +692,481 @@ v_r:  `(1+(2+(3+(4+10))))`
 v_l:  `((((10+1)+2)+3)+4)`
 
 初值无论如何都是第一个计算。
+
+## 待决名
+
+> 在模板（类模板和函数模板）定义中，某些构造的含义可以在不同的实例化间有所不同。特别是，**类型和表达式可能会取决于类型模板形参的类型和非类型模板形参的值**。
+
+### typename 消除待决名歧义
+
+```cpp
+template<typename T>
+const T::type& f(const T&) {
+	return 0;
+}
+
+struct X {
+	using type = int;
+};
+
+X x;
+f(x);
+```
+
+无法编译，因为编译器认为 T::type 是标识符，我们需要加上 typename 提示编译器他是类型
+
+```cpp
+template<typename T>
+const typename T::type& f(const T&) {...}
+```
+
+> **在模板（包括别名模版）的声明或定义中，*不是当前实例化的成员且取决于某个模板形参的名字* 不会被认为是类型，除非使用关键词 typename 或它已经被设立为类型名（例如用 typedef 声明或通过用作基类名）**。
+
+```cpp
+int p = 1;
+
+template<typename T>
+void foo(const std::vector<T>& v){
+    // std::vector<T>::const_iterator 是待决名，
+    typename std::vector<T>::const_iterator it = v.begin();
+
+    // 下列内容因为没有 'typename' 而会被解析成
+    // 类型待决的成员变量 'const_iterator' 和某变量 'p' 的乘法。
+    // 因为在此处有一个可见的全局 'p'，所以此模板定义能编译。
+    std::vector<T>::const_iterator* p;
+
+    typedef typename std::vector<T>::const_iterator iter_t;
+    iter_t* p2; // iter_t 是待决名，但已知它是类型名
+}
+
+int main(){
+    std::vector<int>v;
+    foo(v); // 实例化失败
+}
+```
+
+### template 消除歧义符
+
+> ***模板定义中 不是当前实例化的成员 的待决名 同样不被认为是模板名*，除非使用消歧义关键词 template，或它已被设立为模板名**
+
+```cpp
+template<typename T>
+struct S {
+	template<typename U>
+	void foo() {}
+};
+
+template<typename T>
+void bar() {
+	S<T> s;
+	s.foo<T>();
+    // s.template foo<T>();
+}
+```
+
+**`template` 的使用比 `typename` 少，并且 `template` 只能用于 `::`、`->`、`.` 三个运算符 \*之后\*。**
+
+### 非待决名绑定规则
+
+> 非待决名在模版定义点查找并绑定，即使模板实例化点有更好的匹配，也保持此绑定。
+
+### 待决与非待决查找规则
+
+- 有限名字查找？
+- 无限名字查找？
+
+> 对于在模板的定义中所使用的**非待决名**，当**检查该模板的定义时将进行无限定的名字查找**。在这个位置与声明之间的绑定并不会受到在实例化点可见的声明的影响。而对于在模板定义中所使用的**待决名**，**它的查找会推迟到得知它的模板实参之时**。此时，ADL 将同时在模板的定义语境和在模板的实例化语境中检查可见的具有外部连接的 (C++11 前)函数声明，而非 ADL 的查找只会检查在模板的定义语境中可见的具有外部连接的 (C++11 前)函数声明。（换句话说，在模板定义之后添加新的函数声明，除非通过 ADL 否则仍是不可见的。）如果在 ADL 查找所检查的命名空间中，在某个别的翻译单元中声明了一个具有外部连接的更好的匹配声明，或者如果当同样检查这些翻译单元时其查找会导致歧义，那么行为未定义。无论哪种情况，**如果某个基类取决于某个模板形参，那么无限定名字查找不会检查它的作用域（在定义点和实例化点都不会）**。
+
+很长，但是看我们加粗的就够：
+
+- 非待决名：检查该模板的定义时将进行无限定的名字查找
+- 待决名：它的查找会推迟到得知它的模板实参之时
+
+**这个故事告诉我们，this加不加是真的有区别的（this依赖模板参数是待决名）**
+
+## SFINAE
+
+### SFINAE?
+
+“代换失败不是错误” (Substitution Failure Is Not An Error)
+
+在**函数模板的重载决议**[1](https://github.com/Mq-b/Modern-Cpp-templates-tutorial/blob/main/md/第一部分-基础知识/10了解与利用SFINAE.md#user-content-fn-1-bb04513483baf397e0e69541c096e9f5)中会应用此规则：当模板形参在替换成显式指定的类型或推导出的类型失败时，从重载集中丢弃这个特化，*而非导致编译失败*。
+
+此特性被用于模板元编程。
+
+```cpp
+template<typename T, typename T2 = typename T::type>
+void f(int) { std::puts("int"); }
+
+f<int>(5);
+```
+
+会报错：未找到匹配的重载函数
+
+因为这里显然 int::type 非良构（不符合语法），代换失败，会丢弃特化，但又没有找到其他重载函数。
+
+```cpp
+template<typename T>
+void f(double) { std::puts("double"); }
+```
+
+这里会选择到 double 版本。
+
+可以用 typename + decltype 写条件，即可对传入的类型做出要求，比如 operator+ 等等
+
+对模板形参会进行两次代换（推导前指定，推导后）
+
+### 代换失败与硬错误
+
+> **只有在函数类型或其模板形参类型或其 explicit 说明符 (C++20 起)的 *立即语境* 中的类型与表达式中的失败，才是 *SFINAE 错误*。**
+>
+> **如果对代换后的类型/表达式的 *求值导致副作用*，例如实例化某模板特化、生成某隐式定义的成员函数等，那么这些副作用中的错误都被当做 *硬错误* **。
+
+SFINAE 可以影响重载决议。
+
+尤其注意，进行实例化是硬错误。
+
+```cpp
+template<typename T>
+struct B {
+	using type = typename T::type;
+};
+
+template<typename T>
+void foo(double) { std::puts("SFINAE"); }
+
+template<
+	class T,
+	class U = typename T::type,		// 如果T 没有 type，就代换失败，如果没有这一行会因为下一行的 B<T> 硬错误编译失败
+	class V = typename B<T>::type	// 这里就是实例化
+>
+void foo(int) { std::puts("SFINAE T::type, B<T>::type"); }
+
+int main() {
+	foo<void>(1);
+}
+```
+
+### SFINAE 基础示例
+
+需要写一个 add，要求其类型支持 operator+
+
+```cpp
+// 自然可以这里写 decltype，但是这样比较蛋疼
+template<typename T, typename = decltype(T{} + T{}) >
+auto add(const T& a, const T& b) {
+	return a + b;
+}
+
+// 使用 C++11 后置返回类型，此时知道 a 和 b 的类型
+template<typename T>
+auto add(const T& a, const T& b) -> decltype(a + b) {
+	return a + b;
+}
+```
+
+多用 SFINAE 等约束才能有更友好的报错和编译速度。
+
+### std::enable_if
+
+如何要求模板提供的类型？
+
+第一个参数接受一个返回 bool 值的表达式
+
+```cpp
+template<bool B, class T = void>
+struct enable_if {};
+ 
+template<class T> // 类模板偏特化
+struct enable_if<true, T> { typedef T type; };     // 只有 B 为 true，才有 type，即 ::type 才合法
+
+template< bool B, class T = void >
+using enable_if_t = typename enable_if<B,T>::type; // C++14 引入
+```
+
+这是一个模板类，在 C++11 引入，它的用法很简单，就是第一个模板参数为 true，此模板类就有 `type`，不然就没有，以此进行 SFINAE。
+
+为 false，那么会因为 SFINAE 不选择 true 的那个模板，从而错误。
+
+
+
+C++11，要求提供类型为 int，17之后就可以写的很简单了
+
+这里第二个typename 纯粹用来做 SFINAE，所以没有名字也无所谓
+
+```cpp
+template<typename T, typename = typename std::enable_if<std::is_same<T, int>::value>::type>	//C++11
+void f(T) {}
+
+template<typename T, typename = std::enable_if_t<std::is_same_v<T, int>>>					//C++17
+void f(T) {}
+```
+
+再例如 array，之前推导指引时候写过的，升级版本
+
+```cpp
+template <class Type, class... Args>
+array(Type, Args...) -> array<std::enable_if_t<(std::is_same_v<Type, Args> && ...), Type>, sizeof...(Args) + 1>;
+```
+
+`(std::is_same_v<Type, Args> && ...)` 做 std::enable_if 的第一个模板实参，这里是一个一元右折叠，使用了 **`&&`** 运算符，也就是必须 std::is_same_v 全部为 true，才会是 true。**简单的说就是要求类型形参包 Args 中的每一个类型全部都是一样的，不然就是替换失败。**
+
+### std::void_t
+
+```cpp
+template<class...>
+using void_t = void;
+```
+
+用此元函数检测 SFINAE 语境中的非良构类型
+
+void_t 防止你写一堆模版参数，这样你就可以写在一起只写一个 typename 了
+
+需求：函数模板 add，需要传入的对象支持 operator+，有别名 type，成员value f
+
+```cpp
+template<typename T, typename = 
+	std::void_t<decltype(T{} + T{}), typename T::type, decltype(&T::value), decltype(&T::f) >>
+auto add(const T& a, const T& b) {
+	return a + b;
+}
+```
+
+### std::declval
+
+在上面的 SFINAE 中，decltype(T{}+T{}) 要求 T 能默认构造，显然不正确，我们要的是operator+
+
+我们需要使用 std::declval
+
+```cpp
+decltype(std::declval<T>() + std::declval<T>());
+```
+
+此时就没有问题了。
+
+```cpp
+template<class T>
+typename std::add_rvalue_reference<T>::type declval() noexcept;
+```
+
+这个函数特殊，只能用于不求值语境，不要求 T 有定义
+
+### 偏特化中的 SFINAE
+
+在确定一个类或变量 (C++14 起)模板的特化是由部分特化还是主模板生成的时候也会出现推导与替换。在这种确定期间，**部分特化的替换失败不会被当作硬错误，而是像函数模板一样\*代换失败不是错误\*，只是忽略这个部分特化**。
+
+## 约束与概念
+
+### 前言
+
+C++20 的约束与概念，再也不用写蛋疼的 SFINAE
+
+### 约束与概念
+
+类模板，函数模板，以及非模板函数（通常是类模板的成员），可以与一项约束（constraint）相关联，它指定了对模板实参的一些要求，这些要求可以被用于选择最恰当的函数重载和模板特化。
+
+这种**要求的具名集合**被称为***概念（concept）***。每个概念都是一个谓词，它在**编译时求值**，并在将之用作约束时成为模板接口的一部分。
+
+```cpp
+// 还是add，要求传入的对象支持 operator+
+
+// 定义概念，概念是模板
+// 概念，要求约束表达式成立
+template<typename T>
+concept Add = requires(T a) {
+    a + a;
+};
+
+// 使用概念
+template<Add T>
+auto add(const T& a, const T& b) {
+    return a + b;
+}
+
+// 自然也可以
+constexpr bool v = Add<int>; //true
+```
+
+概念定义, **约束表达式只要求在编译期求值，返回 bool 即可**
+
+```cpp
+template < 模板形参列表 >
+concept 概念名 属性 (可选) = 约束表达式;
+```
+
+### 简写函数模板与标准概念库
+
+简写函数模板：
+
+```cpp
+decltype(auto) max(const auto& a, const auto& b) {
+    return a > b ? a : b;
+}
+```
+
+如果约束传入的对象怎么写？我们可以使用标准库设置，位于 `concepts`
+
+```cpp
+#include <concepts>
+decltype(auto) max(const std::integral auto& a, const std::integral auto& b) {
+    return a > b ? a : b;
+}
+```
+
+**此外，概念可以在所有使用 auto 的前面使用。**当然也可以要求个普通变量。
+
+变量模板、类模板都同理。
+
+### requires 子句
+
+requires **只要求编译期求值的表达式**
+
+```cpp
+template<typename T>
+concept Add = requires(T a) {
+    a + a;
+};
+
+template<typename T>
+	requires add<T>
+void f(T) {}
+
+template<typename T>
+	requires(sizeof(T) >= 4)
+void g(T) {}
+
+// 甚至可以
+template<typename T>
+	requires requires(T a) { a + a; }
+void h(T) {}
+// 第一个是 requires 子句，为 true 才会选择这个模板
+// 第二个是 requires 表达式，恰好编译器求值
+```
+
+### 约束 - 合取析取
+
+约束是逻辑操作和操作数的序列，它指定了对模板实参的要求。它们可以在 requires 表达式（见下文）中出现，也可以直接作为概念的主体。
+
+有三种类型的约束：
+
+1. 合取（conjunction）(&&)
+2. 析取（disjunction） (||)
+
+### requires 表达式
+
+**产生描述约束的 bool 类型的纯右值表达式**。
+
+> *注意，`requires` 表达式 和 `requires` 子句，没关系*。
+
+```cpp
+requires { 要求序列 }
+requires ( 形参列表 (可选) ) { 要求序列 }
+```
+
+requires 表达式可以检测表达式是否合法，语句不合法会返回 false，而不会认为程序非脸狗
+
+```cpp
+template<typename T>
+void f(T) {
+    constexpr bool v = requires { typename T::type;};	// 待决名，不加 typename 会认为他是变量
+}
+
+int main() {
+    f(1); 	// v 此时为 false
+}
+```
+
+### 简单要求
+
+简单要求是任何不以关键词 requires 开始的表达式语句。它断言该表达式是有效的。表达式是不求值的操作数；只检查语言的正确性。
+
+例如前文的 Add 概念的 requires 表达式
+
+```cpp
+template<typename T, typename U>
+concept Swappable = requires(T&& t, U&& u) {
+    swap(std::forward<T>(t), std::forward<U>(u));
+    swap(std::forward<U>(u), std::forward<T>(t));
+}
+```
+
+### 类型要求
+
+类型要求是关键词 **`typename`** 后面接一个可以被限定的**类型名称**。该要求是，所指名的类型是有效的。
+
+可以用来验证：
+
+1. 某个**指名的嵌套类型**是否存在。(typename T::type)
+2. 某个**类模板特化**是否指名了某个类型。(typename S\<T>)
+3. 某个**别名模板特化**是否指名了某个类型。(using)
+
+### 复合要求
+
+```
+{ 表达式 } noexcept(可选) 返回类型要求 (可选) ;
+```
+
+> 返回类型要求：-> 类型约束（*概念* concept）
+
+并断言所指名表达式的属性。替换和语义约束检查按以下顺序进行：
+
+1. 模板实参 (若存在) 被替换到 表达式 中；
+2. 如果使用了`noexcept`，表达式 一定不能潜在抛出；
+3. 如果返回类型要求存在，则：
+   - 模板实参被替换到*返回类型要求* 中；
+   - `decltype((表达式))` 必须满足*类型约束* 蕴含的约束。否则，被包含的 requires 表达式是 **`false`**。
+
+```cpp
+template<typename T>
+concept C2 = requires(T x) {
+    // 首先 *x 得合法
+    // 类型要合法，这里要有嵌套类型
+    // 并且 *x 的结果必须可以转换为 T::inner
+    {*x}->std::convertible_to<typename T::inner>;
+    
+    // 表达式 x + 1 必须合法
+    // 并且 std::same_as<decltype((x + 1)), int> 必须满足
+    // 即, (x + 1) 必须为 int 类型的纯右值
+    // std::same_as 是个概念
+    {x + 1} -> std::same_as<int>;
+
+    // 表达式 x * 1 必须合法
+    // 并且 它的结果必须可以转换为 T
+    {x * 1} -> std::convertible_to<T>;
+        
+    // 复合："x.~T()" 是不会抛出异常的合法表达式
+    { x.~T() } noexcept;
+}
+```
+
+### 嵌套要求
+
+嵌套要求具有如下形式
+
+```
+requires 约束表达式 ;
+```
+
+就是在 requires 里再写一个 requires
+
+```cpp
+template<typename T>
+concept C3 = requires(T a, std::size_t n) {
+    requires std::is_same_v<T*, decltype(&a)>;     // 要求 is_same_v          求值为 true
+    requires std::same_as<T*, decltype(new T[n])>; // 要求 same_as            求值为 true
+    requires requires{ a + a; };                   // 要求 requires{ a + a; } 求值为 true
+    requires sizeof(a) > 4;                        // 要求 sizeof(a) > 4      求值为 true
+};
+std::cout << std::boolalpha << C3<int> << '\n';    // false
+std::cout << std::boolalpha << C3<double> << '\n'; // true
+```
+
+在上面示例中 `requires requires{ a + a; }` 其实是更加麻烦的写法，目的只是为了展示 `requires` 表达式是编译期产生 `bool` 值的表达式，所以有可能会有**两个 `requires`连用的情况**；我们完全可以直接改成 `a + a`，效果完全一样。
+
+这里用 `std::is_same_v` 和 `std::same_as` 其实毫无区别，因为它们都是编译时求值，返回 `bool` 值的表达式。
+
+### 总结
+
+总之记住：
+
+可以连用 `requires requires` 的情况，都是因为第一个 `requires` 期待一个可以编译期产生 `bool` 值的表达式；而 **`requires` 表达式就是产生描述约束的 bool 类型的纯右值表达式**。

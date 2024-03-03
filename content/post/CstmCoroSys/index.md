@@ -1,10 +1,11 @@
 ---
-title: Writing custom C++20 coroutine systems
+title: 自定义你的 C++20 协程系统
 description: 跟随 Simon Tatham 一起学习 C++20 的协程。
 slug: Coroutine System
 date: 2024-02-08 00:00:00+0000
 image: 
 categories:
+    - coroutine
     - cppnotes
     - unfinished
 tags: 
@@ -15,6 +16,8 @@ comments: false
 # 编写你自己的 C++20 协程系统
 
 本文翻译自 [Writing custom C++20 coroutine systems](https://www.chiark.greenend.org.uk/~sgtatham/quasiblog/coroutines-c++20/)
+
+目前 5.2 generator 部分尚未翻译，其余已经烤制完毕。
 
 ## 介绍
 
@@ -714,7 +717,7 @@ Full source code for this section, demonstrating lots of simple custom awaiters:
 
 一个原因是有时候可能你无法将该类型放入你的类中，例如一些标准库类型，比如 std::unique_ptr。或者也可能是一些简单的东西，比如裸指针 甚至是 int。之后我们会展示一个例子，你可能会用到你无法控制的类型。
 
-另外一个原因是 std::coroutine_raits 模板并不只是关注协程的 *返回* 类型，而且会关注参数的类型。所以如果你的 promise type 依赖那些的话，那么你就需要写一个模板特化。
+另外一个原因是 std::coroutine_traits 模板并不只是关注协程的 *返回* 类型，而且会关注参数的类型。所以如果你的 promise type 依赖那些的话，那么你就需要写一个模板特化。
 
 以下是一个用来展示语法的简单示例：
 
@@ -1005,4 +1008,254 @@ Full source code for this example: [`co_shuttle.cpp`](https://www.chiark.greenen
 
 ### 有栈生成器
 
-很难不把C++ 和 python 的生成器一起比较。我在文章中已经提到了很多了。
+很难不把C++ 和 python 的生成器一起比较。我在文章中已经提到了很多了。C++23 的 generator 和 python 自带的行为基本一致。他只能 co_yield 生成一系列值，并不能 co_await 输入或者 co_return 一个结果，并且用户感知类型是可以用于 for 循环迭代的，就像是views。
+
+我们有一个 python 的特性没提到，那就是 yield_from，generator 可以指定为其他的可迭代对象，当然也可以是 generator。就是说，第一个生成器可以调用第二个生成器作为 subroutines，并且让他按照自己的行为生成值。
+
+....
+
+
+
+## 关于协程返回类型和位置的技巧
+
+### 在协程和普通函数之间共享类型
+
+我是协程的 fan，但即使是我也不推荐在程序的 *每一个* 部分使用协程。
+
+有时候，你需要相同接口的一簇返回值，但是他们中的 *一些* 被实现为协程，其他的则是一些 C++ 的原生类型。
+
+实现这个的方法是利用调用协程的 caller 不需要知道它是一个协程。假设你有两个函数，返回相同类型
+
+```cpp
+SomeReturnType this_is_a_coroutine(Argument);
+SomeReturnType this_is_an_ordinary_function(Argument);
+```
+
+从 caller 角度看，这些函数有相同的 API。你可以调用一个，然后获取特定返回类型。
+
+*函数定义* 决定了他是否是协程。假设一个函数有 co_await, co_yield 或者 co_return，另一个没有。那么没有 co_ 的函数会被当成普通的函数，它的函数体会按照常规返回合适类型的对象。
+
+```cpp
+SomeReturnType this_is_an_ordinary_function(Argument) {
+    int value = some_intermediate_computation();
+    SomeReturnType to_return { value };
+    return to_return;
+}
+```
+
+但如果另外一个函数 *有* co_ ，那么C++的协程机制会执行：根据函数签名找到 promise 对象并构造，然后 get_return_object() 来生成返回对象，最后返回给 caller。
+
+但在 caller 的角度，是以同样的方式调用函数的，并且在每个情形下，它都会返回一个看起来一样的对象。但是对象会有一些方法（比如 get_value()）在某个情况下正常实现，在另一个情况下通过恢复协程在后台实现。
+
+最明显的让一个对象有不同的行为的方式是使用一个抽象基类，通过虚方法，之后通过不同的方式继承并实现它。
+
+```cpp
+class AbstractBaseClass {
+  public:
+    virtual ~AbstractBaseClass() = default;
+    virtual std::string get_value() = 0;
+};
+```
+
+非协程的继承类实现一个原始 C++ 类型的接口
+
+```cpp
+class ConventionalDerivedClass : public AbstractBaseClass {
+  public:
+    ConventionalDerivedClass() = default;
+    std::string get_value() override {
+        return "hello from ConventionalDerivedClass::get_value";
+    }
+};
+```
+
+我们可以再实现一个包装了协程句柄的派生类，通过恢复协程并且与 promise 通信来实现 get_value
+
+```cpp
+class CoroutineDerivedClass : public AbstractBaseClass {
+  private:
+    friend class Promise;
+    Handle handle;
+
+    CoroutineDerivedClass(Handle handle) : handle(handle) {}
+
+  public:
+    std::string get_value() override {
+        handle.promise().yielded_value = "";
+        handle.resume();
+        return handle.promise().yielded_value;
+    }
+
+    ~CoroutineDerivedClass() {
+        handle.destroy();
+    }
+};
+```
+
+这里没有给出 promise 的实现，因为和之前实现过的例子大差不差。（get_value 返回了普通的 std::string 而不是 optional，只是为了看起来简单而已）
+
+诶一的问题是：对于协程和非协程函数，实际的返回类型是什么？并不能是 AbstractBaseClass 自己，因为两个派生类大小不同。必须使用指针指向一个动态分配的类型：不管是裸指针，还是例如 std::unique_ptr。
+
+无论哪种类型我们都不能返回包含 promise_type 的类。如果它是裸指针，那它根本不能包含命名字段，如果是智能指针，标准库可以控制它包含的命名字段，并且用户代码不能添加到那个字段（？），所以我们需要使用 std::coroutine_traits 来识别 promise type，和前文提到的一样。
+
+Either way, we can’t make *that* return type contain a thing called `promise_type`. If it’s a raw pointer, it can’t contain named fields at all; if it’s a smart pointer from the standard library, then the standard library is in control of what named fields it has, and user code can’t add to that. So we’re going to have to use the `std::coroutine_traits` technique for identifying the promise type
+
+```cpp
+template<typename... ArgTypes>
+struct std::coroutine_traits<std::unique_ptr<AbstractBaseClass>, ArgTypes...> {
+    using promise_type = Promise;
+};
+```
+
+这样的话我们定义一个函数，返回 std::unique_ptr\<AbstractBaseClass>，并且它的函数体包含 co_ 关键字的话，那么它就会是一个协程，其 promise_type 是 Promise。之后 Promise::get_return_object() 就可以正常创建对象了，即 `std::unique_ptr<AbstractBaseClass>`
+
+```cpp
+class Promise {
+    // ...
+  public:
+    std::unique_ptr<CoroutineDerivedClass> get_return_object() {
+        return std::unique_ptr<CoroutineDerivedClass>(
+            new CoroutineDerivedClass(Handle::from_promise(*this)));
+    }
+};
+```
+
+> 例子里没用 std::make_unique，因为它要求包装对象的构造函数是 public，但是例子中它是 private，Promise 因为是 friend 所以可以访问，但没办法更改 make_unique 的授权。
+
+现在就可以使函数拥有正确行为了：
+
+```cpp
+std::unique_ptr<AbstractBaseClass> demo_coroutine() {
+    co_yield "hello from coroutine, part 1";
+    co_yield "hello from coroutine, part 2";
+}
+
+std::unique_ptr<AbstractBaseClass> demo_non_coroutine() {
+    return std::make_unique<ConventionalDerivedClass>();
+}
+```
+
+现在 `demo_non_coroutine()` 会在调用时立刻执行，且会构造返回的对象，而demo_coroutine() 会暂停，并且只会构造 promise 对象。caller 只会得到实现了同一个抽象类的对象，并且在每个上面都调用 get_value()，不需要知道他到底是协程还是对象的实例。
+
+如果使用裸指针的话也一样可行。仍然可以使用 std::coroutine_traits 特化。区别在于 caller 需要自己管理内存了。
+
+Full source code for this example: [`co_abstract.cpp`](https://www.chiark.greenend.org.uk/~sgtatham/quasiblog/coroutines-c++20/co_abstract.cpp). (Again, the full source code fills in details I glossed over for clarity, like having to define methods out of line.)
+
+###  在类中隐藏协程的实现
+
+协程的一个有用的属性是，有一个数据对象表明正在进行的计算，并且程序的其他部分也能访问这个对象，也就是说可以进行通信，而不单单是运行。
+
+例如，C++ 协程可以轻松*放弃* 掉一个你不需要的计算，通过销毁用户感知类型，同时也会销毁协程句柄，自然就会释放协程的 promise 对象，这样自然会销毁协程内部的所有状态。假设所有的析构器都做了他们的工作，释放了所有内存，所有资源，并且没崩溃。（类比之下释放一个线程就非常困难）
+
+另外一个你需要知道的是，你可能想要在协程暂停时 'peek into' 协程状态。例如，如果协程代表了 GUI 程序的正在进行的计算，那么可能需要经常看 GUI 来更新进度条。但在 free-function 风格中很尴尬，因为协程内部的变量无法从外部访问。
+
+你可以通过让协程成为类的方法来 work around。这样就可以像访问它的 local 变量一样访问类成员 - 所以如果你想在协程暂停期间监视的变量的话，你可以把它写作类成员。
+
+> 另外一种方法是参考 std::generator
+
+换句话说，我们想要让类的某个方法是协程；类的构造函数调用那个函数来获取协程句柄；但是类 *自己* 需要完成协程返回的用户感知对象所负责的任务。然后，类的某个方法实现是恢复协程，这样就可以以有状态的方式对每个调用进行一系列操作；但是其他方法可以跟那个方法互动，来访问同样的成员。
+
+简单的实现如下：
+
+```cpp
+class Promise;
+
+template<class... ArgTypes>
+struct std::coroutine_traits<std::coroutine_handle<Promise>, ArgTypes...> {
+    using promise_type = Promise;
+};
+
+class Promise {
+    // ...
+
+  public:
+    std::coroutine_handle<Promise> get_return_object() {
+        return std::coroutine_handle<Promise>::from_promise(*this);
+    }
+};
+```
+
+同样，我们用了 std::coroutine_tratis 特化来确定协程句柄返回的 promise 对象，然后它的 promise_type 就是 Promise。
+
+然后我们可以让协程作为 private 方法，并且之后就可以让协程句柄和该类分开
+
+```cpp
+class CoroutineHolder {
+    int param;
+    SomeType mutable_state;
+    std::coroutine_handle<Promise> handle;
+
+    std::coroutine_handle<Promise> coroutine() {
+        for (int i = 0; i < param; i++) {
+            co_await something_or_other;
+            adjust(mutable_state);
+            co_yield something_else;
+        }
+    }
+
+  public:
+    CoroutineHolder(int param) : param(param), handle(coroutine()) {}
+    ~CoroutineHolder() { handle.destroy(); }
+
+    void do_stateful_thing() {
+        if (!handle.done())
+            handle.resume();
+    }
+
+    int query_state() { return mutable_state.some_field; }
+};
+```
+
+这样的话协程就可以读取成员变量，比如 `param`，然后因此他也不需要自己额外的参数就可以调用。并且它可以 *写* 成员变量（例如 mutable_state），这样用户就可以通过查询当前状态，然后来决定是不是恢复协程。
+
+当然，你仍然可以通过 promise 对象来让 co_await 和 co_yield 有正确行为。
+
+（实现这个的方法可能是你给与 promise 对象一个指针，使用之前 [允许 promise type 访问协程的参数] 中的例子，然后通过完美转发将类的方法委托给 await_transform() 以及 yield_value()。这样你就可以使用不同的 promise 让协程有不同的行为。但我不会展示，应该已经超越本文的范畴了。）
+
+Full source code for this example: [`co_class.cpp`](https://www.chiark.greenend.org.uk/~sgtatham/quasiblog/coroutines-c++20/co_class.cpp).
+
+### 让 lambda 成为协程
+
+除了普通函数还是类方法，lambda 也可以是协程。lambda 和其他协程一样 work，只要你显式指明了它的返回类型
+
+```cpp
+int main() {
+    auto lambda_coroutine = []() -> UserFacing {
+        co_yield 100;
+        for (int i = 1; i <= 3; i++)
+            co_yield i;
+        co_yield 200;
+    };
+    UserFacing lambda_coroutine_instance = lambda_coroutine();
+
+    // now do something with that user-facing object
+}
+```
+
+拥有普通函数拥有的一切优点，此外你可以把协程的代码放在紧挨着使用它的代码旁，并且可以捕获变量。
+
+如果你在另外一个协程内这么干，它可能会拓宽一些有趣的并行方法。举个例子，你可能会写一些 'parallel while' ，通过使用这种形式的多个协程，发明一种 co_await 类型，将所有协程插入到程序的主事件循环，然后再继续包含协程之前等待所有协程完成。或者在其他情景下你可能想等待它们中的某一个完成，然后销毁剩余的，有无穷的可能性！
+
+## 其他：没有讨论到的细节
+
+文章已经很长很长了，并且我仍然有一些 C++ 协程的细节没有说到。这里是一个 quick list。
+
+当一个协程被创建时，内部状态（包含协程的内部变量）动态分配。在嵌入的上下文中，你可能需要控制 *how*， 或者 *where* 关于内存分配。你可能通过重载协程 promise 的 operator new 或者 operator delete 来实现。同时，如果分配失败，你可能需要提供 `get_return_object_on_allocation_failure()` handler，作为 get_return_object 的补充。但我还没尝试那些，如果我要用的话会探索它的细节。
+
+在许多关于异常的例子中，我们向协程的 caller 传播异常，通过 promise 方法 unhandled_exception() 来存储异常，并且通过用户感知对象获取异常然后重新抛出（在协程的 resume() 方法返回时）。根据 C++ 标准，还有一个方法来实现，可能需要在 unhandled_exception() *内* 重新抛出异常。但是没有什么 Example，不知道为什么没有使用其他的方法，可能是因为缺少灵活性吧。
+
+我通常认为协程是线程的代替品。但是，显然，C++拥有如此灵活的协程系统的原因是它可以和线程 ***结合***：你可能在另外一个线程上恢复协程，这样协程可能有时会在同一个线程中互相让步（yield），也有可能在在不同协程中并行运行。（这可能是 promise type 命名的原因，而且一些标准例子中的用户感知类型称之为 future）我还没有讨论这个，因为我基本是单线程的程序员。但是如果你有 1000 个协程代表不同的进行中的特定任务，在 16 个硬件线程上调度可能会有额外的复杂性，可能需要互相共享数据，或者线程同步，或者避免死锁。
+
+最后，我只讨论了用户感知类型和协程的交互，并不是提供给用户的 API。对于我 generator 的例子 - 类型协程（一种产生一系列值的协程），我仅仅只使用了一个简单的 next_value() 方法，来让客户端调用来获取协程生成的下一个值。但是关于 API 仍然有很多值得讨论的。例如，generator 协程可能也可以支持迭代器，这样你可以使用 range-based for，或者结合 views。（C++23 的 generator 就是这么做的）我甚至还没有谈到那一步，因为他并不是关于协程的，而是关于range一个类支持 range based for，或者行为像 views 或者 iostream 等等，明显是 C++ 的部分，而不是协程的部分。可能是我之后的文章。
+
+当然，可能还有其他需要说的，甚至我都不知道是什么！
+
+## Conclusion
+
+Phew, that was a lot of words! No wonder it didn’t fit in that training course I went on.
+
+I said in the introduction that one of my aims in learning about all this was to find out whether it would be good to convert my existing C++ program `spigot` so that it uses C++ language coroutines in place of my preprocessor-based strategy. Now I’m done, I think the answer is: it would certainly be good to do that one way or another, but I have several options for exactly *how* to do it, and I’ll need to decide which!
+
+(The natural way to use my preprocessor-based coroutine system in C++ is to put the coroutine macros in one method of a class, so that the class’s member variables store all the coroutine state that persists between yields, and every time that particular method is called, it resumes from the last place it left off. In that respect, the closest thing to a drop-in replacement is the technique I [described above](https://www.chiark.greenend.org.uk/~sgtatham/quasiblog/coroutines-c++20/#class) for hiding a coroutine inside a class implementation. That gets you almost exactly the same code structure, without preprocessor hacks, and with the new ability to have the coroutine declare its local variables more like a normal function. But it also doesn’t get you any *extra* usefulness – it’s very possible that a more profound redesign of `spigot` would be a better idea.)
+
+I also wanted to find out what else this facility might be useful for. I’ve got a lot of ideas about that, but I’ve no idea which ones will be useful yet. I look forward to seeing what the rest of the world comes up with!
