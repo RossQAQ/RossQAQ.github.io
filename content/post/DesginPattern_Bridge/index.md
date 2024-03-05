@@ -289,5 +289,90 @@ public:
 };
 ```
 
+之后可以再提一次：
 
+```cpp
+class Messager {
+protected:
+    MessagerImpl* messagerImpl;
+public:
+    virtual void Login(string username, string password) = 0;
+    virtual void SendMessage(string message) = 0;
+    virtual void SendPicture(Image image) = 0;
+    virtual ~Messager() {}
+};
+
+class MessagerImpl {
+public:
+    virtual void PlaySound() = 0;
+    virtual void DrawShape() = 0;
+    virtual void WriteText() = 0;
+    virtual void Connect() = 0;
+    virtual ~MessagerImpl() {}
+};
+
+class PCMessagerImpl : public MessagerImpl {
+public:
+    virtual void PlaySound() {}
+    virtual void DrawShape() {} 
+    virtual void WriteText() {}
+    virtual void Connect() {}
+};
+
+class MobileMessagerImpl : public MessagerImpl {
+public:
+    virtual void PlaySound() {}
+    virtual void DrawShape() {} 
+    virtual void WriteText() {}
+    virtual void Connect() {}
+};
+
+class MessagerLite : public Messager {
+public:
+    virtual void Login(string username, string password) {
+        messagerImpl->Connect();
+        // ...
+    }
+    virtual void SendMessage(string message) {
+        messagerImpl->WriteText();
+        // ...
+    }
+    virtual void SendPicture(Image image) {
+        messagerImpl->DrawShape();
+        // ...
+    }
+};
+
+class MessagerPerfect : public Messager {
+public:
+    virtual void Login(string username, string password) {
+        messagerImpl->PlaySound();
+        messagerImpl->Connect();
+        // ...
+    }
+    virtual void SendMessage(string message) {
+        messagerImpl->PlaySound();
+        messagerImpl->WriteText();
+        // ...
+    }
+    virtual void SendPicture(Image image) {
+        messagerImpl->PlaySound();
+        messagerImpl->DrawShape();
+        // ...
+    }
+};
+```
+
+此外修改一下构造函数即可，委托给父类。
+
+```cpp
+MessagerImpl* imp = new PCMessagerImpl();
+Messager* m = new MessagerLite(imp);
+```
+
+## 桥模式
+
+将抽象部分（业务）与实现部分（平台实现）分离，使得它们可以独立变化。
+
+![桥模式](bridge.png)
 

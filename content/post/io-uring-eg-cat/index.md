@@ -4,7 +4,8 @@ description: 一起阅读文章，学习 readv, io_uring, liburing 实现 cat �
 slug: io_uring-cat
 date: 2024-02-15 00:00:00+0000
 image: 
-categories:
+categories: 
+    - io-uring
     - techs
     - finished
 tags: 
