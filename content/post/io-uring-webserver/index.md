@@ -1,7 +1,7 @@
 ---
 title: io_uring P3 - 实现 webserver
 description: 一起学习使用 liburing 在网络编程中的使用
-slug: io_uring-cp
+slug: io_uring-web
 date: 2024-02-26 00:00:00+0000
 image: 
 categories:

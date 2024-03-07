@@ -1012,7 +1012,9 @@ Full source code for this example: [`co_shuttle.cpp`](https://www.chiark.greenen
 
 我们有一个 python 的特性没提到，那就是 yield_from，generator 可以指定为其他的可迭代对象，当然也可以是 generator。就是说，第一个生成器可以调用第二个生成器作为 subroutines，并且让他按照自己的行为生成值。
 
-....
+你可以伪造一个。让第一个 generator 在后来的 generator 上迭代，然后通过 `co_yield` 手动传递输出值。
+
+
 
 
 
