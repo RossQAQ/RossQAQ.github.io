@@ -205,5 +205,65 @@ std::shared_ptr<T> make_shared(Args&&... args) {
 std::shared_ptr<Widget> sptr = std::make_unique<Widget>();
 ```
 
+## std::weak_ptr：解决 shared_ptr 的悬垂
 
+`weak_ptr` 在内存上看和 `shared_ptr` 差不多，都有一个指向管理对象的指针和一个指向控制块的指针。
+
+区别在于，**如果你拷贝 `weak_ptr` ，那么它会增加 *弱引用计数*** 。
+
+如果引用计数归零，那么对象会被销毁，而此时如果弱引用计数不为0，就会出现 `weak_ptr` 悬垂。`shared_ptr` 知道控制块还有 `weak_ptr` 在使用，所以也不会销毁控制块。
+
+### 你并不能解引用 weak_ptr
+
+- `weak_ptr` 并不是指针，它只是你在未来构造 `shared_ptr` 时的门票。
+- 你可以显式类型转换，或者调用 weak_ptr.lock()，虽然不会 lock 任何东西，它只是会返回一个 shared_ptr（如果对象没有被销毁的话）
+- 如果想 get a ticket，那么只能使用显式类型转换
+
+```cpp
+void recommended(std::weak_ptr<T> wptr) {
+    // std::shared_ptr<T> sptr{wptr}; 不要这么做
+    std::shared_ptr<T> sptr = wptr.lock();
+    if (sptr != nullptr) {
+        use(sptr);
+    }
+}
+```
+
+其实可以在 if 语句内直接声明（这也是 if 内声明有用的几个情景之一）
+
+```cpp
+if (auto sptr = wptr.lock()) {
+    use(sptr);
+}
+```
+
+顺便一提，另一个情景是 RTTI
+
+```cpp
+if (RedWidget *p = dynamic_cast<RedWidget*>(widgetpr)) {
+    use_red_widget(p);
+}
+```
+
+## 通过 raw ptr 获得 shared_ptr
+
+我们之前说 weak_ptr 是 ticket for shared_ptr，那么如果你只有一个裸指针怎么办？
+
+```cpp
+class Widget {
+	std::weak_ptr<Widget> wptr_ = ???;
+public:
+    std::shared_ptr<Widget> shared_from_this() const {
+        return wptr.lock();
+    }
+};
+```
+
+自然我们不会每次都自己写，所以我们把 weak_ptr 放到基类，叫做 `std::enable_shared_from_this`，他的作用就是提供 `shared_from_this()` 成员函数。
+
+这个你自己是实现不了的，因为它跟 shared_ptr 的构造函数有关联。
+
+它使用的是 CRTP 模式。
+
+- trick 的是 Widget 的 `shared_from_this()` 成员函数返回的是 `shared_ptr<Widget>`。我们通过某种方式，让基类知道了子类的名字。方法是我们让 base 类是一个模板，模版参数是子类的名字。这样的话，`Widget` 继承自 `std::enable_shared_from_this<Widget>`，这样就可以了。
 
