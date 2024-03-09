@@ -62,3 +62,9 @@ OBJ 文件使用 ASCII 编码，描述的是 3D 三角形组成的网格图形�
 
 为了 parsing obj 文件，我们使用一个三方库 [tinyobjloader](https://github.com/tinyobjloader/tinyobjloader)。它接受一个 string，然后把它 parse 成 `ObjReader` 对象。
 
+```cpp
+std::string obj_data = ...;	// read from obj files
+tinyobj::ObjReader reader;
+reader.ParseFromString(obj_data);
+```
+
