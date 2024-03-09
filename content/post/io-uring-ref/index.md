@@ -247,6 +247,12 @@ int io_uring_submit_and_wait(struct io_uring *ring,
 
 返回值：成功返回提交成功的 SQE 数量，失败返回 -errno
 
+---
+
+### io_uring_cq_advance
+
+
+
 ## 资料出处
 
 [Arch manual pages (archlinux.org)](https://man.archlinux.org/listing/liburing)
