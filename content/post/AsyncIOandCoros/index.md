@@ -1,7 +1,7 @@
 ---
 title: 异步 I/O 和 协程实现更丝滑的数据流
 description: 对 Björn Fahller ACCU 2022 的演讲的翻译与总结。
-slug: coro-tasks
+slug: async-io-coro-stream
 date: 2024-03-03 00:00:00+0000
 image: 
 categories:
