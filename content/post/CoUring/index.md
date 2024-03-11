@@ -544,3 +544,185 @@ public:
 };
 ```
 
+`Task` 定义了 promise type，每个协程都拥有 promise 对象，其位于协程帧中。promise 对象用于传输协程的数据（或者重新抛出协程抛出的异常）。此外，promise type 有一个成员 `Result result`，包括了最终的解析 OBJ 文件的结果。
+
+```cpp 
+struct Result {
+	tinyobj::ObjReader result; // stores the actual parsed obj
+  	int status_code{0};        // the status code of the read operation
+  	std::string file;          // the file the OBJ was loaded from
+};
+```
+
+`result` 通过内部的成员函数 `return_value` 初始化，当 `co_return` 执行时会被调用。
+
+`Task` 定义了一个成员函数 `getResult()` 来方便的从 promise 对象中得到返回的结果。
+
+`promise_type` 必须定义成员函数 `get_return_object()` 返回实际的协程对象。在我们的示例中，是 `Task` 实例。
+
+`unhandled_expection()` 在协程体抛异常时会被调用，我们暂未实现因为我们是 exception free （或者目标是）。`initial_suspend` 和 `final_suspend` 决定了协程的初始和最终行为，协程是否在开始和结束时暂停。
+
+`Task` 包含了协程句柄 `handle_` 并且管理其生命周期：它会通过析构时调用 `handle_.destroy()` 来销毁协程帧。同时还定义了 `done()` 成员函数表明协程是否执行完毕。
+
+C++20 协程是 raw，代表他并不是一个完整的 cake，而是一堆 flour，eggs 和 butter。为了实现一个协程你必须写一些支持代码以及模版，自己来烤蛋糕。因为这些原因，可以使用一些库，比如 [cppcoro by Lewis Baker](https://github.com/lewissbaker/cppcoro)，实现了泛型版本的 `Task` 类型，使用了很多有用的抽象，大量减少了模板代码。
+
+## 结合
+
+现在我们实现顶层函数，使用协程解析 OBJ：
+
+```cpp
+std::vector<Result> parseOBJFiles(const std::vector<ReadOnlyFile> &files) {
+  IOUring uring{files.size()};
+  std::vector<Task> tasks;
+  tasks.reserve(files.size());
+  for (const auto &file : files) {
+    tasks.push_back(parseOBJFile(uring, file));
+  }
+  while (!allDone(tasks)) {
+    // consume all entries in the submission queue
+    // if the queue is empty block until the next completion arrives
+    consumeCQEntriesBlocking(uring);
+  }
+  return gatherResults(tasks);
+}
+```
+
+通过执行 `parseOBJFile` 分配了一个 vector 的 `Task` 协程。注意 `initial_suspend()` 返回的是 `std::suspend_never` ，代表 `parseOJBFile` 协程在协程开始时永远不会暂停，直到执行到了 `co_await ReadFileAwaitable`，协程才会暂停。
+
+一旦协程暂停，内核就会做它的工作，我们什么都不用做，只需要等到 CQE 完成，`consumeCQEntriesBlocking` 会唤醒协程，因为它们对应的 CQE 已经完成了。
+
+`allDone` 是一个简单的帮助函数，检查是否所有的协程都已经执行完毕。
+
+```cpp
+bool allDone(const std::vector<Task> &tasks) {
+  return std::all_of(tasks.cbegin(), tasks.cend(),
+                     [](const auto &t) { return t.done(); });
+}
+```
+
+然后协程恢复，解析 OBJ 文件，并且通过 `co_return result` 返回结果。
+
+最后我们可以从完成的协程中获取最终的结果：
+
+```cpp
+std::vector<Result> gatherResults(const std::vector<Task> &tasks) {
+  std::vector<Result> results;
+  results.reserve(tasks.size());
+  for (auto &&t : tasks) {
+    results.push_back(std::move(t).getResult());
+  }
+  return results;
+}
+```
+
+在函数块最后，所有的 `Task` 都会销毁，解分配所有的协程帧。
+
+## p2 结束语
+
+你可能有问题：这篇文章的实现和不使用协程实现关键区别在哪？这是一个争议性的问题，有的人可能觉得我们只是像程序中加入了一些模板式的代码来实现已经实现过的功能。也没有更加效率：**我们仍然是单线程串行解析。**
+
+好在我们还没有完成所有的操作。协程的魅力之处在于其可以组合其他功能，在实现了一个基础的协程设施后，添加更多的 awaitable 和 其他协程很简单。
+
+在 P3 我们会扩展实现，例如使用线程池并行解析文件。这才是协程最终的魔力。
+
+# Part 3/3
+
+## P3 前言
+
+已经到了系列的最后一篇文章。在 P2 我们写了基于协程的程序，读取并且解析 OBJ 文件，使用协程和 `io_uring`。程序仍然有最后一个缺点：他是 CPU-bound。解析文件，最耗费时间的部分是算法，是在单线程上串行执行的。
+
+问题的根源是我们的协程在 main 线程上恢复。理想中我们希望他在其他线程上恢复，这样才可以并行解析文件。
+
+这正是我们这篇文章要做的。我们添加第二个 `await` 表达式 `co_await pool.schedule()`，这会让我们的协程暂停并且被线程池调度和恢复。
+
+```cpp
+Task parseOBJFile(IOUring &uring, const ReadOnlyFile &file, ThreadPool &pool) {
+  std::vector<char> buff(file.size());
+  int status = co_await ReadFileAwaitable(uring, file, buff);
+  co_await pool.schedule();
+  // This is now running on a worker thread
+  Result result{.status_code = 0, .file = file.path()};
+  readObjFromBuffer(buff, result.result);
+  co_return result;
+}
+```
+
+## 线程池
+
+`ThreadPool` 实现了我们的核心思想。
+
+`ThreadPool` 封装了  [bshoshany Thread Pool’s object](https://github.com/bshoshany/thread-pool) ，它的 API 很简单，你可以使用 `push_task` 来调度一个在线程池上跑的任务。
+
+```cpp
+class ThreadPool {
+public:
+  auto schedule() {
+    struct Awaiter : std::suspend_always {
+      BS::thread_pool &tpool;
+      Awaitable(BS::thread_pool &pool) : tpool{pool} {}
+      void await_suspend(std::coroutine_handle<> handle) {
+        tpool.push_task([handle, this]() { handle.resume(); });
+      }
+    };
+    return Awaiter{pool_};
+  }
+
+  size_t numUnfinishedTasks() const { return pool_.get_tasks_total(); }
+
+private:
+  BS::thread_pool pool_;
+};
+```
+
+`ThreadPool` 定义了成员函数 `schedule()` ，返回一个 `Awaiter` 的实例。当协程 `co_await Awaiter` 对象时，协程会暂停（注意 `Awaiter` 继承自 `std::suspend_always`）并且在 `await_suspend()` 中调度在 worker 线程上恢复。
+
+很棒！通过简单的写 `co_await pool.schedule()` 我们就可以在线程池中唤醒当前协程，大大提高了我们的执行效率。并行解析 OBJ。
+
+## 多线程实现
+
+以上。现在我们来实现顶层的函数，使用新的协程来加载和解析 OBJ 文件。
+
+```cpp
+std::vector<Result> coroutinesThreadPool(const std::vector<ReadOnlyFile> &files) {
+  IOUring uring{files.size()};
+  ThreadPool pool;
+  std::vector<Task> tasks;
+  tasks.reserve(files.size());
+  for (const auto &file : files) {
+    tasks.push_back(parseOBJFile(uring, file, pool));
+  }
+  io_uring_submit(uring.get());
+  while (pool.numUnfinishedTasks() > 0 || !allDone(tasks)) {
+    // consume entries in the completion queue
+    // return immediately if the queue is empty
+    consumeCQEntriesNonBlocking(uring);
+  }
+
+  return gatherResults(tasks);
+}
+```
+
+我们初始化一个线程池和 `io_uring` 实例，然后对每个文件调用 `parseOBJFile` ，这会填满 SQ，之后我们使用 `io_uring_sumbit()` 向内核提交请求。
+
+一旦内核在后台读取文件，协程会在相应的 CQE 到达时被唤醒。这在函数 `consumeCQEntriesNonBlocking()` 中执行：
+
+```cpp
+int consumeCQEntriesNonBlocking(IOUring &uring) {
+  io_uring_cqe *temp;
+  if (io_uring_peek_cqe(uring.get(), &temp) == 0) {
+    return consumeCQEntries(uring);
+  }
+  return 0;
+}
+```
+
+使用 `io_uring_peek_cqe()` 来查看 CQ 中是否已经有 CQE，如果为空的话则会退出。
+
+我们继续等待所有协程完成。因为 `allDone` 是线性检查，所以我们给一个短路的选项避免一直调用它、如果在线程池中有未完成的任务，那么显然我们还没有完成。
+
+## P3 结束语
+
+大功告成！希望你能感受到协程的 cool 了，一旦你已经有了一个协程，那么添加其他的 `co_awaits` 易如反掌。
+
+你可以在 [这里](https://github.com/pabloariasal/couring) 找到所有的代码。
+
