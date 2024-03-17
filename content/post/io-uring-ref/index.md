@@ -251,7 +251,16 @@ int io_uring_submit_and_wait(struct io_uring *ring,
 
 ### io_uring_cq_advance
 
+```cpp
+void io_uring_cq_advance(struct io_uring *ring,
+                          unsigned nr);
+```
 
+将 `nr` 个 `io_uring` CQE 标记为被消耗。
+
+`io_uring_cqe_seen()` 会调用这个函数。
+
+----
 
 ## 资料出处
 
