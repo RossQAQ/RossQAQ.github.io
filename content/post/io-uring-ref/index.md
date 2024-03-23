@@ -35,6 +35,32 @@ comments: false
 >
 > 首先好像似乎得用非阻塞 socket？但我决定用阻塞的看看会发生什么，其次我发现想写个没有内存泄漏的还真挺难。
 
+## 关于协程 Task
+
+1. Task 应该为惰性，这个很简单，promise 直接 initial_suspend return std::suspend_always
+
+2. 本身可以被 co_await。需要 Task 本身是个 awaiter，可以在 Task 中重载 co_await 运算符，然后在 Task 内写一个结构体，通过 co_await 返回。
+
+3. Task 本身被 co_await 后，利用 await_suspend 进行灵活调度，将控制权返回给 caller/最开始的函数，那么就需要保存 caller 的句柄。这个其实调用 co_await 的 caller 会自动传入 handle 作为参数。**区分好 caller 和 callee**
+4. 返回的值可以用 std::optional，如果发生异常，需要存入 std::exception_ptr 然后在 unhandled_exception 重新抛出
+5. 考虑 std::variant 替代 std::optional，存储正常的返回值，和 std::exception_ptr，可以结合 emplace
+6. Task 和 Promise 都定义为泛型，这样就可以支持任意的返回类型了。对 void 进行特化。注意待决名
+7. 支持 sleep 操作，传统 sleep 会阻塞，协程 sleep 显然可以干别的，比如支持个超时。
+
+但显然不能真睡，需要个调度器，在一堆协程里面恢复其他的协程。
+
+那么调度器，最简单的实现就是，队列，协程全部默认加入调度器。
+
+Task 可以写成隐式转换为 coro handle，这样放入调度器比较方便
+
+睡的协程要加入到调度器的存储结构，时间+句柄。
+
+可以搞一个小顶堆
+
+之后，Task 可以支持 `when_all` ，支持参数内的 Task 一起执行。如果有返回值，可以用 tuple+结构化绑定接返回值。配合模板，实现任意数量的参数
+
+之后，可以实现 `when_any`
+
 ## io_uring 使用思路
 
 1. 声明 io_uring 
