@@ -35,6 +35,148 @@ comments: false
 >
 > 首先好像似乎得用非阻塞 socket？但我决定用阻塞的看看会发生什么，其次我发现想写个没有内存泄漏的还真挺难。
 
+> 现在是 2024.3.25 由于过于崩溃，我决定从简单的读文件写起……写个 echo server 全bug 受不了。
+
+## io_uring 文件 IO
+
+> 之前搬运的文章都是 readv，我这里直接用 read 得了。做一下测试，读两个文件
+>
+> 一个 8500 字节，一个 330 字节，文章都是 rust 的官方教程英文版。
+
+### 短文章，普通的 read，足够的 buffer，足够的 SQE
+
+```cpp
+void read_to_stdout(io_uring& uring, int fd_read, int fd_output) {
+    std::vector<char> buf(512);
+
+    io_uring_sqe* sqe = io_uring_get_sqe(&uring);
+    io_uring_prep_read(sqe, fd_read, buf.data(), 512, 0);
+    io_uring_sqe_set_data64(sqe, 1001);
+    io_uring_submit(&uring);
+
+    io_uring_cqe* cqe{ nullptr };
+    io_uring_wait_cqe(&uring, &cqe);
+    auto cqe_data = io_uring_cqe_get_data64(cqe);
+
+    std::cout << buf.data() << std::endl;
+    std::cout << "---------------------------------\n";
+    std::cout << "Bytes: " << cqe->res << "  CQE data: " << cqe_data << std::endl;
+
+    io_uring_cqe_seen(&uring, cqe);
+}
+```
+
+> 嗯，完美，非常的基础，一切正常。
+
+### 短文章，普通的 read，不足的 buffer，足够的 SQE
+
+> 思考了一下，read 到文件尾肯定是返回 0，那么能不能直接一次 submit 全读完呢。
+>
+> 那肯定不行，得足够的 buffer 才能一次 submit 完啊。还是一次一次读吧。
+>
+> 说起来 rust 和 cpp 这 vec 初始化的参数是反着来的真是蛋疼。
+
+```cpp
+void read_to_stdout_lessbuf(io_uring& uring, int fd_read, int fd_output) {
+    std::vector<char> buf(128);
+    int idx = 1000;
+    size_t offset = 0;
+
+    for (;;) {
+        io_uring_cqe* cqe{ nullptr };
+        std::fill(buf.begin(), buf.end(), 0);
+        io_uring_sqe* sqe = io_uring_get_sqe(&uring);
+        io_uring_prep_read(sqe, fd_read, buf.data(), 127, offset);
+        io_uring_sqe_set_data64(sqe, idx);
+        io_uring_submit(&uring);
+        offset += 127;
+        idx += 1;
+
+        io_uring_wait_cqe(&uring, &cqe);
+        auto cqe_data = io_uring_cqe_get_data64(cqe);
+
+        if (cqe->res == 0) {
+            std::cout << "Complete.\n";
+            break;
+        } else {
+            std::cout << buf.data() << std::endl;
+            std::cout << "---------------------------------\n";
+            std::cout << "Bytes: " << cqe->res << "  CQE data: " << cqe_data << std::endl << std::endl;
+        }
+
+        io_uring_cqe_seen(&uring, cqe);
+    }
+}
+```
+
+> 也没什么问题，注意 cqe 要及时销毁就行了。
+>
+> 感觉在网络 IO 内，buffer 不够很正常，所以感觉得思考下。
+
+### 短文章，普通的 read，提供的足够的普通 buffer，足够的 SQE
+
+> 这是 io_uring 的特性，把 buffer 提供给内核。API: io_uring_prep_provide_buffers，kernel 5.7 之后可用
+>
+> 我到这里发现我的服务器 2G 内存有点吃紧，开 vscode 直接吃600MB，还剩1G
+
+```cpp
+void read_to_stdout_prepbuf(io_uring& uring, int fd_read, int fd_output) {
+    struct Buffer {
+        char* addr_{ nullptr };
+        Buffer(size_t size = 512) { addr_ = new char[size](); }
+        ~Buffer() { delete[] addr_; }
+    };
+
+    struct GroupBuffer {
+        int group_id_{ 1 };
+        Buffer bufs[1];
+
+        char* get_buf_address() { return bufs[0].addr_; }
+        int get_group_id() { return group_id_; }
+        const char* data() { return bufs[0].addr_; }
+    };
+
+    GroupBuffer buf{};
+    io_uring_sqe* buf_sqe = io_uring_get_sqe(&uring);
+    io_uring_sqe_set_data64(buf_sqe, 1234);
+    io_uring_prep_provide_buffers(buf_sqe, buf.get_buf_address(), 512, 1, buf.get_group_id(), 0);
+
+    io_uring_sqe* read_sqe = io_uring_get_sqe(&uring);
+    io_uring_prep_read(read_sqe, fd_read, nullptr, 512, 0);
+    
+    // 重要的两行：
+    io_uring_sqe_set_flags(read_sqe, IOSQE_BUFFER_SELECT);
+    read_sqe->buf_group = 1;
+    //////////////////////////
+    io_uring_sqe_set_data64(read_sqe, 1005);
+
+    io_uring_submit_and_wait(&uring, 2);
+
+    io_uring_cqe* cqe{ nullptr };
+    unsigned head{};
+    unsigned i{};
+    io_uring_for_each_cqe(&uring, head, cqe) {
+        auto cqe_data = io_uring_cqe_get_data64(cqe);
+        if (cqe->res < 0) {
+            std::cout << "Error: " << strerror(-cqe->res) << std::endl;
+        } else {
+            if (cqe_data == 1234) {
+                std::cout << "providing buffer.\n";
+            }
+            if (cqe_data == 1005) {
+                std::cout << buf.data() << std::endl;
+                std::cout << "---------------------------------\n";
+                std::cout << "Bytes: " << cqe->res << "  CQE data: " << cqe_data << std::endl;
+            }
+        }
+        i++;
+        io_uring_cq_advance(&uring, i);
+    }
+}
+```
+
+> 折腾半天，总之摸清楚了提供buffer 的用法。
+
 ## 关于协程 Task
 
 1. Task 应该为惰性，这个很简单，promise 直接 initial_suspend return std::suspend_always
@@ -291,6 +433,37 @@ void io_uring_cq_advance(struct io_uring *ring,
 `io_uring_cqe_seen()` 会调用这个函数。
 
 ----
+
+### io_uring_for_each_cqe
+
+```cpp
+io_uring_for_each_cqe(struct io_uring *ring,
+                      unsigned head,
+                      struct io_uring_cqe *cqe) { }
+```
+
+宏，用于迭代 pending 的完成事件。使用 `head` 作为迭代器，之后迭代时使用 `cqe` 指向所有的就绪事件。
+
+这个帮助宏提供了一个方便的迭代所有 ring 中 pending 事件的方式，之后完成时再调用 `io_uring_cq_advance` 指定消耗掉了多少个 CQE。调用这个宏比单独调用 `io_uring_cqe_seen` 更有效率。
+
+示例：
+
+```cpp
+void handle_cqes(struct io_uring *ring)
+{
+	struct io_uring_cqe *cqe;
+	unsigned head;
+	unsigned i = 0;
+	io_uring_for_each_cqe(ring, head, cqe) {
+		/* handle completion */
+		printf("cqe: %d\n", cqe->res);
+		i++;
+	}
+	io_uring_cq_advance(ring, i);
+}
+```
+
+---
 
 ## 资料出处
 
