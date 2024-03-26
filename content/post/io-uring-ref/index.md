@@ -177,6 +177,93 @@ void read_to_stdout_prepbuf(io_uring& uring, int fd_read, int fd_output) {
 
 > 折腾半天，总之摸清楚了提供buffer 的用法。
 
+### 短文章，普通的 read，提供的连续的 buffer，足够的 SQE
+
+> 如果文件比 buffer 大？但是 buffer 总量足够？
+
+```cpp
+struct GroupBuffer {
+    int group_id_{};
+    char* bufs_{ nullptr };
+
+    GroupBuffer(int grp_id, size_t buffer_cnt = 1, size_t buffer_size = 64) : group_id_(grp_id) {
+        bufs_ = new char[buffer_cnt * buffer_size]();
+    }
+    ~GroupBuffer() {
+        if (bufs_) {
+            delete[] bufs_;
+        }
+    }
+
+    char* get_buf_address() const { return bufs_; }
+    int get_group_id() const { return group_id_; }
+    const char* data() const { return bufs_; }
+};
+
+inline void provide_buf(io_uring& uring, const GroupBuffer& buf, int bid) {
+    io_uring_sqe* buf_sqe = io_uring_get_sqe(&uring);
+    io_uring_sqe_set_data64(buf_sqe, 1234);
+    io_uring_prep_provide_buffers(buf_sqe, buf.get_buf_address(), 128, 10, buf.get_group_id(), bid);
+}
+
+inline void read_request(io_uring& uring, int fd_read, int grp_id, size_t offset) {
+    io_uring_sqe* read_sqe = io_uring_get_sqe(&uring);
+    io_uring_prep_read(read_sqe, fd_read, nullptr, 512, offset);
+    io_uring_sqe_set_flags(read_sqe, IOSQE_BUFFER_SELECT);
+    read_sqe->buf_group = grp_id;
+    io_uring_sqe_set_data64(read_sqe, 1005);
+}
+
+inline void read_to_stdout_prepbuf(io_uring& uring, int fd_read, int fd_output) {
+    GroupBuffer buf{ 1, 10, 128 };
+
+    provide_buf(uring, buf, 0);
+    read_request(uring, fd_read, 1, 0);
+    size_t offset{};
+    for (;;) {
+        io_uring_submit(&uring);
+        io_uring_cqe* cqe{ nullptr };
+        unsigned head{};
+        unsigned i{};
+        bool finish{};
+        io_uring_for_each_cqe(&uring, head, cqe) {
+            auto cqe_data = io_uring_cqe_get_data64(cqe);
+            if (cqe_data == 1234) {
+                Debug(), "Providing buffer.";
+            }
+            if (cqe_data == 1005) {
+                if (cqe->res > 0) {
+                    auto bid = cqe->flags >> IORING_CQE_BUFFER_SHIFT;
+                    offset += cqe->res;
+                    Debug(), bid;
+                    provide_buf(uring, buf, bid);
+                    read_request(uring, fd_read, 1, offset);
+                } else if (cqe->res == 0) {
+                    Debug(), "Complete.";
+                    finish = true;
+                } else {
+                    Debug(), "Error: \n", strerror(-cqe->res);
+                }
+            }
+            i++;
+            io_uring_cq_advance(&uring, i);
+        }
+        if (finish) {
+            break;
+        }
+    }
+    Debug(), buf.data();
+}
+```
+
+> 好像没什么特别的。Debug() 是自己封装的，方便输出查看
+
+### 试试 Ring Buffer
+
+
+
+----
+
 ## 关于协程 Task
 
 1. Task 应该为惰性，这个很简单，promise 直接 initial_suspend return std::suspend_always
