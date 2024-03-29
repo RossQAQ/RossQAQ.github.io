@@ -37,6 +37,14 @@ comments: false
 
 > 现在是 2024.3.25 由于过于崩溃，我决定从简单的读文件写起……写个 echo server 全bug 受不了。
 
+> 2024.3.26 摸索清楚了大概，此外 ring buffer 有亿点复杂，所以我决定单纯使用 provided buffer 好了。然后搞个内存池自己管理内存。
+>
+> 好了，可以写一个简单的 echo server 了~
+
+### 普通的 io_uring echo server
+
+
+
 ## io_uring 文件 IO
 
 > 之前搬运的文章都是 readv，我这里直接用 read 得了。做一下测试，读两个文件
@@ -216,12 +224,11 @@ inline void read_request(io_uring& uring, int fd_read, int grp_id, size_t offset
 
 inline void read_to_stdout_prepbuf(io_uring& uring, int fd_read, int fd_output) {
     GroupBuffer buf{ 1, 10, 128 };
-
+    char* article = new char[2048]();
     provide_buf(uring, buf, 0);
-    read_request(uring, fd_read, 1, 0);
     size_t offset{};
+
     for (;;) {
-        io_uring_submit(&uring);
         io_uring_cqe* cqe{ nullptr };
         unsigned head{};
         unsigned i{};
@@ -229,14 +236,17 @@ inline void read_to_stdout_prepbuf(io_uring& uring, int fd_read, int fd_output) 
         io_uring_for_each_cqe(&uring, head, cqe) {
             auto cqe_data = io_uring_cqe_get_data64(cqe);
             if (cqe_data == 1234) {
+                read_request(uring, fd_read, 1, offset);
                 Debug(), "Providing buffer.";
             }
             if (cqe_data == 1005) {
                 if (cqe->res > 0) {
                     auto bid = cqe->flags >> IORING_CQE_BUFFER_SHIFT;
+
+                    memcpy(article + offset, buf.bufs_ + offset, cqe->res);
+
                     offset += cqe->res;
-                    Debug(), bid;
-                    provide_buf(uring, buf, bid);
+                    Debug(), "Use Buffer Block: ", bid;
                     read_request(uring, fd_read, 1, offset);
                 } else if (cqe->res == 0) {
                     Debug(), "Complete.";
@@ -246,21 +256,19 @@ inline void read_to_stdout_prepbuf(io_uring& uring, int fd_read, int fd_output) 
                 }
             }
             i++;
-            io_uring_cq_advance(&uring, i);
         }
         if (finish) {
             break;
         }
+        io_uring_cq_advance(&uring, i);
+        int submitted = io_uring_submit(&uring);
     }
-    Debug(), buf.data();
+    Debug(), article;
+    delete[] article;
 }
 ```
 
-> 好像没什么特别的。Debug() 是自己封装的，方便输出查看
-
-### 试试 Ring Buffer
-
-
+> 一定要在 prep_foo 后再 set flags，因为 prep_foo 会初始化 SQE 的 flag，我服了。
 
 ----
 
@@ -276,7 +284,7 @@ inline void read_to_stdout_prepbuf(io_uring& uring, int fd_read, int fd_output) 
 6. Task 和 Promise 都定义为泛型，这样就可以支持任意的返回类型了。对 void 进行特化。注意待决名
 7. 支持 sleep 操作，传统 sleep 会阻塞，协程 sleep 显然可以干别的，比如支持个超时。
 
-但显然不能真睡，需要个调度器，在一堆协程里面恢复其他的协程。
+但显然线程不能真睡，需要个调度器，在一堆协程里面恢复其他的协程。
 
 那么调度器，最简单的实现就是，队列，协程全部默认加入调度器。
 
@@ -292,18 +300,61 @@ Task 可以写成隐式转换为 coro handle，这样放入调度器比较方便
 
 ## io_uring 使用思路
 
-1. 声明 io_uring 
-2. 初始化：io_uring_queue_init
-3. 声明 sqe，
-4. 获取 sqe：io_uring_get_sqe
-5. 准备操作：io_uring_prep_foo
-6. 绑定 data：io_uring_sqe_set_data
-7. submit
-8. wait/peek CQE
-9. 使用 io_uring_cqe_get_data 获取数据
-10. 检查 cqe -> res 错误码
-11. io_uring_cqe_seen 释放 cqe
-12. io_uring_queue_exit()
+![io_uring controlflow](io_uring_usage.png)
+
+1. 声明 io_uring。很简单，直接声明个结构体以及栈上的变量就可以。
+
+2. 初始化 io_uring。
+
+   - 如果没什么特殊设置，可以使用 `io_uring_queue_init()`
+   - 如果想要传一些特殊设置，可以声明 `io_uring_params` 配合 `io_uring_queue_init_params()`
+   - **这里会有一次 syscall -> `io_uring_setup`**
+
+3. 获取一个 SQE。
+
+   - 如：`io_uring_sqe* sqe = io_uring_get_sqe(&io_uring) `
+
+     这个函数会给你提供一个 SQE，但注意你拿到了 SQE 就要把他提交掉，不然会乱掉
+
+4. 请求一个操作。
+
+   - 使用 `io_uring_prep_<operation>()` 系列函数
+
+5. 设置操作对应的 SQE 信息。你可能会使用：
+
+   - `io_uring_sqe_set_flags()` 来设置特殊的标记启用一些功能
+   - `sqe` 的数据段
+   - `io_uring_sqe_set_data()`/`io_uring_sqe_set_data64()`，提供 user-data 供找到对应的 CQE。user-data 会被传入 SQE 并且随 CQE 原封不动的传回来。两个版本，一个参数 `void*` 一个是 `uint64_t`
+   - **切记这一步要在 `io_uring_prep_<operation>()` 之后执行，因为 sqe 会在请求操作的时候初始化**
+
+6. 提交所有的 SQE 给 Submission Queue。
+
+   - `io_uring_submit()`
+
+------------
+
+7. 遍历所有的 CQE
+
+   - 推荐做法：`io_uring_for_each_cqe` 宏，来遍历当前 CQ 的所有 CQEs。
+   - 如果想阻塞，可以 `io_uring_wait_cqe()`
+   - 如果不想阻塞，可以 `io_uring_peek_cqe()`
+
+8. 处理你当前的 CQE
+
+   - 你自己的函数，用来处理结果。`cqe->res` 会存放 io 操作的结果/ `-errno`
+
+9. 释放 CQE
+
+   - 如果使用宏，那么你需要记录 CQE 的个数，最后使用 `io_uring_cq_advance()` 一次释放多个 CQE
+   - 如果不使用宏，你需要使用 `io_uring_cqe_seen()` 来一次释放一个 CQE
+
+   - **注意，一旦获取一个 CQE，一定要释放，告诉内核可以重用这个位置了。**此外，`io_uring_cq_advance` 效率更高
+
+----
+
+接下来有两个选择，要么继续事件循环，要么就退出 io_uring
+
+10. 析构 `io_uring`，使用 `io_uring_queue_exit()`
 
 ## io_uring 常用函数 reference
 
