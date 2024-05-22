@@ -248,3 +248,14 @@ filter 无法保证元素随机访问，因此并不连续。因为无法在常�
 transform 视图可以 jump，因为它总是对每个独立元素执行相同操作；它也可以保证 sized-ness 因为留下的 size 相同。在这些情况下，filter 都会丢弃这两只属性。换句话说，transform视图 在每次访问时产生新的元素，因此 `v` 不是输出范围，你不能向他的元素赋值。这也阻止了 contiguous-range 的建立（如果没有被 filter 处理掉的话，因为按需创建的值根本不在内存中存储）
 
 理解这些需要更多练习，在 SeqAn3 中提供了[详细的文档](https://docs.seqan.de/seqan/3-master-user/group__views.html)。
+
+## 附录 — 一些常用示例
+
+常用的 views:
+
+- `std::views::take()`
+- `std::views::filter()`
+- `std::views::transform()`
+- `std::views::iota()`
+
+如何从 views 生成对应容器？在 C++23 前，只能手动创建对象，使用 `views` 的迭代器来生成对象即可；在 C++23 后有了 `std::ranges::to`，用起来和 Rust 的 collect 感觉差不多。

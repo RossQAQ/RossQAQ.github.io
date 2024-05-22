@@ -1,12 +1,12 @@
 ---
-title: CS144-Computer Network - Lab 0
-description: CS144 p0 记录
+title: CS144-2024 Winter - Lab 0
+description: Computer Network, 2024 Winter, p0 记录
 slug: cs144-p0
 date: 2024-05-08 00:00:00+0000
 image: 
 categories:
     - techs
-    - unfinished
+    - finished
 tags: 
 weight: 1       # You can add weight to some posts to override the default sorting (date descending)
 comments: false
@@ -14,7 +14,7 @@ comments: false
 
 准备做一下 CS144 系列，恰好锻炼一下我的网络编程。
 
-这篇文章介绍 Lab 0 的思路，Lab 0 似乎就是配一下环境之类？
+由于发现网上已经有很多代码了，所以我干脆也放出来了，其实这些公开课是不应该公开代码的。
 
 ## 概述
 
@@ -156,3 +156,151 @@ clone 个代码然后按说明来在 github 上 `private` 备份并且完成其�
 > 被第六点迷惑了，我还以为是字节流保存所有输入的数据……实则只保存 available len 的数据。
 >
 > 那其实一点也不难，buffer 直接用 `std::vector<char>` 即可。
+>
+> 当然，`std::vector<char>` 无可避免的会有复制，这样实现吞吐量肯定比较低，不过我也懒得优化了。以后有空再说吧。
+>
+> 想优化的话你可以换成 `std::vector<std::string>` 这样的容器，`erase` 多余的内容然后直接移动就是了。`erase` 擦除末尾的元素是 `O(1)` 移动开销也很低，估计会快不少。
+
+## 源代码
+
+```cpp
+#pragma once
+
+#include <cstdint>
+#include <deque>
+#include <string>
+#include <string_view>
+#include <vector>
+
+class Reader;
+class Writer;
+
+class ByteStream
+{
+public:
+  explicit ByteStream( uint64_t capacity );
+
+  // Helper functions (provided) to access the ByteStream's Reader and Writer interfaces
+  Reader& reader();
+  const Reader& reader() const;
+  Writer& writer();
+  const Writer& writer() const;
+
+  void set_error() { error_ = true; };       // Signal that the stream suffered an error.
+  bool has_error() const { return error_; }; // Has the stream had an error?
+
+protected:
+  // Please add any additional state to the ByteStream here, and not to the Writer and Reader interfaces.
+  uint64_t capacity_;
+  bool error_ {};
+
+  uint64_t bytes_buffered_ {};
+  uint64_t bytes_pushed_ {};
+  uint64_t bytes_popped_ {};
+  bool closed_ { false };
+  std::vector<char> buf_;
+};
+
+class Writer : public ByteStream
+{
+public:
+  void push( std::string data ); // Push data to stream, but only as much as available capacity allows.
+  void close();                  // Signal that the stream has reached its ending. Nothing more will be written.
+
+  bool is_closed() const;              // Has the stream been closed?
+  uint64_t available_capacity() const; // How many bytes can be pushed to the stream right now?
+  uint64_t bytes_pushed() const;       // Total number of bytes cumulatively pushed to the stream
+};
+
+class Reader : public ByteStream
+{
+public:
+  std::string_view peek() const; // Peek at the next bytes in the buffer
+  void pop( uint64_t len );      // Remove `len` bytes from the buffer
+
+  bool is_finished() const;        // Is the stream finished (closed and fully popped)?
+  uint64_t bytes_buffered() const; // Number of bytes currently buffered (pushed and not popped)
+  uint64_t bytes_popped() const;   // Total number of bytes cumulatively popped from stream
+};
+
+/*
+ * read: A (provided) helper function thats peeks and pops up to `len` bytes
+ * from a ByteStream Reader into a string;
+ */
+void read( Reader& reader, uint64_t len, std::string& out );
+```
+
+```cpp
+#include "byte_stream.hh"
+
+#include <algorithm>
+
+using namespace std;
+
+ByteStream::ByteStream( uint64_t capacity ) : capacity_( capacity ), buf_()
+{
+  buf_.reserve( capacity_ );
+}
+
+bool Writer::is_closed() const
+{
+  return closed_;
+}
+
+void Writer::push( string data )
+{
+  auto len = std::min( data.length(), available_capacity() );
+
+  if ( len > 0 && !closed_ ) [[likely]] {
+    std::copy( data.begin(), data.begin() + len, std::back_inserter( buf_ ) );
+    bytes_buffered_ += len;
+    bytes_pushed_ += len;
+  }
+}
+
+void Writer::close()
+{
+  closed_ = true;
+}
+
+uint64_t Writer::available_capacity() const
+{
+  return capacity_ - bytes_buffered_;
+}
+
+uint64_t Writer::bytes_pushed() const
+{
+  return bytes_pushed_;
+}
+
+bool Reader::is_finished() const
+{
+  return !static_cast<bool>( bytes_buffered_ ) && closed_;
+}
+
+uint64_t Reader::bytes_popped() const
+{
+  return bytes_popped_;
+}
+
+string_view Reader::peek() const
+{
+  return std::string_view { buf_.data(), bytes_buffered_ };
+}
+
+void Reader::pop( uint64_t len )
+{
+  if ( len > bytes_buffered_ ) [[unlikely]] {
+    len = bytes_buffered_;
+  }
+  buf_.erase( buf_.begin(), buf_.begin() + len );
+  bytes_buffered_ -= len;
+  bytes_popped_ += len;
+}
+
+uint64_t Reader::bytes_buffered() const
+{
+  return bytes_buffered_;
+}
+```
+

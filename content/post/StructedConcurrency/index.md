@@ -23,7 +23,7 @@ comments: false
 
 ## 序
 
-太长不看版：**“结构化并发” 指代的是一种异步操作结构，其子部分保证完成于父部分之前，就像函数调用保证在它的 caller 结束前完成一样。**听起来这个很简单很无聊，但对 C++ 来讲所有事情都没那么简单。结构化并发对 C++ 协程异步架构的正确性和简单性有深远影响。它通过把异步 lifetimes 与 C++ 语句作用域对应，将 [现代 C++ 风格](https://docs.microsoft.com/en-us/cpp/cpp/welcome-back-to-cpp-modern-cpp?view=msvc-160) 代入了我们的异步程序，以此消除了引用计数管理生命周期的需求。
+太长不看版：**“结构化并发” 指代的是一种异步操作结构，其子部分保证完成于父部分之前，就像函数调用保证在它的 caller 结束前完成一样**。听起来这个很简单很无聊，但对 C++ 来讲所有事情都没那么简单。结构化并发对 C++ 协程异步架构的正确性和简单性有深远影响。它通过把异步 lifetimes 与 C++ 语句作用域对应，将 [现代 C++ 风格](https://docs.microsoft.com/en-us/cpp/cpp/welcome-back-to-cpp-modern-cpp?view=msvc-160) 代入了我们的异步程序，以此消除了引用计数管理生命周期的需求。
 
 ## 结构化编程与 C++
 
@@ -267,4 +267,4 @@ auto doThing() {
 
 ---
 
-了解更多的话，一定要看看 CppCon 2019 [Lewis Bakern Structured Concurrency: Writing Safer Concurrent Code with Coroutines...](https://www.youtube.com/watch?v=1Wy5sq3s2rg) 的演讲。
+了解更多的话，一定要看看 CppCon 2019 Lewis Baker 的 [Structured Concurrency: Writing Safer Concurrent Code with Coroutines...](https://www.youtube.com/watch?v=1Wy5sq3s2rg) 的演讲。
