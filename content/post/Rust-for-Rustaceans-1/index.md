@@ -1,13 +1,13 @@
 ---
 title: Rust for Rustaceans - Chapter-1 基石
 description: 阅读 Rust for Rustaceans 的记录，第一章。
-slug: rfr-intro
+slug: rfr-fundations
 date: 2024-05-15 00:00:00+0000
 image: 
 categories:
     - rust
     - techs
-    - finished
+    - unfinished
 tags: 
 weight: 1       # You can add weight to some posts to override the default sorting (date descending)
 comments: false
