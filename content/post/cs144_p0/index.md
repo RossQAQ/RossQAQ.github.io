@@ -5,7 +5,7 @@ slug: cs144-p0
 date: 2024-05-08 00:00:00+0000
 image: 
 categories:
-    - techs
+    - cs144
     - finished
 tags: 
 weight: 1       # You can add weight to some posts to override the default sorting (date descending)
