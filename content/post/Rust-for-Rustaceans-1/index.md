@@ -2,7 +2,7 @@
 title: Rust for Rustaceans - Chapter-1 基石
 description: 阅读 Rust for Rustaceans 的记录，第一章。
 slug: rfr-fundations
-date: 2024-05-15 00:00:00+0000
+date: 2024-05-17 00:00:00+0000
 image: 
 categories:
     - rust
@@ -111,4 +111,16 @@ assert_eq!(*y, 42);	//(4)
 
 ### 内存区域
 
-我们已经知道如何与内存交互，我们需要讨论内存究竟是什么？
+我们已经知道如何与内存交互，我们需要讨论内存究竟是什么？对 Rust 来说，最重要的内存区域有三个：Stack, Heap, Static Memory.
+
+#### The Stack
+
+*stack* 是一段程序在调用函数时使用的空间。每次一个函数被调用，都会在 *stack* 顶部分配一段连续的块内存，称之为 *frame*。栈底部的内存是 `main` 函数的 frame，随着其他函数的调用，frame 被一直 push 到栈中。函数的 frame 中保存了函数中所有的变量，以及函数调用需要的所有参数。函数返回时，frame 会被释放。
+
+stack frames 最后释放的行为和 Rust 的生命周期紧密相关。
+
+任何被释放的变量都无法再被访问，所以任何它的引用的生命周期都必须小于等于保存它的 frame 生命周期。
+
+#### The Heap
+
+*heap* 是不和当前函数的栈绑定的内存块。heap 中的变量必须被显式地解分配。如果你想让某个变量的生命周期比当前函数的 frame 活得更久，那就可以使用 heap。
