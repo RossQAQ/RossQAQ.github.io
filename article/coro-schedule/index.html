@@ -1,0 +1,577 @@
+<!doctype html><html lang=zh-cn dir=ltr><head><meta charset=utf-8><meta name=viewport content='width=device-width,initial-scale=1'><meta name=description content="对 Dian-Lun Lin CppNow 2023 的演讲的翻译与总结。"><title>C++ 协程，以及其调度</title>
+<link rel=canonical href=https://rossqaq.github.io/article/coro-schedule/><link rel=stylesheet href=/scss/style.min.0304c6baf04e01a8fe70693791cb744d56a3578a3120a8796cefc66825aa39c7.css><meta property='og:title' content="C++ 协程，以及其调度"><meta property='og:description' content="对 Dian-Lun Lin CppNow 2023 的演讲的翻译与总结。"><meta property='og:url' content='https://rossqaq.github.io/article/coro-schedule/'><meta property='og:site_name' content='Roses'><meta property='og:type' content='article'><meta property='article:section' content='Post'><meta property='article:published_time' content='2024-02-16T00:00:00+00:00'><meta property='article:modified_time' content='2024-02-16T00:00:00+00:00'><meta name=twitter:title content="C++ 协程，以及其调度"><meta name=twitter:description content="对 Dian-Lun Lin CppNow 2023 的演讲的翻译与总结。"><link rel="shortcut icon" href=/favicon.png></head><body class=article-page><script>(function(){const e="StackColorScheme";localStorage.getItem(e)||localStorage.setItem(e,"auto")})()</script><script>(function(){const t="StackColorScheme",e=localStorage.getItem(t),n=window.matchMedia("(prefers-color-scheme: dark)").matches===!0;e=="dark"||e==="auto"&&n?document.documentElement.dataset.scheme="dark":document.documentElement.dataset.scheme="light"})()</script><div class="container main-container flex on-phone--column extended"><aside class="sidebar left-sidebar sticky"><button class="hamburger hamburger--spin" type=button id=toggle-menu aria-label=切换菜单>
+<span class=hamburger-box><span class=hamburger-inner></span></span></button><header><figure class=site-avatar><a href=/><img src=/img/avatar_hu57fe4ea25b3b752b8c24bca0d657f08c_427356_300x0_resize_box_3.png width=300 height=300 class=site-logo loading=lazy alt=Avatar>
+</a><span class=emoji>♉</span></figure><div class=site-meta><h1 class=site-name><a href=/>Roses</a></h1><h2 class=site-description>有限的时间，无尽的痛苦。</h2></div></header><ol class=menu-social><li><a href=https://space.bilibili.com/3078464 target=_blank title=Bilibili rel=me><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-brand-bilibili" width="44" height="44" viewBox="0 0 24 24" stroke-width="1.5" stroke="#2c3e50" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M3 10a4 4 0 014-4h10a4 4 0 014 4v6a4 4 0 01-4 4H7a4 4 0 01-4-4v-6z"/><path d="M8 3l2 3"/><path d="M16 3l-2 3"/><path d="M9 13v-2"/><path d="M15 11v2"/></svg></a></li><li><a href=https://github.com/RossQAQ target=_blank title=Github rel=me><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-brand-github" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M9 19c-4.3 1.4-4.3-2.5-6-3m12 5v-3.5c0-1 .1-1.4-.5-2 2.8-.3 5.5-1.4 5.5-6a4.6 4.6.0 00-1.3-3.2 4.2 4.2.0 00-.1-3.2s-1.1-.3-3.5 1.3a12.3 12.3.0 00-6.2.0C6.5 2.8 5.4 3.1 5.4 3.1a4.2 4.2.0 00-.1 3.2A4.6 4.6.0 004 9.5c0 4.6 2.7 5.7 5.5 6-.6.6-.6 1.2-.5 2V21"/></svg></a></li><li><a href='https://music.163.com/playlist?id=109571638&amp;userid=93740300' target=_blank title=网易云音乐 rel=me><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-brand-netease-music" width="44" height="44" viewBox="0 0 24 24" stroke-width="1.5" stroke="#2c3e50" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M9 4c-2.93 1.346-5 5.046-5 8.492C4 17 8 20 12 20s8-3 8-7c0-3.513-3.5-5.513-6-5.513S9 9 9 12c0 2 1.5 3 3 3s3-1 3-3c0-3.513-2-4.508-2-6.515.0-3.504 3.5-2.603 4-1.502"/></svg></a></li><li><a href=mailto:rossqaq@outlook.com target=_blank title=邮件 rel=me><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-mail" width="44" height="44" viewBox="0 0 24 24" stroke-width="1.5" stroke="#2c3e50" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M3 7a2 2 0 012-2h14a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2V7z"/><path d="M3 7l9 6 9-6"/></svg></a></li></ol><ol class=menu id=main-menu><li><a href=/><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-home" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><polyline points="5 12 3 12 12 3 21 12 19 12"/><path d="M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7"/><path d="M9 21v-6a2 2 0 012-2h2a2 2 0 012 2v6"/></svg>
+<span>主页</span></a></li><li><a href=/archives/><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-archive" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><rect x="3" y="4" width="18" height="4" rx="2"/><path d="M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
+<span>归档</span></a></li><li><a href=/search/><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-search" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="10" cy="10" r="7"/><line x1="21" y1="21" x2="15" y2="15"/></svg>
+<span>搜索</span></a></li><li><a href=/%E5%8F%8B%E6%83%85%E9%93%BE%E6%8E%A5/><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-link" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><path d="M10 14a3.5 3.5.0 005 0l4-4a3.5 3.5.0 00-5-5l-.5.5"/><path d="M14 10a3.5 3.5.0 00-5 0l-4 4a3.5 3.5.0 005 5l.5-.5"/></svg>
+<span>友情链接</span></a></li><li class=menu-bottom-section><ol class=menu><li id=dark-mode-toggle><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="8" cy="12" r="2"/><rect x="2" y="6" width="20" height="12" rx="6"/></svg>
+<svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="16" cy="12" r="2"/><rect x="2" y="6" width="20" height="12" rx="6"/></svg>
+<span>暗色模式</span></li></ol></li></ol></aside><aside class="sidebar right-sidebar sticky"><section class="widget archives"><div class=widget-icon><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-hash" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><line x1="5" y1="9" x2="19" y2="9"/><line x1="5" y1="15" x2="19" y2="15"/><line x1="11" y1="4" x2="7" y2="20"/><line x1="17" y1="4" x2="13" y2="20"/></svg></div><h2 class="widget-title section-title">目录</h2><div class=widget--toc><nav id=TableOfContents><ol><li><a href=#why-coroutine>Why coroutine</a></li><li><a href=#coroutinepromise-compilers-view>Coroutine/Promise Compiler&rsquo;s View</a></li><li><a href=#coroutine-handle>Coroutine Handle</a></li><li><a href=#coroutine-tasks-以及-scheduler-apis>Coroutine Tasks 以及 Scheduler APIs</a><ol><li><a href=#单线程调度器>单线程调度器</a></li><li><a href=#多线程调度器>多线程调度器</a></li></ol></li></ol></nav></div></section></aside><main class="main full-width"><article class=main-article><header class=article-header><div class=article-details><header class=article-category><a href=/categories/coroutine/ style=background-color:#2a9d8f;color:#fff>协程渡劫
+</a><a href=/categories/techs/ style=background-color:#2a9d8f;color:#fff>技术
+</a><a href=/categories/finished/ style=background-color:#2a9d8f;color:#fff>施工完毕</a></header><div class=article-title-wrapper><h2 class=article-title><a href=/article/coro-schedule/>C++ 协程，以及其调度</a></h2><h3 class=article-subtitle>对 Dian-Lun Lin CppNow 2023 的演讲的翻译与总结。</h3></div><footer class=article-time><div><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><path d="M11.795 21H5a2 2 0 01-2-2V7a2 2 0 012-2h12a2 2 0 012 2v4"/><circle cx="18" cy="18" r="4"/><path d="M15 3v4"/><path d="M7 3v4"/><path d="M3 11h16"/><path d="M18 16.496V18l1 1"/></svg>
+<time class=article-time--published>Feb 16, 2024</time></div><div><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/></svg>
+<time class=article-time--reading>阅读时长: 4 分钟</time></div></footer></div></header><section class=article-content><p><a class=link href="https://www.youtube.com/watch?v=kIPzED3VD3w" target=_blank rel=noopener>Introduction to C++ Coroutines Through a Thread Scheduling Demonstration</a></p><p>这个视频简单介绍了协程，并且有 compiler view，可以方便的看出协程的行为，之后实现了一个简单的调度器，很有学习价值。</p><p>协程的基础使用方法已经在文章 <a class=link href=https://rossqaq.github.io/article/coroutine-system/ target=_blank rel=noopener>Writing custom C++20 coroutine systems</a> 中介绍的足够详细，所以视频中关于协程基础的用法我会选择性翻译或者直接略过。</p><p>也就是说，本文假设你已经了解了协程的基础知识，例如 Promise，Awaitable 等等</p><p>重点摘录后半部分对于调度的讲述内容。</p><h2 id=why-coroutine>Why coroutine</h2><p>视频中举了一个例子，实际上这一部分也可以参考隔壁<a class=link href=https://learn.microsoft.com/en-us/dotnet/csharp/asynchronous-programming/ target=_blank rel=noopener>微软 C# 的异步文档</a>，道理是一样的。</p><p>协程非常有用，如果你需要异步计算（例如GPU，TPU）或者做异步I/O</p><p>没有协程：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span><span class=lnt>20
+</span><span class=lnt>21
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=kt>void</span> <span class=nf>cpu_work</span><span class=p>()</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=n>cpu_matmul</span><span class=p>(</span><span class=n>matA</span><span class=p>,</span> <span class=n>matB</span><span class=p>...);</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=kt>void</span> <span class=nf>gpu_work</span><span class=p>()</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=n>cudaStream_t</span> <span class=n>stream</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=n>cudaStreamCreate</span><span class=p>(</span><span class=n>stream</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=n>gpu_matmul</span><span class=o>&lt;&lt;&lt;</span><span class=mi>8</span><span class=p>,</span> <span class=mi>256</span><span class=p>,</span> <span class=mi>0</span><span class=o>&gt;&gt;&gt;</span><span class=p>(</span><span class=n>matA</span><span class=p>,</span> <span class=n>matB</span><span class=p>,</span> <span class=p>...);</span>
+</span></span><span class=line><span class=cl>    <span class=n>cudaStreamSynchronize</span><span class=p>(</span><span class=n>stream</span><span class=p>);</span>		<span class=c1>// 这里同步，意味着需要等待 gpu 计算的结果
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=n>cudaStreamDestroy</span><span class=p>(</span><span class=n>stream</span><span class=p>);</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1>// 实际上 CPU(假设CPU只有一个线程) 和 GPU 是独立的，所以完全没必要顺序执行。
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=kt>int</span> <span class=nf>main</span><span class=p>()</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=n>cpu_work</span><span class=p>();</span>
+</span></span><span class=line><span class=cl>    <span class=n>gpu_work</span><span class=p>();</span>
+</span></span><span class=line><span class=cl>    
+</span></span><span class=line><span class=cl>    <span class=c1>// 或者
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=n>gpu_work</span><span class=p>();</span>
+</span></span><span class=line><span class=cl>    <span class=n>cpu_work</span><span class=p>();</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><p>使用协程：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span><span class=lnt>20
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=kt>void</span> <span class=nf>cpu_work</span><span class=p>()</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=n>cpu_matmul</span><span class=p>(</span><span class=n>matA</span><span class=p>,</span> <span class=n>matB</span><span class=p>...);</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=n>Coro</span> <span class=nf>gpu_work</span><span class=p>()</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=n>cudaStream_t</span> <span class=n>stream</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=n>cudaStreamCreate</span><span class=p>(</span><span class=n>stream</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=n>gpu_matmul</span><span class=o>&lt;&lt;&lt;</span><span class=mi>8</span><span class=p>,</span> <span class=mi>256</span><span class=p>,</span> <span class=mi>0</span><span class=o>&gt;&gt;&gt;</span><span class=p>(</span><span class=n>matA</span><span class=p>,</span> <span class=n>matB</span><span class=p>,</span> <span class=p>...);</span>
+</span></span><span class=line><span class=cl>    <span class=k>while</span> <span class=p>(</span><span class=n>cudaStreamQuery</span><span class=p>(</span><span class=n>stream</span><span class=p>)</span> <span class=o>!=</span> <span class=n>cudaSuccess</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=k>co_await</span> <span class=n>std</span><span class=o>::</span><span class=n>suspend_always</span><span class=p>{};</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>    <span class=n>cudaStreamDestroy</span><span class=p>(</span><span class=n>stream</span><span class=p>);</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=kt>int</span> <span class=nf>main</span><span class=p>()</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=k>auto</span> <span class=n>coro</span> <span class=o>=</span> <span class=n>gpu_work</span><span class=p>();</span>
+</span></span><span class=line><span class=cl>    <span class=n>cpu_work</span><span class=p>();</span>
+</span></span><span class=line><span class=cl>    
+</span></span><span class=line><span class=cl>    <span class=k>while</span> <span class=p>(</span><span class=o>!</span><span class=n>coro</span><span class=p>.</span><span class=n>done</span><span class=p>())</span> <span class=p>{</span> <span class=n>coro</span><span class=p>.</span><span class=n>resume</span><span class=p>();</span> <span class=p>}</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><h2 id=coroutinepromise-compilers-view>Coroutine/Promise Compiler&rsquo;s View</h2><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span><span class=lnt>7
+</span><span class=lnt>8
+</span><span class=lnt>9
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=n>Coro</span> <span class=nf>gpu_work</span><span class=p>()</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=n>cudaStream_t</span> <span class=n>stream</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=n>cudaStreamCreate</span><span class=p>(</span><span class=n>stream</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=n>gpu_matmul</span><span class=o>&lt;&lt;&lt;</span><span class=mi>8</span><span class=p>,</span> <span class=mi>256</span><span class=p>,</span> <span class=mi>0</span><span class=o>&gt;&gt;&gt;</span><span class=p>(</span><span class=n>matA</span><span class=p>,</span> <span class=n>matB</span><span class=p>,</span> <span class=p>...);</span>
+</span></span><span class=line><span class=cl>    <span class=k>while</span> <span class=p>(</span><span class=n>cudaStreamQuery</span><span class=p>(</span><span class=n>stream</span><span class=p>)</span> <span class=o>!=</span> <span class=n>cudaSuccess</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=k>co_await</span> <span class=n>std</span><span class=o>::</span><span class=n>suspend_always</span><span class=p>{};</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>    <span class=n>cudaStreamDestroy</span><span class=p>(</span><span class=n>stream</span><span class=p>);</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><p>↓ Complier View</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=n>Coro</span> <span class=nf>gpu_work</span><span class=p>()</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=n>Coro</span><span class=o>::</span><span class=n>promise_type</span> <span class=n>p</span><span class=p>();</span>
+</span></span><span class=line><span class=cl>    <span class=n>Coro</span> <span class=n>coro_obj</span> <span class=o>=</span> <span class=n>p</span><span class=p>.</span><span class=n>get_return_object</span><span class=p>();</span>
+</span></span><span class=line><span class=cl>    <span class=k>try</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=k>co_await</span> <span class=n>p</span><span class=p>.</span><span class=n>initial_suspend</span><span class=p>();</span>
+</span></span><span class=line><span class=cl>        <span class=n>cudaStream_t</span> <span class=n>stream</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>        <span class=n>cudaStreamCreate</span><span class=p>(</span><span class=n>stream</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>        <span class=n>gpu_matmul</span><span class=o>&lt;&lt;&lt;</span><span class=mi>8</span><span class=p>,</span> <span class=mi>256</span><span class=p>,</span> <span class=mi>0</span><span class=o>&gt;&gt;&gt;</span><span class=p>(</span><span class=n>matA</span><span class=p>,</span> <span class=n>matB</span><span class=p>,</span> <span class=p>...);</span>
+</span></span><span class=line><span class=cl>        <span class=k>while</span> <span class=p>(</span><span class=n>cudaStreamQuery</span><span class=p>(</span><span class=n>stream</span><span class=p>)</span> <span class=o>!=</span> <span class=n>cudaSuccess</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>            <span class=k>co_await</span> <span class=n>std</span><span class=o>::</span><span class=n>suspend_always</span><span class=p>{};</span>
+</span></span><span class=line><span class=cl>        <span class=p>}</span>
+</span></span><span class=line><span class=cl>        <span class=n>cudaStreamDestroy</span><span class=p>(</span><span class=n>stream</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span> <span class=k>catch</span> <span class=p>(...)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=n>p</span><span class=p>.</span><span class=n>unhandled_exception</span><span class=p>();</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>    <span class=k>co_await</span> <span class=n>p</span><span class=p>.</span><span class=n>final_suspend</span><span class=p>();</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><p>这就是 promise 和 coroutine 的行为。</p><p>对于 <code>co_await std::suspend_always{};</code> in Compiler View:</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span><span class=lnt>7
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=c1>// compiler transform
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=k>auto</span><span class=o>&amp;&amp;</span> <span class=n>awaiter</span> <span class=o>=</span> <span class=n>std</span><span class=o>::</span><span class=n>suspend_always</span><span class=p>{};</span>
+</span></span><span class=line><span class=cl><span class=k>if</span> <span class=p>(</span><span class=o>!</span><span class=n>awaiter</span><span class=p>.</span><span class=n>await_ready</span><span class=p>())</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=n>awaiter</span><span class=p>.</span><span class=n>await_suspend</span><span class=p>(</span><span class=n>std</span><span class=o>::</span><span class=n>coroutine_handle</span><span class=o>&lt;&gt;</span><span class=p>...);</span>
+</span></span><span class=line><span class=cl>    <span class=c1>// &lt;suspend/resume&gt; 协程在这里选择性的暂停
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=p>}</span>
+</span></span><span class=line><span class=cl><span class=n>awaiter</span><span class=p>.</span><span class=n>await_resume</span><span class=p>();</span>
+</span></span></code></pre></td></tr></table></div></div><p>总而言之一句话：</p><p>Promise 控制协程的行为：<code>initial_suspend()</code>, <code>final_suspend()</code>, exception handling&mldr;</p><p>Awaitable 控制暂停点的行为</p><h2 id=coroutine-handle>Coroutine Handle</h2><p>coroutine handle 就像是指向协程的指针，你可以通过它<strong>访问 promise</strong></p><p>而 <code>std::coroutine_handle&lt;></code> 则是类型擦除版本，<strong>它可以代表所有协程，但也代表了你不能用它访问 promise</strong></p><h2 id=coroutine-tasks-以及-scheduler-apis>Coroutine Tasks 以及 Scheduler APIs</h2><p>接下来举个例子，来编写一个调度器</p><h3 id=单线程调度器>单线程调度器</h3><p>在编写调度器之前，我们先看看想要调度什么样的协程</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span><span class=lnt>20
+</span><span class=lnt>21
+</span><span class=lnt>22
+</span><span class=lnt>23
+</span><span class=lnt>24
+</span><span class=lnt>25
+</span><span class=lnt>26
+</span><span class=lnt>27
+</span><span class=lnt>28
+</span><span class=lnt>29
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=n>Task</span> <span class=nf>TaskA</span><span class=p>(</span><span class=n>Scheduler</span><span class=o>&amp;</span> <span class=n>sch</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=n>std</span><span class=o>::</span><span class=n>cout</span> <span class=o>&lt;&lt;</span> <span class=s>&#34;Hello from TaskA</span><span class=se>\n</span><span class=s>&#34;</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=k>co_await</span> <span class=n>sch</span><span class=p>.</span><span class=n>suspend</span><span class=p>();</span>
+</span></span><span class=line><span class=cl>    <span class=n>std</span><span class=o>::</span><span class=n>cout</span> <span class=o>&lt;&lt;</span> <span class=s>&#34;Executing the TaskA</span><span class=se>\n</span><span class=s>&#34;</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=k>co_await</span> <span class=n>sch</span><span class=p>.</span><span class=n>suspend</span><span class=p>();</span>
+</span></span><span class=line><span class=cl>    <span class=n>std</span><span class=o>::</span><span class=n>cout</span> <span class=o>&lt;&lt;</span> <span class=s>&#34;TaskA finished.</span><span class=se>\n</span><span class=s>&#34;</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=n>Task</span> <span class=nf>TaskB</span><span class=p>(</span><span class=n>Scheduler</span><span class=o>&amp;</span> <span class=n>sch</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=n>std</span><span class=o>::</span><span class=n>cout</span> <span class=o>&lt;&lt;</span> <span class=s>&#34;Hello from TaskB</span><span class=se>\n</span><span class=s>&#34;</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=k>co_await</span> <span class=n>sch</span><span class=p>.</span><span class=n>suspend</span><span class=p>();</span>
+</span></span><span class=line><span class=cl>    <span class=n>std</span><span class=o>::</span><span class=n>cout</span> <span class=o>&lt;&lt;</span> <span class=s>&#34;Executing the TaskB</span><span class=se>\n</span><span class=s>&#34;</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=k>co_await</span> <span class=n>sch</span><span class=p>.</span><span class=n>suspend</span><span class=p>();</span>
+</span></span><span class=line><span class=cl>    <span class=n>std</span><span class=o>::</span><span class=n>cout</span> <span class=o>&lt;&lt;</span> <span class=s>&#34;TaskB finished.</span><span class=se>\n</span><span class=s>&#34;</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1>// emplace: emplace a coroutine handle(task)
+</span></span></span><span class=line><span class=cl><span class=c1>// schedule: 调度所有 emplaced task
+</span></span></span><span class=line><span class=cl><span class=c1>// get_handle: 获取 coroutine handle
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=kt>int</span> <span class=nf>main</span><span class=p>()</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=n>Scheduler</span> <span class=n>sch</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    
+</span></span><span class=line><span class=cl>    <span class=n>sch</span><span class=p>.</span><span class=n>emplace</span><span class=p>(</span><span class=n>TaskA</span><span class=p>(</span><span class=n>sch</span><span class=p>).</span><span class=n>get_handle</span><span class=p>());</span>
+</span></span><span class=line><span class=cl>    <span class=n>sch</span><span class=p>.</span><span class=n>emplace</span><span class=p>(</span><span class=n>TaskB</span><span class=p>(</span><span class=n>sch</span><span class=p>).</span><span class=n>get_handle</span><span class=p>());</span>
+</span></span><span class=line><span class=cl>    
+</span></span><span class=line><span class=cl>    <span class=n>std</span><span class=o>::</span><span class=n>cout</span> <span class=o>&lt;&lt;</span> <span class=s>&#34;Start scheduling...</span><span class=se>\n</span><span class=s>&#34;</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    
+</span></span><span class=line><span class=cl>    <span class=n>sch</span><span class=p>.</span><span class=n>schedule</span><span class=p>();</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=k>struct</span> <span class=nc>Task</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>	<span class=k>struct</span> <span class=nc>promise_type</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    	<span class=n>std</span><span class=o>::</span><span class=n>suspend_always</span> <span class=n>initial_suspend</span><span class=p>()</span> <span class=p>{</span><span class=k>return</span> <span class=p>{};}</span>
+</span></span><span class=line><span class=cl>        <span class=n>std</span><span class=o>::</span><span class=n>suspend_always</span> <span class=n>final_suspend</span><span class=p>()</span> <span class=k>noexcept</span> <span class=p>{</span><span class=k>return</span> <span class=p>{};}</span>
+</span></span><span class=line><span class=cl>        <span class=n>Task</span> <span class=nf>get_return_object</span><span class=p>()</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>            <span class=k>return</span> <span class=n>std</span><span class=o>::</span><span class=n>coroutine_handle</span><span class=o>&lt;</span><span class=n>promise_type</span><span class=o>&gt;::</span><span class=n>from_promise</span><span class=p>(</span><span class=o>*</span><span class=k>this</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>        <span class=p>}</span>
+</span></span><span class=line><span class=cl>        <span class=kt>void</span> <span class=nf>return_void</span><span class=p>()</span> <span class=p>{}</span>
+</span></span><span class=line><span class=cl>        <span class=kt>void</span> <span class=nf>unhandled_exception</span><span class=p>()</span> <span class=p>{}</span>
+</span></span><span class=line><span class=cl>    <span class=p>};</span>
+</span></span><span class=line><span class=cl>    
+</span></span><span class=line><span class=cl>    <span class=n>Task</span><span class=p>(</span><span class=n>std</span><span class=o>::</span><span class=n>coroutine_handle</span><span class=o>&lt;</span><span class=n>promise_type</span><span class=o>&gt;</span> <span class=n>handle</span><span class=p>)</span> <span class=o>:</span> <span class=n>handle</span><span class=p>(</span><span class=n>handle</span><span class=p>)</span> <span class=p>{}</span>
+</span></span><span class=line><span class=cl>    
+</span></span><span class=line><span class=cl>    <span class=k>auto</span> <span class=nf>get_handle</span><span class=p>()</span> <span class=p>{</span><span class=k>return</span> <span class=n>handle</span><span class=p>;}</span>
+</span></span><span class=line><span class=cl>    
+</span></span><span class=line><span class=cl>    <span class=n>std</span><span class=o>::</span><span class=n>coroutine_handle</span><span class=o>&lt;</span><span class=n>promise_type</span><span class=o>&gt;</span> <span class=n>handle</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=p>};</span>
+</span></span></code></pre></td></tr></table></div></div><p>由于 initial_suspend 是 std::suspend_always ，所以在 emplace 后，只会创建协程，而并不执行。</p><p>final_suspend 这里返回什么要思考一下，例如返回 suspend_never 就会很容易 ub</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span><span class=lnt>20
+</span><span class=lnt>21
+</span><span class=lnt>22
+</span><span class=lnt>23
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=k>class</span> <span class=nc>Scheduler</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>	<span class=n>std</span><span class=o>::</span><span class=n>queue</span><span class=o>&lt;</span><span class=n>std</span><span class=o>::</span><span class=n>coroutine_handle</span><span class=o>&lt;&gt;&gt;</span> <span class=n>tasks_</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    
+</span></span><span class=line><span class=cl><span class=k>public</span><span class=o>:</span>
+</span></span><span class=line><span class=cl>    <span class=kt>void</span> <span class=n>emplace</span><span class=p>(</span><span class=n>std</span><span class=o>::</span><span class=n>coroutine_handle</span><span class=o>&lt;&gt;</span> <span class=n>task</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=n>tasks_</span><span class=p>.</span><span class=n>push</span><span class=p>(</span><span class=n>task</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>    
+</span></span><span class=line><span class=cl>    <span class=kt>void</span> <span class=nf>schedule</span><span class=p>()</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=k>while</span><span class=p>(</span><span class=o>!</span><span class=n>tasks_</span><span class=p>.</span><span class=n>empty</span><span class=p>())</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>            <span class=k>auto</span> <span class=n>task</span> <span class=o>=</span> <span class=n>tasks_</span><span class=p>.</span><span class=n>front</span><span class=p>();</span>
+</span></span><span class=line><span class=cl>            <span class=n>tasks_</span><span class=p>.</span><span class=n>pop</span><span class=p>();</span>
+</span></span><span class=line><span class=cl>            <span class=n>task</span><span class=p>.</span><span class=n>resume</span><span class=p>();</span>
+</span></span><span class=line><span class=cl>            <span class=k>if</span> <span class=p>(</span><span class=o>!</span><span class=n>task</span><span class=p>.</span><span class=n>done</span><span class=p>())</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>                <span class=n>tasks_</span><span class=p>.</span><span class=n>push</span><span class=p>(</span><span class=n>task</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>            <span class=p>}</span>
+</span></span><span class=line><span class=cl>        <span class=p>}</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>    
+</span></span><span class=line><span class=cl>    <span class=k>auto</span> <span class=nf>suspend</span><span class=p>()</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=k>return</span> <span class=n>std</span><span class=o>::</span><span class=n>syspend_always</span><span class=p>{};</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl><span class=p>};</span>
+</span></span></code></pre></td></tr></table></div></div><p>如果使用队列的话，结果会是：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span><span class=lnt>7
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>Start scheduling...
+</span></span><span class=line><span class=cl>Hello from TaskA
+</span></span><span class=line><span class=cl>Hello from TaskB
+</span></span><span class=line><span class=cl>Executing the TaskA
+</span></span><span class=line><span class=cl>Executing the TaskB
+</span></span><span class=line><span class=cl>TaskA finished
+</span></span><span class=line><span class=cl>TaskB finished
+</span></span></code></pre></td></tr></table></div></div><p>如果把 scheduler 的队列换成栈呢？变成了类似普通的函数</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span><span class=lnt>7
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>Start scheduling...
+</span></span><span class=line><span class=cl>Hello from TaskB
+</span></span><span class=line><span class=cl>Executing the TaskB
+</span></span><span class=line><span class=cl>TaskB finished
+</span></span><span class=line><span class=cl>Hello from TaskA
+</span></span><span class=line><span class=cl>Executing the TaskA
+</span></span><span class=line><span class=cl>TaskA finished
+</span></span></code></pre></td></tr></table></div></div><h3 id=多线程调度器>多线程调度器</h3><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span><span class=lnt>20
+</span><span class=lnt>21
+</span><span class=lnt>22
+</span><span class=lnt>23
+</span><span class=lnt>24
+</span><span class=lnt>25
+</span><span class=lnt>26
+</span><span class=lnt>27
+</span><span class=lnt>28
+</span><span class=lnt>29
+</span><span class=lnt>30
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=n>Task</span> <span class=nf>TaskA</span><span class=p>(</span><span class=n>Scheduler</span><span class=o>&amp;</span> <span class=n>sch</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=n>std</span><span class=o>::</span><span class=n>cout</span> <span class=o>&lt;&lt;</span> <span class=s>&#34;Hello from TaskA</span><span class=se>\n</span><span class=s>&#34;</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=k>co_await</span> <span class=n>sch</span><span class=p>.</span><span class=n>suspend</span><span class=p>();</span>
+</span></span><span class=line><span class=cl>    <span class=n>std</span><span class=o>::</span><span class=n>cout</span> <span class=o>&lt;&lt;</span> <span class=s>&#34;Executing the TaskA</span><span class=se>\n</span><span class=s>&#34;</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=k>co_await</span> <span class=n>sch</span><span class=p>.</span><span class=n>suspend</span><span class=p>();</span>
+</span></span><span class=line><span class=cl>    <span class=n>std</span><span class=o>::</span><span class=n>cout</span> <span class=o>&lt;&lt;</span> <span class=s>&#34;TaskA finished.</span><span class=se>\n</span><span class=s>&#34;</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=n>Task</span> <span class=nf>TaskB</span><span class=p>(</span><span class=n>Scheduler</span><span class=o>&amp;</span> <span class=n>sch</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=n>std</span><span class=o>::</span><span class=n>cout</span> <span class=o>&lt;&lt;</span> <span class=s>&#34;Hello from TaskB</span><span class=se>\n</span><span class=s>&#34;</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=k>co_await</span> <span class=n>sch</span><span class=p>.</span><span class=n>suspend</span><span class=p>();</span>
+</span></span><span class=line><span class=cl>    <span class=n>std</span><span class=o>::</span><span class=n>cout</span> <span class=o>&lt;&lt;</span> <span class=s>&#34;Executing the TaskB</span><span class=se>\n</span><span class=s>&#34;</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=k>co_await</span> <span class=n>sch</span><span class=p>.</span><span class=n>suspend</span><span class=p>();</span>
+</span></span><span class=line><span class=cl>    <span class=n>std</span><span class=o>::</span><span class=n>cout</span> <span class=o>&lt;&lt;</span> <span class=s>&#34;TaskB finished.</span><span class=se>\n</span><span class=s>&#34;</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1>// emplace: emplace a coroutine handle(task)
+</span></span></span><span class=line><span class=cl><span class=c1>// schedule: 调度所有 emplaced task
+</span></span></span><span class=line><span class=cl><span class=c1>// get_handle: 获取 coroutine handle
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=kt>int</span> <span class=nf>main</span><span class=p>()</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=n>Scheduler</span> <span class=n>sch</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    
+</span></span><span class=line><span class=cl>    <span class=n>sch</span><span class=p>.</span><span class=n>emplace</span><span class=p>(</span><span class=n>TaskA</span><span class=p>(</span><span class=n>sch</span><span class=p>).</span><span class=n>get_handle</span><span class=p>());</span>
+</span></span><span class=line><span class=cl>    <span class=n>sch</span><span class=p>.</span><span class=n>emplace</span><span class=p>(</span><span class=n>TaskB</span><span class=p>(</span><span class=n>sch</span><span class=p>).</span><span class=n>get_handle</span><span class=p>());</span>
+</span></span><span class=line><span class=cl>    
+</span></span><span class=line><span class=cl>    <span class=n>std</span><span class=o>::</span><span class=n>cout</span> <span class=o>&lt;&lt;</span> <span class=s>&#34;Start scheduling...</span><span class=se>\n</span><span class=s>&#34;</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    
+</span></span><span class=line><span class=cl>    <span class=n>sch</span><span class=p>.</span><span class=n>schedule</span><span class=p>();</span>
+</span></span><span class=line><span class=cl>    <span class=n>sch</span><span class=p>.</span><span class=n>wait</span><span class=p>();</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><p>执行的代码大多数没有任何区别，区别在于 Scheduler 的实现</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span><span class=lnt>20
+</span><span class=lnt>21
+</span><span class=lnt>22
+</span><span class=lnt>23
+</span><span class=lnt>24
+</span><span class=lnt>25
+</span><span class=lnt>26
+</span><span class=lnt>27
+</span><span class=lnt>28
+</span><span class=lnt>29
+</span><span class=lnt>30
+</span><span class=lnt>31
+</span><span class=lnt>32
+</span><span class=lnt>33
+</span><span class=lnt>34
+</span><span class=lnt>35
+</span><span class=lnt>36
+</span><span class=lnt>37
+</span><span class=lnt>38
+</span><span class=lnt>39
+</span><span class=lnt>40
+</span><span class=lnt>41
+</span><span class=lnt>42
+</span><span class=lnt>43
+</span><span class=lnt>44
+</span><span class=lnt>45
+</span><span class=lnt>46
+</span><span class=lnt>47
+</span><span class=lnt>48
+</span><span class=lnt>49
+</span><span class=lnt>50
+</span><span class=lnt>51
+</span><span class=lnt>52
+</span><span class=lnt>53
+</span><span class=lnt>54
+</span><span class=lnt>55
+</span><span class=lnt>56
+</span><span class=lnt>57
+</span><span class=lnt>58
+</span><span class=lnt>59
+</span><span class=lnt>60
+</span><span class=lnt>61
+</span><span class=lnt>62
+</span><span class=lnt>63
+</span><span class=lnt>64
+</span><span class=lnt>65
+</span><span class=lnt>66
+</span><span class=lnt>67
+</span><span class=lnt>68
+</span><span class=lnt>69
+</span><span class=lnt>70
+</span><span class=lnt>71
+</span><span class=lnt>72
+</span><span class=lnt>73
+</span><span class=lnt>74
+</span><span class=lnt>75
+</span><span class=lnt>76
+</span><span class=lnt>77
+</span><span class=lnt>78
+</span><span class=lnt>79
+</span><span class=lnt>80
+</span><span class=lnt>81
+</span><span class=lnt>82
+</span><span class=lnt>83
+</span><span class=lnt>84
+</span><span class=lnt>85
+</span><span class=lnt>86
+</span><span class=lnt>87
+</span><span class=lnt>88
+</span><span class=lnt>89
+</span><span class=lnt>90
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=k>class</span> <span class=nc>Scheduler</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl><span class=k>public</span><span class=o>:</span>
+</span></span><span class=line><span class=cl>    <span class=n>Scheduler</span><span class=p>(</span><span class=n>size_t</span> <span class=n>num_threads</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=kt>void</span> <span class=nf>emplace</span><span class=p>(</span><span class=n>std</span><span class=o>::</span><span class=n>coroutine_handle</span><span class=o>&lt;&gt;</span> <span class=n>task</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=k>auto</span> <span class=nf>suspend</span><span class=p>();</span>
+</span></span><span class=line><span class=cl>    <span class=kt>void</span> <span class=nf>schedule</span><span class=p>();</span>
+</span></span><span class=line><span class=cl>    <span class=kt>void</span> <span class=nf>wait</span><span class=p>();</span>
+</span></span><span class=line><span class=cl>    
+</span></span><span class=line><span class=cl><span class=k>private</span><span class=o>:</span>
+</span></span><span class=line><span class=cl>    <span class=kt>void</span> <span class=n>enqueue</span><span class=p>(</span><span class=n>std</span><span class=o>::</span><span class=n>coroutine_handle</span><span class=o>&lt;&gt;</span> <span class=n>task</span><span class=p>);</span>				<span class=c1>// 插入任务准备执行
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=kt>void</span> <span class=nf>process</span><span class=p>(</span><span class=n>std</span><span class=o>::</span><span class=n>coroutine_handle</span><span class=o>&lt;&gt;</span> <span class=n>task</span><span class=p>);</span>				<span class=c1>// 恢复任务
+</span></span></span><span class=line><span class=cl><span class=c1></span>    
+</span></span><span class=line><span class=cl>    <span class=n>std</span><span class=o>::</span><span class=n>vector</span> <span class=o>&lt;</span><span class=n>std</span><span class=o>::</span><span class=n>coroutine_handle</span><span class=o>&lt;&gt;&gt;</span> <span class=n>tasks_</span><span class=p>;</span>			<span class=c1>// 存储所有的任务
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=n>std</span><span class=o>::</span><span class=n>queue</span><span class=o>&lt;</span><span class=n>std</span><span class=o>::</span><span class=n>coroutine_handle</span><span class=o>&lt;&gt;&gt;</span> <span class=n>pending_tasks_</span><span class=p>;</span>		<span class=c1>// 存储可以被恢复的任务
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=n>std</span><span class=o>::</span><span class=n>vector</span><span class=o>&lt;</span><span class=n>std</span><span class=o>::</span><span class=kr>thread</span><span class=o>&gt;</span> <span class=n>workers_</span><span class=p>;</span>						<span class=c1>// 存储所有线程
+</span></span></span><span class=line><span class=cl><span class=c1></span>    
+</span></span><span class=line><span class=cl>    <span class=n>std</span><span class=o>::</span><span class=n>mutex</span> <span class=n>mtx_</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=n>std</span><span class=o>::</span><span class=n>condition_variable</span> <span class=n>cv_</span><span class=p>;</span>							<span class=c1>// block/unblock 现成
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=kt>bool</span> <span class=n>stop_</span><span class=p>{</span><span class=nb>false</span><span class=p>};</span>										<span class=c1>// 让所有线程返回
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=n>std</span><span class=o>::</span><span class=n>atomic</span><span class=o>&lt;</span><span class=n>size_t</span><span class=o>&gt;</span> <span class=n>finished_</span><span class=p>{};</span>						<span class=c1>// 记录完成的任务
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=p>};</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=n>Scheduler</span><span class=o>::</span><span class=n>Scheduler</span><span class=p>(</span><span class=n>size_t</span> <span class=n>num_threads</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=n>workers_</span><span class=p>.</span><span class=n>reserve</span><span class=p>(</span><span class=n>num_threads</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    
+</span></span><span class=line><span class=cl>    <span class=k>for</span> <span class=p>(</span><span class=n>size_t</span> <span class=n>t</span> <span class=o>=</span> <span class=mi>0</span><span class=p>;</span> <span class=n>t</span> <span class=o>&lt;</span> <span class=n>num_threads</span><span class=p>;</span> <span class=o>++</span><span class=n>t</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=n>workers_</span><span class=p>.</span><span class=n>emplace_back</span><span class=p>([</span><span class=k>this</span><span class=p>]()</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>            <span class=k>while</span><span class=p>(</span><span class=nb>true</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>                <span class=c1>// 这里跟普通的调度器唯一的区别就是，std::function&lt;void()&gt; 变成了 std::coroutine_handle&lt;&gt;
+</span></span></span><span class=line><span class=cl><span class=c1></span>                <span class=n>std</span><span class=o>::</span><span class=n>coroutine_handle</span><span class=o>&lt;&gt;</span> <span class=n>task</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>                <span class=p>{</span>
+</span></span><span class=line><span class=cl>                    <span class=n>std</span><span class=o>::</span><span class=n>unique_lock</span> <span class=n>lock</span><span class=p>(</span><span class=n>mtx_</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>                    <span class=c1>// 如果谓词为 true，那么就不阻塞。
+</span></span></span><span class=line><span class=cl><span class=c1></span>                    <span class=n>cv_</span><span class=p>.</span><span class=n>wait</span><span class=p>(</span><span class=n>lock</span><span class=p>,</span> <span class=p>[</span><span class=k>this</span><span class=p>]{</span>
+</span></span><span class=line><span class=cl>                    	<span class=k>return</span> <span class=n>stop_</span> <span class=o>||</span> <span class=p>(</span><span class=o>!</span><span class=n>pending_tasks_</span><span class=p>.</span><span class=n>empty</span><span class=p>());</span>
+</span></span><span class=line><span class=cl>                    <span class=p>});</span>
+</span></span><span class=line><span class=cl>                <span class=p>}</span>
+</span></span><span class=line><span class=cl>                <span class=c1>// 先检查 stop_，如果其为真，那意味着所有的任务执行完毕。
+</span></span></span><span class=line><span class=cl><span class=c1></span>                <span class=k>if</span> <span class=p>(</span><span class=n>stop_</span><span class=p>)</span> <span class=k>return</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>                
+</span></span><span class=line><span class=cl>                <span class=n>task</span> <span class=o>=</span> <span class=n>pending_tasks</span><span class=p>.</span><span class=n>front</span><span class=p>();</span>
+</span></span><span class=line><span class=cl>                <span class=n>pending_tasks</span><span class=p>.</span><span class=n>pop</span><span class=p>();</span>
+</span></span><span class=line><span class=cl>                <span class=k>if</span> <span class=p>(</span><span class=n>task</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>                    <span class=n>process_</span><span class=p>(</span><span class=n>task</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>                <span class=p>}</span>
+</span></span><span class=line><span class=cl>            <span class=p>}</span>
+</span></span><span class=line><span class=cl>        <span class=p>});</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1>// 恢复任务
+</span></span></span><span class=line><span class=cl><span class=c1>// 如果任务没有完成，就把它添加到 等待队列
+</span></span></span><span class=line><span class=cl><span class=c1>// 如果任务完成，就增加 finished_，并检查是否所有任务已经完成
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=kt>void</span> <span class=n>Scheduler</span><span class=o>::</span><span class=n>process_</span><span class=p>(</span><span class=n>std</span><span class=o>::</span><span class=n>coroutine_handle</span><span class=o>&lt;&gt;</span> <span class=n>task</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=n>task</span><span class=p>.</span><span class=n>resume</span><span class=p>();</span>
+</span></span><span class=line><span class=cl>    
+</span></span><span class=line><span class=cl>    <span class=k>if</span> <span class=p>(</span><span class=o>!</span><span class=n>task</span><span class=p>.</span><span class=n>done</span><span class=p>())</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=n>enqueue</span><span class=p>(</span><span class=n>task</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span> <span class=k>else</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=k>if</span> <span class=p>(</span><span class=n>finished</span><span class=p>.</span><span class=n>fetch_add</span><span class=p>(</span><span class=mi>1</span><span class=p>)</span> <span class=o>+</span> <span class=mi>1</span> <span class=o>==</span> <span class=n>tasks_</span><span class=p>.</span><span class=n>size</span><span class=p>())</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>            <span class=n>std</span><span class=o>::</span><span class=n>unique_lock</span> <span class=n>lock</span><span class=p>(</span><span class=n>mtx_</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>            <span class=n>stop_</span> <span class=o>=</span> <span class=nb>true</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>        <span class=p>}</span>
+</span></span><span class=line><span class=cl>        <span class=n>cv_</span><span class=p>.</span><span class=n>notify_all</span><span class=p>();</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=kt>void</span> <span class=n>Scheduler</span><span class=o>::</span><span class=n>enqueue</span><span class=p>(</span><span class=n>std</span><span class=o>::</span><span class=n>coroutine_handle</span><span class=o>&lt;&gt;</span> <span class=n>task</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=n>std</span><span class=o>::</span><span class=n>unique_lock</span> <span class=n>lock</span><span class=p>(</span><span class=n>mtx_</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>        <span class=n>pending_tasks_</span><span class=p>.</span><span class=n>push</span><span class=p>(</span><span class=n>task</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>    <span class=n>cv_</span><span class=p>.</span><span class=n>notify_one</span><span class=p>();</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=kt>void</span> <span class=n>Scheduler</span><span class=o>::</span><span class=n>emplace</span><span class=p>(</span><span class=n>std</span><span class=o>::</span><span class=n>coroutine_handle</span><span class=o>&lt;&gt;</span> <span class=n>task</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=n>tasks_</span><span class=p>.</span><span class=n>emplace_back</span><span class=p>(</span><span class=n>task</span><span class=p>);</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=kt>void</span> <span class=n>Scheduler</span><span class=o>::</span><span class=n>schedule</span><span class=p>()</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=k>for</span> <span class=p>(</span><span class=k>auto</span> <span class=nl>task</span> <span class=p>:</span> <span class=n>tasks_</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=n>enqueue</span><span class=p>(</span><span class=n>task</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=kt>void</span> <span class=n>Scheduler</span><span class=o>::</span><span class=n>wait</span><span class=p>()</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=k>for</span><span class=p>(</span><span class=k>auto</span><span class=o>&amp;</span> <span class=nl>w</span> <span class=p>:</span> <span class=n>workers_</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=n>w</span><span class=p>.</span><span class=n>join</span><span class=p>();</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><p>代码实现还可以，不是特别难。</p><p>接下来的部分是 CPU-GPU 的调度器，这个比较难，对我个人来说也不涉及，所以暂时不翻译。</p></section><footer class=article-footer><section class=article-copyright><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-copyright" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="12" r="9"/><path d="M14.5 9a3.5 4 0 100 6"/></svg>
+<span>Licensed under CC BY-NC-SA 4.0</span></section><section class=article-lastmod><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/></svg>
+<span>最后更新于 Feb 16, 2024 00:00 UTC</span></section></footer></article><footer class=site-footer><section class=copyright>&copy;
+2023 -
+2024 Roses</section><section class=powerby>使用 <a href=https://gohugo.io/ target=_blank rel=noopener>Hugo</a> 构建<br>主题 <b><a href=https://github.com/CaiJimmy/hugo-theme-stack target=_blank rel=noopener data-version=3.26.0>Stack</a></b> 由 <a href=https://jimmycai.com target=_blank rel=noopener>Jimmy</a> 设计</section></footer><div class=pswp tabindex=-1 role=dialog aria-hidden=true><div class=pswp__bg></div><div class=pswp__scroll-wrap><div class=pswp__container><div class=pswp__item></div><div class=pswp__item></div><div class=pswp__item></div></div><div class="pswp__ui pswp__ui--hidden"><div class=pswp__top-bar><div class=pswp__counter></div><button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
+<button class="pswp__button pswp__button--share" title=Share></button>
+<button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
+<button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button><div class=pswp__preloader><div class=pswp__preloader__icn><div class=pswp__preloader__cut><div class=pswp__preloader__donut></div></div></div></div></div><div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap"><div class=pswp__share-tooltip></div></div><button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
+</button>
+<button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)"></button><div class=pswp__caption><div class=pswp__caption__center></div></div></div></div></div><script src=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo=" crossorigin=anonymous defer></script><script src=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU=" crossorigin=anonymous defer></script><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css crossorigin=anonymous><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css crossorigin=anonymous></main></div><script src=https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z+KMkF24hUW8WePSA9HM=" crossorigin=anonymous></script><script type=text/javascript src=/ts/main.js defer></script><script>(function(){const e=document.createElement("link");e.href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap",e.type="text/css",e.rel="stylesheet",document.head.appendChild(e)})()</script></body></html>

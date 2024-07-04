@@ -1,0 +1,159 @@
+<!doctype html><html lang=zh-cn dir=ltr><head><meta charset=utf-8><meta name=viewport content='width=device-width,initial-scale=1'><meta name=description content="设计模式之 装饰器模式"><title>装饰器模式</title>
+<link rel=canonical href=https://rossqaq.github.io/article/design_pattern_decorator/><link rel=stylesheet href=/scss/style.min.0304c6baf04e01a8fe70693791cb744d56a3578a3120a8796cefc66825aa39c7.css><meta property='og:title' content="装饰器模式"><meta property='og:description' content="设计模式之 装饰器模式"><meta property='og:url' content='https://rossqaq.github.io/article/design_pattern_decorator/'><meta property='og:site_name' content='Roses'><meta property='og:type' content='article'><meta property='article:section' content='Post'><meta property='article:published_time' content='2024-03-01T00:00:00+00:00'><meta property='article:modified_time' content='2024-03-01T00:00:00+00:00'><meta name=twitter:title content="装饰器模式"><meta name=twitter:description content="设计模式之 装饰器模式"><link rel="shortcut icon" href=/favicon.png></head><body class=article-page><script>(function(){const e="StackColorScheme";localStorage.getItem(e)||localStorage.setItem(e,"auto")})()</script><script>(function(){const t="StackColorScheme",e=localStorage.getItem(t),n=window.matchMedia("(prefers-color-scheme: dark)").matches===!0;e=="dark"||e==="auto"&&n?document.documentElement.dataset.scheme="dark":document.documentElement.dataset.scheme="light"})()</script><div class="container main-container flex on-phone--column extended"><aside class="sidebar left-sidebar sticky"><button class="hamburger hamburger--spin" type=button id=toggle-menu aria-label=切换菜单>
+<span class=hamburger-box><span class=hamburger-inner></span></span></button><header><figure class=site-avatar><a href=/><img src=/img/avatar_hu57fe4ea25b3b752b8c24bca0d657f08c_427356_300x0_resize_box_3.png width=300 height=300 class=site-logo loading=lazy alt=Avatar>
+</a><span class=emoji>♉</span></figure><div class=site-meta><h1 class=site-name><a href=/>Roses</a></h1><h2 class=site-description>有限的时间，无尽的痛苦。</h2></div></header><ol class=menu-social><li><a href=https://space.bilibili.com/3078464 target=_blank title=Bilibili rel=me><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-brand-bilibili" width="44" height="44" viewBox="0 0 24 24" stroke-width="1.5" stroke="#2c3e50" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M3 10a4 4 0 014-4h10a4 4 0 014 4v6a4 4 0 01-4 4H7a4 4 0 01-4-4v-6z"/><path d="M8 3l2 3"/><path d="M16 3l-2 3"/><path d="M9 13v-2"/><path d="M15 11v2"/></svg></a></li><li><a href=https://github.com/RossQAQ target=_blank title=Github rel=me><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-brand-github" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M9 19c-4.3 1.4-4.3-2.5-6-3m12 5v-3.5c0-1 .1-1.4-.5-2 2.8-.3 5.5-1.4 5.5-6a4.6 4.6.0 00-1.3-3.2 4.2 4.2.0 00-.1-3.2s-1.1-.3-3.5 1.3a12.3 12.3.0 00-6.2.0C6.5 2.8 5.4 3.1 5.4 3.1a4.2 4.2.0 00-.1 3.2A4.6 4.6.0 004 9.5c0 4.6 2.7 5.7 5.5 6-.6.6-.6 1.2-.5 2V21"/></svg></a></li><li><a href='https://music.163.com/playlist?id=109571638&amp;userid=93740300' target=_blank title=网易云音乐 rel=me><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-brand-netease-music" width="44" height="44" viewBox="0 0 24 24" stroke-width="1.5" stroke="#2c3e50" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M9 4c-2.93 1.346-5 5.046-5 8.492C4 17 8 20 12 20s8-3 8-7c0-3.513-3.5-5.513-6-5.513S9 9 9 12c0 2 1.5 3 3 3s3-1 3-3c0-3.513-2-4.508-2-6.515.0-3.504 3.5-2.603 4-1.502"/></svg></a></li><li><a href=mailto:rossqaq@outlook.com target=_blank title=邮件 rel=me><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-mail" width="44" height="44" viewBox="0 0 24 24" stroke-width="1.5" stroke="#2c3e50" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M3 7a2 2 0 012-2h14a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2V7z"/><path d="M3 7l9 6 9-6"/></svg></a></li></ol><ol class=menu id=main-menu><li><a href=/><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-home" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><polyline points="5 12 3 12 12 3 21 12 19 12"/><path d="M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7"/><path d="M9 21v-6a2 2 0 012-2h2a2 2 0 012 2v6"/></svg>
+<span>主页</span></a></li><li><a href=/archives/><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-archive" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><rect x="3" y="4" width="18" height="4" rx="2"/><path d="M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
+<span>归档</span></a></li><li><a href=/search/><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-search" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="10" cy="10" r="7"/><line x1="21" y1="21" x2="15" y2="15"/></svg>
+<span>搜索</span></a></li><li><a href=/%E5%8F%8B%E6%83%85%E9%93%BE%E6%8E%A5/><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-link" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><path d="M10 14a3.5 3.5.0 005 0l4-4a3.5 3.5.0 00-5-5l-.5.5"/><path d="M14 10a3.5 3.5.0 00-5 0l-4 4a3.5 3.5.0 005 5l.5-.5"/></svg>
+<span>友情链接</span></a></li><li class=menu-bottom-section><ol class=menu><li id=dark-mode-toggle><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="8" cy="12" r="2"/><rect x="2" y="6" width="20" height="12" rx="6"/></svg>
+<svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="16" cy="12" r="2"/><rect x="2" y="6" width="20" height="12" rx="6"/></svg>
+<span>暗色模式</span></li></ol></li></ol></aside><aside class="sidebar right-sidebar sticky"><section class="widget archives"><div class=widget-icon><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-hash" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><line x1="5" y1="9" x2="19" y2="9"/><line x1="5" y1="15" x2="19" y2="15"/><line x1="11" y1="4" x2="7" y2="20"/><line x1="17" y1="4" x2="13" y2="20"/></svg></div><h2 class="widget-title section-title">目录</h2><div class=widget--toc><nav id=TableOfContents><ol><li><a href=#实例>实例</a></li><li><a href=#关系变化>关系变化</a></li><li><a href=#装饰器模式>装饰器模式</a></li></ol></nav></div></section></aside><main class="main full-width"><article class=main-article><header class=article-header><div class=article-details><header class=article-category><a href=/categories/cppnotes/ style=background-color:#2a9d8f;color:#fff>C++ 随记
+</a><a href=/categories/techs/ style=background-color:#2a9d8f;color:#fff>技术
+</a><a href=/categories/finished/ style=background-color:#2a9d8f;color:#fff>施工完毕</a></header><div class=article-title-wrapper><h2 class=article-title><a href=/article/design_pattern_decorator/>装饰器模式</a></h2><h3 class=article-subtitle>设计模式之 装饰器模式</h3></div><footer class=article-time><div><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><path d="M11.795 21H5a2 2 0 01-2-2V7a2 2 0 012-2h12a2 2 0 012 2v4"/><circle cx="18" cy="18" r="4"/><path d="M15 3v4"/><path d="M7 3v4"/><path d="M3 11h16"/><path d="M18 16.496V18l1 1"/></svg>
+<time class=article-time--published>Mar 01, 2024</time></div><div><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/></svg>
+<time class=article-time--reading>阅读时长: 2 分钟</time></div></footer></div></header><section class=article-content><p>本文介绍 装饰器模式 模式，参考了 <a class=link href=https://www.bilibili.com/video/BV1Yr4y157Ci target=_blank rel=noopener>https://www.bilibili.com/video/BV1Yr4y157Ci</a></p><h2 id=实例>实例</h2><p>某些情况下可能会过度使用集成。</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span><span class=lnt>20
+</span><span class=lnt>21
+</span><span class=lnt>22
+</span><span class=lnt>23
+</span><span class=lnt>24
+</span><span class=lnt>25
+</span><span class=lnt>26
+</span><span class=lnt>27
+</span><span class=lnt>28
+</span><span class=lnt>29
+</span><span class=lnt>30
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=k>class</span> <span class=nc>Stream</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl><span class=k>public</span><span class=o>:</span>
+</span></span><span class=line><span class=cl>    <span class=k>virtual</span> <span class=kt>char</span> <span class=n>Read</span><span class=p>(</span><span class=kt>int</span> <span class=n>number</span><span class=p>)</span> <span class=o>=</span> <span class=mi>0</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=k>virtual</span> <span class=kt>void</span> <span class=nf>Seek</span><span class=p>(</span><span class=kt>int</span> <span class=n>pos</span><span class=p>)</span> <span class=o>=</span> <span class=mi>0</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=k>virtual</span> <span class=kt>void</span> <span class=nf>Write</span><span class=p>(</span><span class=kt>char</span> <span class=n>data</span><span class=p>)</span> <span class=o>=</span> <span class=mi>0</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=p>};</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=k>class</span> <span class=nc>FileStream</span> <span class=o>:</span> <span class=k>public</span> <span class=n>Stream</span> <span class=p>{...};</span>
+</span></span><span class=line><span class=cl><span class=k>class</span> <span class=nc>MemoryStream</span> <span class=o>:</span> <span class=k>public</span> <span class=n>Stream</span> <span class=p>{...};</span>
+</span></span><span class=line><span class=cl><span class=k>class</span> <span class=nc>NetworkStream</span> <span class=o>:</span> <span class=k>public</span> <span class=n>Stream</span> <span class=p>{...};</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1>// 此时我们想向流加密
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=k>class</span> <span class=nc>CryptoFileStream</span> <span class=o>:</span> <span class=k>public</span> <span class=n>FileStream</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl><span class=k>public</span><span class=o>:</span>
+</span></span><span class=line><span class=cl>    <span class=k>virtual</span> <span class=kt>char</span> <span class=n>Read</span><span class=p>(</span><span class=kt>int</span> <span class=n>number</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=n>FileStream</span><span class=o>::</span><span class=n>Read</span><span class=p>(</span><span class=n>number</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>        <span class=c1>// 其他加密工作
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>    <span class=p>...</span>
+</span></span><span class=line><span class=cl><span class=p>};</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1>// 想引入缓冲
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=k>class</span> <span class=nc>BufferedFileStream</span> <span class=o>:</span> <span class=k>public</span> <span class=n>FileStream</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl><span class=k>public</span><span class=o>:</span>
+</span></span><span class=line><span class=cl>    <span class=k>virtual</span> <span class=kt>char</span> <span class=n>Read</span><span class=p>(</span><span class=kt>int</span> <span class=n>number</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=n>FileStream</span><span class=o>::</span><span class=n>Read</span><span class=p>(</span><span class=n>number</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>        <span class=c1>// buffer
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>    <span class=p>...</span>
+</span></span><span class=line><span class=cl><span class=p>};</span>
+</span></span></code></pre></td></tr></table></div></div><p>难道给每个流都派生一个类吗？如果再做 buffer 呢？如果又加密又要缓冲呢？</p><p>我们可以使用 组合 而不是 继承</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span><span class=lnt>7
+</span><span class=lnt>8
+</span><span class=lnt>9
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=k>class</span> <span class=nc>CryptoFileStream</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>	<span class=n>FileStream</span><span class=o>*</span> <span class=n>stream</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=k>public</span><span class=o>:</span>
+</span></span><span class=line><span class=cl>    <span class=k>virtual</span> <span class=kt>char</span> <span class=n>Read</span><span class=p>(</span><span class=kt>int</span> <span class=n>number</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=n>stream</span><span class=o>-&gt;</span><span class=n>Read</span><span class=p>(</span><span class=n>number</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>        <span class=c1>// 其他加密工作
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>    <span class=p>...</span>
+</span></span><span class=line><span class=cl><span class=p>};</span>
+</span></span></code></pre></td></tr></table></div></div><p>而这时，又有圣旨，<strong>如果你的类中的成员都是一些子类，那么可以不用声明它为子类了</strong>，可以利用多态，在运行时支持。</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span><span class=lnt>20
+</span><span class=lnt>21
+</span><span class=lnt>22
+</span><span class=lnt>23
+</span><span class=lnt>24
+</span><span class=lnt>25
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=c1>// 继承的作用是完成接口的规范
+</span></span></span><span class=line><span class=cl><span class=c1>// 这里很奇妙，既有基类，又有字段
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=k>class</span> <span class=nc>CryptoStream</span> <span class=o>:</span> <span class=k>public</span> <span class=n>Stream</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>	<span class=n>Stream</span><span class=o>*</span> <span class=n>stream</span><span class=p>;</span>		<span class=c1>// new FileStream();
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=k>public</span><span class=o>:</span>
+</span></span><span class=line><span class=cl>    <span class=n>CryptoStream</span><span class=p>(</span><span class=n>Stream</span><span class=o>*</span> <span class=n>strm</span><span class=p>)</span> <span class=o>:</span> <span class=n>stream</span><span class=p>(</span><span class=n>strm</span><span class=p>)</span> <span class=p>{}</span>
+</span></span><span class=line><span class=cl>    <span class=k>virtual</span> <span class=kt>char</span> <span class=nf>Read</span><span class=p>(</span><span class=kt>int</span> <span class=n>number</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=n>stream</span><span class=o>-&gt;</span><span class=n>Read</span><span class=p>(</span><span class=n>number</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>        <span class=c1>// 其他加密工作
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>    <span class=p>...</span>
+</span></span><span class=line><span class=cl><span class=p>};</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=k>class</span> <span class=nc>BufferedStream</span> <span class=o>:</span> <span class=k>public</span> <span class=n>Stream</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>	<span class=n>Stream</span><span class=o>*</span> <span class=n>stream</span><span class=p>;</span>		<span class=c1>// new FileStream();
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=k>public</span><span class=o>:</span>
+</span></span><span class=line><span class=cl>    <span class=n>BufferedStream</span><span class=p>(</span><span class=n>Stream</span><span class=o>*</span> <span class=n>strm</span><span class=p>)</span> <span class=o>:</span> <span class=n>stream</span><span class=p>(</span><span class=n>strm</span><span class=p>)</span> <span class=p>{}</span>
+</span></span><span class=line><span class=cl>    <span class=k>virtual</span> <span class=kt>char</span> <span class=nf>Read</span><span class=p>(</span><span class=kt>int</span> <span class=n>number</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=n>stream</span><span class=o>-&gt;</span><span class=n>Read</span><span class=p>(</span><span class=n>number</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>        <span class=c1>// 其他缓存工作
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>    <span class=p>...</span>
+</span></span><span class=line><span class=cl><span class=p>};</span>
+</span></span><span class=line><span class=cl><span class=c1>// 此时发现 File、Network、Memory流代码都一样，也就是说可以直接省略。
+</span></span></span><span class=line><span class=cl><span class=c1>// 未来也有各种各样的 Stream 可以支持变化。
+</span></span></span></code></pre></td></tr></table></div></div><p>也就是说，让代码在编译时尽量复用，然后在运行时支持其他的不同特性！</p><p>使用方法如下：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=n>FileStream</span><span class=o>*</span> <span class=n>fs</span> <span class=o>=</span> <span class=k>new</span> <span class=n>FileStream</span><span class=p>();</span>
+</span></span><span class=line><span class=cl><span class=n>CryptoStream</span><span class=o>*</span> <span class=n>cs</span> <span class=o>=</span> <span class=k>new</span> <span class=n>CryptoStream</span><span class=p>(</span><span class=n>fs</span><span class=p>);</span>
+</span></span><span class=line><span class=cl><span class=n>BufferedStream</span><span class=o>*</span> <span class=n>bs</span> <span class=o>=</span> <span class=k>new</span> <span class=n>BufferedStream</span><span class=p>(</span><span class=n>fs</span><span class=p>);</span>
+</span></span><span class=line><span class=cl><span class=n>BufferedStream</span><span class=o>*</span> <span class=n>cbs</span> <span class=o>=</span> <span class=k>new</span> <span class=n>BufferedStream</span><span class=p>(</span><span class=n>cs</span><span class=p>);</span>
+</span></span></code></pre></td></tr></table></div></div><p>如果你追求完美的话，可以把类中的 Stream 字段提出来，显然不能提到基类里，因为 FileStream 当然不需要 Stream 这种字段，所以再封装一层中间类 DecoratorStream，CryptoStream和BufferedStream 继承，之后委托构造。</p><p>装饰代表扩展，什么是扩展？在已有的 Stream 上进行其他操作，这也是 装饰器模式 的含义。</p><h2 id=关系变化>关系变化</h2><p>此时的类图由本来疯狂的继承产生的树状变成了：</p><p><img src=/article/design_pattern_decorator/decorator_fixed.png width=490 height=227 srcset="/article/design_pattern_decorator/decorator_fixed_hua18863182f8d4da89850673d62ca50bf_17702_480x0_resize_box_3.png 480w, /article/design_pattern_decorator/decorator_fixed_hua18863182f8d4da89850673d62ca50bf_17702_1024x0_resize_box_3.png 1024w" loading=lazy alt=使用装饰器后 class=gallery-image data-flex-grow=215 data-flex-basis=518px></p><p>组合可以更好的完成我们的目的。</p><h2 id=装饰器模式>装饰器模式</h2><p>某些情况下，我们可能会过度使用继承来为类实现扩展功能，继承会引入<strong>静态的特性</strong>。</p><p>动态（<strong>使用组合</strong>）地给一个对象增加一些额外的职责。就增加功能而言，Decorator 模式比生成子类（继承）更灵活。</p><p><img src=/article/design_pattern_decorator/image-20240302162442680.png width=1077 height=482 srcset="/article/design_pattern_decorator/image-20240302162442680_hu3f4a3b742e15687b0f5105a817611dd9_116552_480x0_resize_box_3.png 480w, /article/design_pattern_decorator/image-20240302162442680_hu3f4a3b742e15687b0f5105a817611dd9_116552_1024x0_resize_box_3.png 1024w" loading=lazy alt=装饰器模式结构 class=gallery-image data-flex-grow=223 data-flex-basis=536px></p><p>通过组合而非集成，装饰器模式实现了在 <strong>运行时</strong> 动态扩展对象功能的能力，而且可以根据需要继续扩展。避免了使用继承的灵活性差。</p><p><strong>装饰器模式在接口上表现为 is-a Component 的继承关系</strong>，即 Decorator 继承了 Component 类的接口。</p><p><strong>但在实现中装饰器模式又表现为 has-a Component 的组合关系</strong>，即 Decorator 又使用了另外一个 Component 类。</p><p>非常精妙。</p><p>Decorator 模式为了解决：主题类在多个方向上的扩展功能。</p></section><footer class=article-footer><section class=article-copyright><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-copyright" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="12" r="9"/><path d="M14.5 9a3.5 4 0 100 6"/></svg>
+<span>Licensed under CC BY-NC-SA 4.0</span></section><section class=article-lastmod><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/></svg>
+<span>最后更新于 Mar 01, 2024 00:00 UTC</span></section></footer></article><footer class=site-footer><section class=copyright>&copy;
+2023 -
+2024 Roses</section><section class=powerby>使用 <a href=https://gohugo.io/ target=_blank rel=noopener>Hugo</a> 构建<br>主题 <b><a href=https://github.com/CaiJimmy/hugo-theme-stack target=_blank rel=noopener data-version=3.26.0>Stack</a></b> 由 <a href=https://jimmycai.com target=_blank rel=noopener>Jimmy</a> 设计</section></footer><div class=pswp tabindex=-1 role=dialog aria-hidden=true><div class=pswp__bg></div><div class=pswp__scroll-wrap><div class=pswp__container><div class=pswp__item></div><div class=pswp__item></div><div class=pswp__item></div></div><div class="pswp__ui pswp__ui--hidden"><div class=pswp__top-bar><div class=pswp__counter></div><button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
+<button class="pswp__button pswp__button--share" title=Share></button>
+<button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
+<button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button><div class=pswp__preloader><div class=pswp__preloader__icn><div class=pswp__preloader__cut><div class=pswp__preloader__donut></div></div></div></div></div><div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap"><div class=pswp__share-tooltip></div></div><button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
+</button>
+<button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)"></button><div class=pswp__caption><div class=pswp__caption__center></div></div></div></div></div><script src=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo=" crossorigin=anonymous defer></script><script src=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU=" crossorigin=anonymous defer></script><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css crossorigin=anonymous><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css crossorigin=anonymous></main></div><script src=https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z+KMkF24hUW8WePSA9HM=" crossorigin=anonymous></script><script type=text/javascript src=/ts/main.js defer></script><script>(function(){const e=document.createElement("link");e.href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap",e.type="text/css",e.rel="stylesheet",document.head.appendChild(e)})()</script></body></html>

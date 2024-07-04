@@ -1,0 +1,1139 @@
+<!doctype html><html lang=zh-cn dir=ltr><head><meta charset=utf-8><meta name=viewport content='width=device-width,initial-scale=1'><meta name=description content="一起学习使用 liburing 在网络编程中的使用"><title>io_uring P3 - 实现 webserver</title>
+<link rel=canonical href=https://rossqaq.github.io/article/io_uring-web/><link rel=stylesheet href=/scss/style.min.0304c6baf04e01a8fe70693791cb744d56a3578a3120a8796cefc66825aa39c7.css><meta property='og:title' content="io_uring P3 - 实现 webserver"><meta property='og:description' content="一起学习使用 liburing 在网络编程中的使用"><meta property='og:url' content='https://rossqaq.github.io/article/io_uring-web/'><meta property='og:site_name' content='Roses'><meta property='og:type' content='article'><meta property='article:section' content='Post'><meta property='article:published_time' content='2024-02-26T00:00:00+00:00'><meta property='article:modified_time' content='2024-02-26T00:00:00+00:00'><meta name=twitter:title content="io_uring P3 - 实现 webserver"><meta name=twitter:description content="一起学习使用 liburing 在网络编程中的使用"><link rel="shortcut icon" href=/favicon.png></head><body class=article-page><script>(function(){const e="StackColorScheme";localStorage.getItem(e)||localStorage.setItem(e,"auto")})()</script><script>(function(){const t="StackColorScheme",e=localStorage.getItem(t),n=window.matchMedia("(prefers-color-scheme: dark)").matches===!0;e=="dark"||e==="auto"&&n?document.documentElement.dataset.scheme="dark":document.documentElement.dataset.scheme="light"})()</script><div class="container main-container flex on-phone--column extended"><aside class="sidebar left-sidebar sticky"><button class="hamburger hamburger--spin" type=button id=toggle-menu aria-label=切换菜单>
+<span class=hamburger-box><span class=hamburger-inner></span></span></button><header><figure class=site-avatar><a href=/><img src=/img/avatar_hu57fe4ea25b3b752b8c24bca0d657f08c_427356_300x0_resize_box_3.png width=300 height=300 class=site-logo loading=lazy alt=Avatar>
+</a><span class=emoji>♉</span></figure><div class=site-meta><h1 class=site-name><a href=/>Roses</a></h1><h2 class=site-description>有限的时间，无尽的痛苦。</h2></div></header><ol class=menu-social><li><a href=https://space.bilibili.com/3078464 target=_blank title=Bilibili rel=me><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-brand-bilibili" width="44" height="44" viewBox="0 0 24 24" stroke-width="1.5" stroke="#2c3e50" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M3 10a4 4 0 014-4h10a4 4 0 014 4v6a4 4 0 01-4 4H7a4 4 0 01-4-4v-6z"/><path d="M8 3l2 3"/><path d="M16 3l-2 3"/><path d="M9 13v-2"/><path d="M15 11v2"/></svg></a></li><li><a href=https://github.com/RossQAQ target=_blank title=Github rel=me><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-brand-github" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M9 19c-4.3 1.4-4.3-2.5-6-3m12 5v-3.5c0-1 .1-1.4-.5-2 2.8-.3 5.5-1.4 5.5-6a4.6 4.6.0 00-1.3-3.2 4.2 4.2.0 00-.1-3.2s-1.1-.3-3.5 1.3a12.3 12.3.0 00-6.2.0C6.5 2.8 5.4 3.1 5.4 3.1a4.2 4.2.0 00-.1 3.2A4.6 4.6.0 004 9.5c0 4.6 2.7 5.7 5.5 6-.6.6-.6 1.2-.5 2V21"/></svg></a></li><li><a href='https://music.163.com/playlist?id=109571638&amp;userid=93740300' target=_blank title=网易云音乐 rel=me><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-brand-netease-music" width="44" height="44" viewBox="0 0 24 24" stroke-width="1.5" stroke="#2c3e50" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M9 4c-2.93 1.346-5 5.046-5 8.492C4 17 8 20 12 20s8-3 8-7c0-3.513-3.5-5.513-6-5.513S9 9 9 12c0 2 1.5 3 3 3s3-1 3-3c0-3.513-2-4.508-2-6.515.0-3.504 3.5-2.603 4-1.502"/></svg></a></li><li><a href=mailto:rossqaq@outlook.com target=_blank title=邮件 rel=me><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-mail" width="44" height="44" viewBox="0 0 24 24" stroke-width="1.5" stroke="#2c3e50" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M3 7a2 2 0 012-2h14a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2V7z"/><path d="M3 7l9 6 9-6"/></svg></a></li></ol><ol class=menu id=main-menu><li><a href=/><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-home" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><polyline points="5 12 3 12 12 3 21 12 19 12"/><path d="M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7"/><path d="M9 21v-6a2 2 0 012-2h2a2 2 0 012 2v6"/></svg>
+<span>主页</span></a></li><li><a href=/archives/><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-archive" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><rect x="3" y="4" width="18" height="4" rx="2"/><path d="M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
+<span>归档</span></a></li><li><a href=/search/><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-search" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="10" cy="10" r="7"/><line x1="21" y1="21" x2="15" y2="15"/></svg>
+<span>搜索</span></a></li><li><a href=/%E5%8F%8B%E6%83%85%E9%93%BE%E6%8E%A5/><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-link" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><path d="M10 14a3.5 3.5.0 005 0l4-4a3.5 3.5.0 00-5-5l-.5.5"/><path d="M14 10a3.5 3.5.0 00-5 0l-4 4a3.5 3.5.0 005 5l.5-.5"/></svg>
+<span>友情链接</span></a></li><li class=menu-bottom-section><ol class=menu><li id=dark-mode-toggle><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="8" cy="12" r="2"/><rect x="2" y="6" width="20" height="12" rx="6"/></svg>
+<svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="16" cy="12" r="2"/><rect x="2" y="6" width="20" height="12" rx="6"/></svg>
+<span>暗色模式</span></li></ol></li></ol></aside><aside class="sidebar right-sidebar sticky"><section class="widget archives"><div class=widget-icon><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-hash" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><line x1="5" y1="9" x2="19" y2="9"/><line x1="5" y1="15" x2="19" y2="15"/><line x1="11" y1="4" x2="7" y2="20"/><line x1="17" y1="4" x2="13" y2="20"/></svg></div><h2 class="widget-title section-title">目录</h2><div class=widget--toc><nav id=TableOfContents><ol><li><a href=#简介>简介</a></li><li><a href=#web-server>web server</a></li><li><a href=#程序结构>程序结构</a></li><li><a href=#conclusion>Conclusion</a><ol><li><a href=#source-code>Source code</a></li></ol></li><li><a href=#about-me>About me</a></li></ol></nav></div></section></aside><main class="main full-width"><article class=main-article><header class=article-header><div class=article-details><header class=article-category><a href=/categories/io-uring/ style=background-color:#2a9d8f;color:#fff>io_uring
+</a><a href=/categories/techs/ style=background-color:#2a9d8f;color:#fff>技术
+</a><a href=/categories/unfinished/ style=background-color:#2a9d8f;color:#fff>施工中</a></header><div class=article-title-wrapper><h2 class=article-title><a href=/article/io_uring-web/>io_uring P3 - 实现 webserver</a></h2><h3 class=article-subtitle>一起学习使用 liburing 在网络编程中的使用</h3></div><footer class=article-time><div><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><path d="M11.795 21H5a2 2 0 01-2-2V7a2 2 0 012-2h12a2 2 0 012 2v4"/><circle cx="18" cy="18" r="4"/><path d="M15 3v4"/><path d="M7 3v4"/><path d="M3 11h16"/><path d="M18 16.496V18l1 1"/></svg>
+<time class=article-time--published>Feb 26, 2024</time></div><div><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/></svg>
+<time class=article-time--reading>阅读时长: 7 分钟</time></div></footer></div></header><section class=article-content><p>本文是文章 <a class=link href=https://unixism.net/2020/04/io-uring-by-example-part-3-a-web-server-with-io-uring/ target=_blank rel=noopener>io_uring By Example: Part 3 - A Web Server with io_uring - Unixism</a> 的翻译与总结。</p><p>同样只摘录重要的部分。</p><p>这一篇文章使用 liburing 来实现了一个 webserver，我们可以看看 io_uring 在网络编程中的应用</p><h2 id=简介>简介</h2><p>这一次，我们来看看 accept 是怎么作用于 io_uring 的，配合 readv/writev，你已经可以编写一个简单的 web server 了。这篇文章的代码类似于 <a class=link href=https://unixism.net/2019/04/linux-applications-performance-introduction/ target=_blank rel=noopener>ZeroHTTPd</a>, 我会使用 io_uring 来实现。</p><h2 id=web-server>web server</h2><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>  1
+</span><span class=lnt>  2
+</span><span class=lnt>  3
+</span><span class=lnt>  4
+</span><span class=lnt>  5
+</span><span class=lnt>  6
+</span><span class=lnt>  7
+</span><span class=lnt>  8
+</span><span class=lnt>  9
+</span><span class=lnt> 10
+</span><span class=lnt> 11
+</span><span class=lnt> 12
+</span><span class=lnt> 13
+</span><span class=lnt> 14
+</span><span class=lnt> 15
+</span><span class=lnt> 16
+</span><span class=lnt> 17
+</span><span class=lnt> 18
+</span><span class=lnt> 19
+</span><span class=lnt> 20
+</span><span class=lnt> 21
+</span><span class=lnt> 22
+</span><span class=lnt> 23
+</span><span class=lnt> 24
+</span><span class=lnt> 25
+</span><span class=lnt> 26
+</span><span class=lnt> 27
+</span><span class=lnt> 28
+</span><span class=lnt> 29
+</span><span class=lnt> 30
+</span><span class=lnt> 31
+</span><span class=lnt> 32
+</span><span class=lnt> 33
+</span><span class=lnt> 34
+</span><span class=lnt> 35
+</span><span class=lnt> 36
+</span><span class=lnt> 37
+</span><span class=lnt> 38
+</span><span class=lnt> 39
+</span><span class=lnt> 40
+</span><span class=lnt> 41
+</span><span class=lnt> 42
+</span><span class=lnt> 43
+</span><span class=lnt> 44
+</span><span class=lnt> 45
+</span><span class=lnt> 46
+</span><span class=lnt> 47
+</span><span class=lnt> 48
+</span><span class=lnt> 49
+</span><span class=lnt> 50
+</span><span class=lnt> 51
+</span><span class=lnt> 52
+</span><span class=lnt> 53
+</span><span class=lnt> 54
+</span><span class=lnt> 55
+</span><span class=lnt> 56
+</span><span class=lnt> 57
+</span><span class=lnt> 58
+</span><span class=lnt> 59
+</span><span class=lnt> 60
+</span><span class=lnt> 61
+</span><span class=lnt> 62
+</span><span class=lnt> 63
+</span><span class=lnt> 64
+</span><span class=lnt> 65
+</span><span class=lnt> 66
+</span><span class=lnt> 67
+</span><span class=lnt> 68
+</span><span class=lnt> 69
+</span><span class=lnt> 70
+</span><span class=lnt> 71
+</span><span class=lnt> 72
+</span><span class=lnt> 73
+</span><span class=lnt> 74
+</span><span class=lnt> 75
+</span><span class=lnt> 76
+</span><span class=lnt> 77
+</span><span class=lnt> 78
+</span><span class=lnt> 79
+</span><span class=lnt> 80
+</span><span class=lnt> 81
+</span><span class=lnt> 82
+</span><span class=lnt> 83
+</span><span class=lnt> 84
+</span><span class=lnt> 85
+</span><span class=lnt> 86
+</span><span class=lnt> 87
+</span><span class=lnt> 88
+</span><span class=lnt> 89
+</span><span class=lnt> 90
+</span><span class=lnt> 91
+</span><span class=lnt> 92
+</span><span class=lnt> 93
+</span><span class=lnt> 94
+</span><span class=lnt> 95
+</span><span class=lnt> 96
+</span><span class=lnt> 97
+</span><span class=lnt> 98
+</span><span class=lnt> 99
+</span><span class=lnt>100
+</span><span class=lnt>101
+</span><span class=lnt>102
+</span><span class=lnt>103
+</span><span class=lnt>104
+</span><span class=lnt>105
+</span><span class=lnt>106
+</span><span class=lnt>107
+</span><span class=lnt>108
+</span><span class=lnt>109
+</span><span class=lnt>110
+</span><span class=lnt>111
+</span><span class=lnt>112
+</span><span class=lnt>113
+</span><span class=lnt>114
+</span><span class=lnt>115
+</span><span class=lnt>116
+</span><span class=lnt>117
+</span><span class=lnt>118
+</span><span class=lnt>119
+</span><span class=lnt>120
+</span><span class=lnt>121
+</span><span class=lnt>122
+</span><span class=lnt>123
+</span><span class=lnt>124
+</span><span class=lnt>125
+</span><span class=lnt>126
+</span><span class=lnt>127
+</span><span class=lnt>128
+</span><span class=lnt>129
+</span><span class=lnt>130
+</span><span class=lnt>131
+</span><span class=lnt>132
+</span><span class=lnt>133
+</span><span class=lnt>134
+</span><span class=lnt>135
+</span><span class=lnt>136
+</span><span class=lnt>137
+</span><span class=lnt>138
+</span><span class=lnt>139
+</span><span class=lnt>140
+</span><span class=lnt>141
+</span><span class=lnt>142
+</span><span class=lnt>143
+</span><span class=lnt>144
+</span><span class=lnt>145
+</span><span class=lnt>146
+</span><span class=lnt>147
+</span><span class=lnt>148
+</span><span class=lnt>149
+</span><span class=lnt>150
+</span><span class=lnt>151
+</span><span class=lnt>152
+</span><span class=lnt>153
+</span><span class=lnt>154
+</span><span class=lnt>155
+</span><span class=lnt>156
+</span><span class=lnt>157
+</span><span class=lnt>158
+</span><span class=lnt>159
+</span><span class=lnt>160
+</span><span class=lnt>161
+</span><span class=lnt>162
+</span><span class=lnt>163
+</span><span class=lnt>164
+</span><span class=lnt>165
+</span><span class=lnt>166
+</span><span class=lnt>167
+</span><span class=lnt>168
+</span><span class=lnt>169
+</span><span class=lnt>170
+</span><span class=lnt>171
+</span><span class=lnt>172
+</span><span class=lnt>173
+</span><span class=lnt>174
+</span><span class=lnt>175
+</span><span class=lnt>176
+</span><span class=lnt>177
+</span><span class=lnt>178
+</span><span class=lnt>179
+</span><span class=lnt>180
+</span><span class=lnt>181
+</span><span class=lnt>182
+</span><span class=lnt>183
+</span><span class=lnt>184
+</span><span class=lnt>185
+</span><span class=lnt>186
+</span><span class=lnt>187
+</span><span class=lnt>188
+</span><span class=lnt>189
+</span><span class=lnt>190
+</span><span class=lnt>191
+</span><span class=lnt>192
+</span><span class=lnt>193
+</span><span class=lnt>194
+</span><span class=lnt>195
+</span><span class=lnt>196
+</span><span class=lnt>197
+</span><span class=lnt>198
+</span><span class=lnt>199
+</span><span class=lnt>200
+</span><span class=lnt>201
+</span><span class=lnt>202
+</span><span class=lnt>203
+</span><span class=lnt>204
+</span><span class=lnt>205
+</span><span class=lnt>206
+</span><span class=lnt>207
+</span><span class=lnt>208
+</span><span class=lnt>209
+</span><span class=lnt>210
+</span><span class=lnt>211
+</span><span class=lnt>212
+</span><span class=lnt>213
+</span><span class=lnt>214
+</span><span class=lnt>215
+</span><span class=lnt>216
+</span><span class=lnt>217
+</span><span class=lnt>218
+</span><span class=lnt>219
+</span><span class=lnt>220
+</span><span class=lnt>221
+</span><span class=lnt>222
+</span><span class=lnt>223
+</span><span class=lnt>224
+</span><span class=lnt>225
+</span><span class=lnt>226
+</span><span class=lnt>227
+</span><span class=lnt>228
+</span><span class=lnt>229
+</span><span class=lnt>230
+</span><span class=lnt>231
+</span><span class=lnt>232
+</span><span class=lnt>233
+</span><span class=lnt>234
+</span><span class=lnt>235
+</span><span class=lnt>236
+</span><span class=lnt>237
+</span><span class=lnt>238
+</span><span class=lnt>239
+</span><span class=lnt>240
+</span><span class=lnt>241
+</span><span class=lnt>242
+</span><span class=lnt>243
+</span><span class=lnt>244
+</span><span class=lnt>245
+</span><span class=lnt>246
+</span><span class=lnt>247
+</span><span class=lnt>248
+</span><span class=lnt>249
+</span><span class=lnt>250
+</span><span class=lnt>251
+</span><span class=lnt>252
+</span><span class=lnt>253
+</span><span class=lnt>254
+</span><span class=lnt>255
+</span><span class=lnt>256
+</span><span class=lnt>257
+</span><span class=lnt>258
+</span><span class=lnt>259
+</span><span class=lnt>260
+</span><span class=lnt>261
+</span><span class=lnt>262
+</span><span class=lnt>263
+</span><span class=lnt>264
+</span><span class=lnt>265
+</span><span class=lnt>266
+</span><span class=lnt>267
+</span><span class=lnt>268
+</span><span class=lnt>269
+</span><span class=lnt>270
+</span><span class=lnt>271
+</span><span class=lnt>272
+</span><span class=lnt>273
+</span><span class=lnt>274
+</span><span class=lnt>275
+</span><span class=lnt>276
+</span><span class=lnt>277
+</span><span class=lnt>278
+</span><span class=lnt>279
+</span><span class=lnt>280
+</span><span class=lnt>281
+</span><span class=lnt>282
+</span><span class=lnt>283
+</span><span class=lnt>284
+</span><span class=lnt>285
+</span><span class=lnt>286
+</span><span class=lnt>287
+</span><span class=lnt>288
+</span><span class=lnt>289
+</span><span class=lnt>290
+</span><span class=lnt>291
+</span><span class=lnt>292
+</span><span class=lnt>293
+</span><span class=lnt>294
+</span><span class=lnt>295
+</span><span class=lnt>296
+</span><span class=lnt>297
+</span><span class=lnt>298
+</span><span class=lnt>299
+</span><span class=lnt>300
+</span><span class=lnt>301
+</span><span class=lnt>302
+</span><span class=lnt>303
+</span><span class=lnt>304
+</span><span class=lnt>305
+</span><span class=lnt>306
+</span><span class=lnt>307
+</span><span class=lnt>308
+</span><span class=lnt>309
+</span><span class=lnt>310
+</span><span class=lnt>311
+</span><span class=lnt>312
+</span><span class=lnt>313
+</span><span class=lnt>314
+</span><span class=lnt>315
+</span><span class=lnt>316
+</span><span class=lnt>317
+</span><span class=lnt>318
+</span><span class=lnt>319
+</span><span class=lnt>320
+</span><span class=lnt>321
+</span><span class=lnt>322
+</span><span class=lnt>323
+</span><span class=lnt>324
+</span><span class=lnt>325
+</span><span class=lnt>326
+</span><span class=lnt>327
+</span><span class=lnt>328
+</span><span class=lnt>329
+</span><span class=lnt>330
+</span><span class=lnt>331
+</span><span class=lnt>332
+</span><span class=lnt>333
+</span><span class=lnt>334
+</span><span class=lnt>335
+</span><span class=lnt>336
+</span><span class=lnt>337
+</span><span class=lnt>338
+</span><span class=lnt>339
+</span><span class=lnt>340
+</span><span class=lnt>341
+</span><span class=lnt>342
+</span><span class=lnt>343
+</span><span class=lnt>344
+</span><span class=lnt>345
+</span><span class=lnt>346
+</span><span class=lnt>347
+</span><span class=lnt>348
+</span><span class=lnt>349
+</span><span class=lnt>350
+</span><span class=lnt>351
+</span><span class=lnt>352
+</span><span class=lnt>353
+</span><span class=lnt>354
+</span><span class=lnt>355
+</span><span class=lnt>356
+</span><span class=lnt>357
+</span><span class=lnt>358
+</span><span class=lnt>359
+</span><span class=lnt>360
+</span><span class=lnt>361
+</span><span class=lnt>362
+</span><span class=lnt>363
+</span><span class=lnt>364
+</span><span class=lnt>365
+</span><span class=lnt>366
+</span><span class=lnt>367
+</span><span class=lnt>368
+</span><span class=lnt>369
+</span><span class=lnt>370
+</span><span class=lnt>371
+</span><span class=lnt>372
+</span><span class=lnt>373
+</span><span class=lnt>374
+</span><span class=lnt>375
+</span><span class=lnt>376
+</span><span class=lnt>377
+</span><span class=lnt>378
+</span><span class=lnt>379
+</span><span class=lnt>380
+</span><span class=lnt>381
+</span><span class=lnt>382
+</span><span class=lnt>383
+</span><span class=lnt>384
+</span><span class=lnt>385
+</span><span class=lnt>386
+</span><span class=lnt>387
+</span><span class=lnt>388
+</span><span class=lnt>389
+</span><span class=lnt>390
+</span><span class=lnt>391
+</span><span class=lnt>392
+</span><span class=lnt>393
+</span><span class=lnt>394
+</span><span class=lnt>395
+</span><span class=lnt>396
+</span><span class=lnt>397
+</span><span class=lnt>398
+</span><span class=lnt>399
+</span><span class=lnt>400
+</span><span class=lnt>401
+</span><span class=lnt>402
+</span><span class=lnt>403
+</span><span class=lnt>404
+</span><span class=lnt>405
+</span><span class=lnt>406
+</span><span class=lnt>407
+</span><span class=lnt>408
+</span><span class=lnt>409
+</span><span class=lnt>410
+</span><span class=lnt>411
+</span><span class=lnt>412
+</span><span class=lnt>413
+</span><span class=lnt>414
+</span><span class=lnt>415
+</span><span class=lnt>416
+</span><span class=lnt>417
+</span><span class=lnt>418
+</span><span class=lnt>419
+</span><span class=lnt>420
+</span><span class=lnt>421
+</span><span class=lnt>422
+</span><span class=lnt>423
+</span><span class=lnt>424
+</span><span class=lnt>425
+</span><span class=lnt>426
+</span><span class=lnt>427
+</span><span class=lnt>428
+</span><span class=lnt>429
+</span><span class=lnt>430
+</span><span class=lnt>431
+</span><span class=lnt>432
+</span><span class=lnt>433
+</span><span class=lnt>434
+</span><span class=lnt>435
+</span><span class=lnt>436
+</span><span class=lnt>437
+</span><span class=lnt>438
+</span><span class=lnt>439
+</span><span class=lnt>440
+</span><span class=lnt>441
+</span><span class=lnt>442
+</span><span class=lnt>443
+</span><span class=lnt>444
+</span><span class=lnt>445
+</span><span class=lnt>446
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=cp>#include</span> <span class=cpf>&lt;stdio.h&gt;</span><span class=cp>
+</span></span></span><span class=line><span class=cl><span class=cp>#include</span> <span class=cpf>&lt;netinet/in.h&gt;</span><span class=cp>
+</span></span></span><span class=line><span class=cl><span class=cp>#include</span> <span class=cpf>&lt;string.h&gt;</span><span class=cp>
+</span></span></span><span class=line><span class=cl><span class=cp>#include</span> <span class=cpf>&lt;ctype.h&gt;</span><span class=cp>
+</span></span></span><span class=line><span class=cl><span class=cp>#include</span> <span class=cpf>&lt;unistd.h&gt;</span><span class=cp>
+</span></span></span><span class=line><span class=cl><span class=cp>#include</span> <span class=cpf>&lt;stdlib.h&gt;</span><span class=cp>
+</span></span></span><span class=line><span class=cl><span class=cp>#include</span> <span class=cpf>&lt;signal.h&gt;</span><span class=cp>
+</span></span></span><span class=line><span class=cl><span class=cp>#include</span> <span class=cpf>&lt;liburing.h&gt;</span><span class=cp>
+</span></span></span><span class=line><span class=cl><span class=cp>#include</span> <span class=cpf>&lt;sys/stat.h&gt;</span><span class=cp>
+</span></span></span><span class=line><span class=cl><span class=cp>#include</span> <span class=cpf>&lt;fcntl.h&gt;</span><span class=cp>
+</span></span></span><span class=line><span class=cl><span class=cp></span>
+</span></span><span class=line><span class=cl><span class=cp>#define SERVER_STRING           &#34;Server: zerohttpd/0.1\r\n&#34;
+</span></span></span><span class=line><span class=cl><span class=cp>#define DEFAULT_SERVER_PORT     8000
+</span></span></span><span class=line><span class=cl><span class=cp>#define QUEUE_DEPTH             256
+</span></span></span><span class=line><span class=cl><span class=cp>#define READ_SZ                 8192
+</span></span></span><span class=line><span class=cl><span class=cp></span>
+</span></span><span class=line><span class=cl><span class=cp>#define EVENT_TYPE_ACCEPT       0
+</span></span></span><span class=line><span class=cl><span class=cp>#define EVENT_TYPE_READ         1
+</span></span></span><span class=line><span class=cl><span class=cp>#define EVENT_TYPE_WRITE        2
+</span></span></span><span class=line><span class=cl><span class=cp></span>
+</span></span><span class=line><span class=cl><span class=k>struct</span> <span class=nc>request</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=kt>int</span> <span class=n>event_type</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=kt>int</span> <span class=n>iovec_count</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=kt>int</span> <span class=n>client_socket</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=k>struct</span> <span class=nc>iovec</span> <span class=n>iov</span><span class=p>[];</span>
+</span></span><span class=line><span class=cl><span class=p>};</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=k>struct</span> <span class=nc>io_uring</span> <span class=n>ring</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=k>const</span> <span class=kt>char</span> <span class=o>*</span><span class=n>unimplemented_content</span> <span class=o>=</span> \
+</span></span><span class=line><span class=cl>        <span class=s>&#34;HTTP/1.0 400 Bad Request</span><span class=se>\r\n</span><span class=s>&#34;</span>
+</span></span><span class=line><span class=cl>        <span class=s>&#34;Content-type: text/html</span><span class=se>\r\n</span><span class=s>&#34;</span>
+</span></span><span class=line><span class=cl>        <span class=s>&#34;</span><span class=se>\r\n</span><span class=s>&#34;</span>
+</span></span><span class=line><span class=cl>        <span class=s>&#34;&lt;html&gt;&#34;</span>
+</span></span><span class=line><span class=cl>        <span class=s>&#34;&lt;head&gt;&#34;</span>
+</span></span><span class=line><span class=cl>        <span class=s>&#34;&lt;title&gt;ZeroHTTPd: Unimplemented&lt;/title&gt;&#34;</span>
+</span></span><span class=line><span class=cl>        <span class=s>&#34;&lt;/head&gt;&#34;</span>
+</span></span><span class=line><span class=cl>        <span class=s>&#34;&lt;body&gt;&#34;</span>
+</span></span><span class=line><span class=cl>        <span class=s>&#34;&lt;h1&gt;Bad Request (Unimplemented)&lt;/h1&gt;&#34;</span>
+</span></span><span class=line><span class=cl>        <span class=s>&#34;&lt;p&gt;Your client sent a request ZeroHTTPd did not understand and it is probably not your fault.&lt;/p&gt;&#34;</span>
+</span></span><span class=line><span class=cl>        <span class=s>&#34;&lt;/body&gt;&#34;</span>
+</span></span><span class=line><span class=cl>        <span class=s>&#34;&lt;/html&gt;&#34;</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=k>const</span> <span class=kt>char</span> <span class=o>*</span><span class=n>http_404_content</span> <span class=o>=</span> \
+</span></span><span class=line><span class=cl>        <span class=s>&#34;HTTP/1.0 404 Not Found</span><span class=se>\r\n</span><span class=s>&#34;</span>
+</span></span><span class=line><span class=cl>        <span class=s>&#34;Content-type: text/html</span><span class=se>\r\n</span><span class=s>&#34;</span>
+</span></span><span class=line><span class=cl>        <span class=s>&#34;</span><span class=se>\r\n</span><span class=s>&#34;</span>
+</span></span><span class=line><span class=cl>        <span class=s>&#34;&lt;html&gt;&#34;</span>
+</span></span><span class=line><span class=cl>        <span class=s>&#34;&lt;head&gt;&#34;</span>
+</span></span><span class=line><span class=cl>        <span class=s>&#34;&lt;title&gt;ZeroHTTPd: Not Found&lt;/title&gt;&#34;</span>
+</span></span><span class=line><span class=cl>        <span class=s>&#34;&lt;/head&gt;&#34;</span>
+</span></span><span class=line><span class=cl>        <span class=s>&#34;&lt;body&gt;&#34;</span>
+</span></span><span class=line><span class=cl>        <span class=s>&#34;&lt;h1&gt;Not Found (404)&lt;/h1&gt;&#34;</span>
+</span></span><span class=line><span class=cl>        <span class=s>&#34;&lt;p&gt;Your client is asking for an object that was not found on this server.&lt;/p&gt;&#34;</span>
+</span></span><span class=line><span class=cl>        <span class=s>&#34;&lt;/body&gt;&#34;</span>
+</span></span><span class=line><span class=cl>        <span class=s>&#34;&lt;/html&gt;&#34;</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=cm>/*
+</span></span></span><span class=line><span class=cl><span class=cm> * Utility function to convert a string to lower case.
+</span></span></span><span class=line><span class=cl><span class=cm> * */</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=kt>void</span> <span class=nf>strtolower</span><span class=p>(</span><span class=kt>char</span> <span class=o>*</span><span class=n>str</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=k>for</span> <span class=p>(;</span> <span class=o>*</span><span class=n>str</span><span class=p>;</span> <span class=o>++</span><span class=n>str</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>        <span class=o>*</span><span class=n>str</span> <span class=o>=</span> <span class=p>(</span><span class=kt>char</span><span class=p>)</span><span class=n>tolower</span><span class=p>(</span><span class=o>*</span><span class=n>str</span><span class=p>);</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span><span class=line><span class=cl><span class=cm>/*
+</span></span></span><span class=line><span class=cl><span class=cm> One function that prints the system call and the error details
+</span></span></span><span class=line><span class=cl><span class=cm> and then exits with error code 1. Non-zero meaning things didn&#39;t go well.
+</span></span></span><span class=line><span class=cl><span class=cm> */</span>
+</span></span><span class=line><span class=cl><span class=kt>void</span> <span class=nf>fatal_error</span><span class=p>(</span><span class=k>const</span> <span class=kt>char</span> <span class=o>*</span><span class=n>syscall</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=n>perror</span><span class=p>(</span><span class=n>syscall</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=n>exit</span><span class=p>(</span><span class=mi>1</span><span class=p>);</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=cm>/*
+</span></span></span><span class=line><span class=cl><span class=cm> * Helper function for cleaner looking code.
+</span></span></span><span class=line><span class=cl><span class=cm> * */</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=kt>void</span> <span class=o>*</span><span class=nf>zh_malloc</span><span class=p>(</span><span class=n>size_t</span> <span class=n>size</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=kt>void</span> <span class=o>*</span><span class=n>buf</span> <span class=o>=</span> <span class=n>malloc</span><span class=p>(</span><span class=n>size</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=k>if</span> <span class=p>(</span><span class=o>!</span><span class=n>buf</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=n>fprintf</span><span class=p>(</span><span class=n>stderr</span><span class=p>,</span> <span class=s>&#34;Fatal error: unable to allocate memory.</span><span class=se>\n</span><span class=s>&#34;</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>        <span class=n>exit</span><span class=p>(</span><span class=mi>1</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>    <span class=k>return</span> <span class=n>buf</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=cm>/*
+</span></span></span><span class=line><span class=cl><span class=cm> * This function is responsible for setting up the main listening socket used by the
+</span></span></span><span class=line><span class=cl><span class=cm> * web server.
+</span></span></span><span class=line><span class=cl><span class=cm> * */</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=kt>int</span> <span class=nf>setup_listening_socket</span><span class=p>(</span><span class=kt>int</span> <span class=n>port</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=kt>int</span> <span class=n>sock</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=k>struct</span> <span class=nc>sockaddr_in</span> <span class=n>srv_addr</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=n>sock</span> <span class=o>=</span> <span class=n>socket</span><span class=p>(</span><span class=n>PF_INET</span><span class=p>,</span> <span class=n>SOCK_STREAM</span><span class=p>,</span> <span class=mi>0</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=k>if</span> <span class=p>(</span><span class=n>sock</span> <span class=o>==</span> <span class=o>-</span><span class=mi>1</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>        <span class=n>fatal_error</span><span class=p>(</span><span class=s>&#34;socket()&#34;</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=kt>int</span> <span class=n>enable</span> <span class=o>=</span> <span class=mi>1</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=k>if</span> <span class=p>(</span><span class=n>setsockopt</span><span class=p>(</span><span class=n>sock</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>                   <span class=n>SOL_SOCKET</span><span class=p>,</span> <span class=n>SO_REUSEADDR</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>                   <span class=o>&amp;</span><span class=n>enable</span><span class=p>,</span> <span class=k>sizeof</span><span class=p>(</span><span class=kt>int</span><span class=p>))</span> <span class=o>&lt;</span> <span class=mi>0</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>        <span class=n>fatal_error</span><span class=p>(</span><span class=s>&#34;setsockopt(SO_REUSEADDR)&#34;</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=n>memset</span><span class=p>(</span><span class=o>&amp;</span><span class=n>srv_addr</span><span class=p>,</span> <span class=mi>0</span><span class=p>,</span> <span class=k>sizeof</span><span class=p>(</span><span class=n>srv_addr</span><span class=p>));</span>
+</span></span><span class=line><span class=cl>    <span class=n>srv_addr</span><span class=p>.</span><span class=n>sin_family</span> <span class=o>=</span> <span class=n>AF_INET</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=n>srv_addr</span><span class=p>.</span><span class=n>sin_port</span> <span class=o>=</span> <span class=n>htons</span><span class=p>(</span><span class=n>port</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=n>srv_addr</span><span class=p>.</span><span class=n>sin_addr</span><span class=p>.</span><span class=n>s_addr</span> <span class=o>=</span> <span class=n>htonl</span><span class=p>(</span><span class=n>INADDR_ANY</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=cm>/* We bind to a port and turn this socket into a listening
+</span></span></span><span class=line><span class=cl><span class=cm>     * socket.
+</span></span></span><span class=line><span class=cl><span class=cm>     * */</span>
+</span></span><span class=line><span class=cl>    <span class=k>if</span> <span class=p>(</span><span class=n>bind</span><span class=p>(</span><span class=n>sock</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>             <span class=p>(</span><span class=k>const</span> <span class=k>struct</span> <span class=nc>sockaddr</span> <span class=o>*</span><span class=p>)</span><span class=o>&amp;</span><span class=n>srv_addr</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>             <span class=k>sizeof</span><span class=p>(</span><span class=n>srv_addr</span><span class=p>))</span> <span class=o>&lt;</span> <span class=mi>0</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>        <span class=n>fatal_error</span><span class=p>(</span><span class=s>&#34;bind()&#34;</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=k>if</span> <span class=p>(</span><span class=n>listen</span><span class=p>(</span><span class=n>sock</span><span class=p>,</span> <span class=mi>10</span><span class=p>)</span> <span class=o>&lt;</span> <span class=mi>0</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>        <span class=n>fatal_error</span><span class=p>(</span><span class=s>&#34;listen()&#34;</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=k>return</span> <span class=p>(</span><span class=n>sock</span><span class=p>);</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=kt>int</span> <span class=nf>add_accept_request</span><span class=p>(</span><span class=kt>int</span> <span class=n>server_socket</span><span class=p>,</span> <span class=k>struct</span> <span class=nc>sockaddr_in</span> <span class=o>*</span><span class=n>client_addr</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>                       <span class=n>socklen_t</span> <span class=o>*</span><span class=n>client_addr_len</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=k>struct</span> <span class=nc>io_uring_sqe</span> <span class=o>*</span><span class=n>sqe</span> <span class=o>=</span> <span class=n>io_uring_get_sqe</span><span class=p>(</span><span class=o>&amp;</span><span class=n>ring</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=n>io_uring_prep_accept</span><span class=p>(</span><span class=n>sqe</span><span class=p>,</span> <span class=n>server_socket</span><span class=p>,</span> <span class=p>(</span><span class=k>struct</span> <span class=nc>sockaddr</span> <span class=o>*</span><span class=p>)</span> <span class=n>client_addr</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>                         <span class=n>client_addr_len</span><span class=p>,</span> <span class=mi>0</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=k>struct</span> <span class=nc>request</span> <span class=o>*</span><span class=n>req</span> <span class=o>=</span> <span class=n>malloc</span><span class=p>(</span><span class=k>sizeof</span><span class=p>(</span><span class=o>*</span><span class=n>req</span><span class=p>));</span>
+</span></span><span class=line><span class=cl>    <span class=n>req</span><span class=o>-&gt;</span><span class=n>event_type</span> <span class=o>=</span> <span class=n>EVENT_TYPE_ACCEPT</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=n>io_uring_sqe_set_data</span><span class=p>(</span><span class=n>sqe</span><span class=p>,</span> <span class=n>req</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=n>io_uring_submit</span><span class=p>(</span><span class=o>&amp;</span><span class=n>ring</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=k>return</span> <span class=mi>0</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=kt>int</span> <span class=nf>add_read_request</span><span class=p>(</span><span class=kt>int</span> <span class=n>client_socket</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=k>struct</span> <span class=nc>io_uring_sqe</span> <span class=o>*</span><span class=n>sqe</span> <span class=o>=</span> <span class=n>io_uring_get_sqe</span><span class=p>(</span><span class=o>&amp;</span><span class=n>ring</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=k>struct</span> <span class=nc>request</span> <span class=o>*</span><span class=n>req</span> <span class=o>=</span> <span class=n>malloc</span><span class=p>(</span><span class=k>sizeof</span><span class=p>(</span><span class=o>*</span><span class=n>req</span><span class=p>)</span> <span class=o>+</span> <span class=k>sizeof</span><span class=p>(</span><span class=k>struct</span> <span class=nc>iovec</span><span class=p>));</span>
+</span></span><span class=line><span class=cl>    <span class=n>req</span><span class=o>-&gt;</span><span class=n>iov</span><span class=p>[</span><span class=mi>0</span><span class=p>].</span><span class=n>iov_base</span> <span class=o>=</span> <span class=n>malloc</span><span class=p>(</span><span class=n>READ_SZ</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=n>req</span><span class=o>-&gt;</span><span class=n>iov</span><span class=p>[</span><span class=mi>0</span><span class=p>].</span><span class=n>iov_len</span> <span class=o>=</span> <span class=n>READ_SZ</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=n>req</span><span class=o>-&gt;</span><span class=n>event_type</span> <span class=o>=</span> <span class=n>EVENT_TYPE_READ</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=n>req</span><span class=o>-&gt;</span><span class=n>client_socket</span> <span class=o>=</span> <span class=n>client_socket</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=n>memset</span><span class=p>(</span><span class=n>req</span><span class=o>-&gt;</span><span class=n>iov</span><span class=p>[</span><span class=mi>0</span><span class=p>].</span><span class=n>iov_base</span><span class=p>,</span> <span class=mi>0</span><span class=p>,</span> <span class=n>READ_SZ</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=cm>/* Linux kernel 5.5 has support for readv, but not for recv() or read() */</span>
+</span></span><span class=line><span class=cl>    <span class=n>io_uring_prep_readv</span><span class=p>(</span><span class=n>sqe</span><span class=p>,</span> <span class=n>client_socket</span><span class=p>,</span> <span class=o>&amp;</span><span class=n>req</span><span class=o>-&gt;</span><span class=n>iov</span><span class=p>[</span><span class=mi>0</span><span class=p>],</span> <span class=mi>1</span><span class=p>,</span> <span class=mi>0</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=n>io_uring_sqe_set_data</span><span class=p>(</span><span class=n>sqe</span><span class=p>,</span> <span class=n>req</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=n>io_uring_submit</span><span class=p>(</span><span class=o>&amp;</span><span class=n>ring</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=k>return</span> <span class=mi>0</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=kt>int</span> <span class=nf>add_write_request</span><span class=p>(</span><span class=k>struct</span> <span class=nc>request</span> <span class=o>*</span><span class=n>req</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=k>struct</span> <span class=nc>io_uring_sqe</span> <span class=o>*</span><span class=n>sqe</span> <span class=o>=</span> <span class=n>io_uring_get_sqe</span><span class=p>(</span><span class=o>&amp;</span><span class=n>ring</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=n>req</span><span class=o>-&gt;</span><span class=n>event_type</span> <span class=o>=</span> <span class=n>EVENT_TYPE_WRITE</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=n>io_uring_prep_writev</span><span class=p>(</span><span class=n>sqe</span><span class=p>,</span> <span class=n>req</span><span class=o>-&gt;</span><span class=n>client_socket</span><span class=p>,</span> <span class=n>req</span><span class=o>-&gt;</span><span class=n>iov</span><span class=p>,</span> <span class=n>req</span><span class=o>-&gt;</span><span class=n>iovec_count</span><span class=p>,</span> <span class=mi>0</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=n>io_uring_sqe_set_data</span><span class=p>(</span><span class=n>sqe</span><span class=p>,</span> <span class=n>req</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=n>io_uring_submit</span><span class=p>(</span><span class=o>&amp;</span><span class=n>ring</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=k>return</span> <span class=mi>0</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=kt>void</span> <span class=nf>_send_static_string_content</span><span class=p>(</span><span class=k>const</span> <span class=kt>char</span> <span class=o>*</span><span class=n>str</span><span class=p>,</span> <span class=kt>int</span> <span class=n>client_socket</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=k>struct</span> <span class=nc>request</span> <span class=o>*</span><span class=n>req</span> <span class=o>=</span> <span class=n>zh_malloc</span><span class=p>(</span><span class=k>sizeof</span><span class=p>(</span><span class=o>*</span><span class=n>req</span><span class=p>)</span> <span class=o>+</span> <span class=k>sizeof</span><span class=p>(</span><span class=k>struct</span> <span class=nc>iovec</span><span class=p>));</span>
+</span></span><span class=line><span class=cl>    <span class=kt>unsigned</span> <span class=kt>long</span> <span class=n>slen</span> <span class=o>=</span> <span class=n>strlen</span><span class=p>(</span><span class=n>str</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=n>req</span><span class=o>-&gt;</span><span class=n>iovec_count</span> <span class=o>=</span> <span class=mi>1</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=n>req</span><span class=o>-&gt;</span><span class=n>client_socket</span> <span class=o>=</span> <span class=n>client_socket</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=n>req</span><span class=o>-&gt;</span><span class=n>iov</span><span class=p>[</span><span class=mi>0</span><span class=p>].</span><span class=n>iov_base</span> <span class=o>=</span> <span class=n>zh_malloc</span><span class=p>(</span><span class=n>slen</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=n>req</span><span class=o>-&gt;</span><span class=n>iov</span><span class=p>[</span><span class=mi>0</span><span class=p>].</span><span class=n>iov_len</span> <span class=o>=</span> <span class=n>slen</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=n>memcpy</span><span class=p>(</span><span class=n>req</span><span class=o>-&gt;</span><span class=n>iov</span><span class=p>[</span><span class=mi>0</span><span class=p>].</span><span class=n>iov_base</span><span class=p>,</span> <span class=n>str</span><span class=p>,</span> <span class=n>slen</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=n>add_write_request</span><span class=p>(</span><span class=n>req</span><span class=p>);</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=cm>/*
+</span></span></span><span class=line><span class=cl><span class=cm> * When ZeroHTTPd encounters any other HTTP method other than GET or POST, this function
+</span></span></span><span class=line><span class=cl><span class=cm> * is used to inform the client.
+</span></span></span><span class=line><span class=cl><span class=cm> * */</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=kt>void</span> <span class=nf>handle_unimplemented_method</span><span class=p>(</span><span class=kt>int</span> <span class=n>client_socket</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=n>_send_static_string_content</span><span class=p>(</span><span class=n>unimplemented_content</span><span class=p>,</span> <span class=n>client_socket</span><span class=p>);</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=cm>/*
+</span></span></span><span class=line><span class=cl><span class=cm> * This function is used to send a &#34;HTTP Not Found&#34; code and message to the client in
+</span></span></span><span class=line><span class=cl><span class=cm> * case the file requested is not found.
+</span></span></span><span class=line><span class=cl><span class=cm> * */</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=kt>void</span> <span class=nf>handle_http_404</span><span class=p>(</span><span class=kt>int</span> <span class=n>client_socket</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=n>_send_static_string_content</span><span class=p>(</span><span class=n>http_404_content</span><span class=p>,</span> <span class=n>client_socket</span><span class=p>);</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=cm>/*
+</span></span></span><span class=line><span class=cl><span class=cm> * Once a static file is identified to be served, this function is used to read the file
+</span></span></span><span class=line><span class=cl><span class=cm> * and write it over the client socket using Linux&#39;s sendfile() system call. This saves us
+</span></span></span><span class=line><span class=cl><span class=cm> * the hassle of transferring file buffers from kernel to user space and back.
+</span></span></span><span class=line><span class=cl><span class=cm> * */</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=kt>void</span> <span class=nf>copy_file_contents</span><span class=p>(</span><span class=kt>char</span> <span class=o>*</span><span class=n>file_path</span><span class=p>,</span> <span class=n>off_t</span> <span class=n>file_size</span><span class=p>,</span> <span class=k>struct</span> <span class=nc>iovec</span> <span class=o>*</span><span class=n>iov</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=kt>int</span> <span class=n>fd</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=kt>char</span> <span class=o>*</span><span class=n>buf</span> <span class=o>=</span> <span class=n>zh_malloc</span><span class=p>(</span><span class=n>file_size</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=n>fd</span> <span class=o>=</span> <span class=n>open</span><span class=p>(</span><span class=n>file_path</span><span class=p>,</span> <span class=n>O_RDONLY</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=k>if</span> <span class=p>(</span><span class=n>fd</span> <span class=o>&lt;</span> <span class=mi>0</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>        <span class=n>fatal_error</span><span class=p>(</span><span class=s>&#34;read&#34;</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=cm>/* We should really check for short reads here */</span>
+</span></span><span class=line><span class=cl>    <span class=kt>int</span> <span class=n>ret</span> <span class=o>=</span> <span class=n>read</span><span class=p>(</span><span class=n>fd</span><span class=p>,</span> <span class=n>buf</span><span class=p>,</span> <span class=n>file_size</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=k>if</span> <span class=p>(</span><span class=n>ret</span> <span class=o>&lt;</span> <span class=n>file_size</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=n>fprintf</span><span class=p>(</span><span class=n>stderr</span><span class=p>,</span> <span class=s>&#34;Encountered a short read.</span><span class=se>\n</span><span class=s>&#34;</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>    <span class=n>close</span><span class=p>(</span><span class=n>fd</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=n>iov</span><span class=o>-&gt;</span><span class=n>iov_base</span> <span class=o>=</span> <span class=n>buf</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=n>iov</span><span class=o>-&gt;</span><span class=n>iov_len</span> <span class=o>=</span> <span class=n>file_size</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=cm>/*
+</span></span></span><span class=line><span class=cl><span class=cm> * Simple function to get the file extension of the file that we are about to serve.
+</span></span></span><span class=line><span class=cl><span class=cm> * */</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=k>const</span> <span class=kt>char</span> <span class=o>*</span><span class=nf>get_filename_ext</span><span class=p>(</span><span class=k>const</span> <span class=kt>char</span> <span class=o>*</span><span class=n>filename</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=k>const</span> <span class=kt>char</span> <span class=o>*</span><span class=n>dot</span> <span class=o>=</span> <span class=n>strrchr</span><span class=p>(</span><span class=n>filename</span><span class=p>,</span> <span class=sc>&#39;.&#39;</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=k>if</span> <span class=p>(</span><span class=o>!</span><span class=n>dot</span> <span class=o>||</span> <span class=n>dot</span> <span class=o>==</span> <span class=n>filename</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>        <span class=k>return</span> <span class=s>&#34;&#34;</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=k>return</span> <span class=n>dot</span> <span class=o>+</span> <span class=mi>1</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=cm>/*
+</span></span></span><span class=line><span class=cl><span class=cm> * Sends the HTTP 200 OK header, the server string, for a few types of files, it can also
+</span></span></span><span class=line><span class=cl><span class=cm> * send the content type based on the file extension. It also sends the content length
+</span></span></span><span class=line><span class=cl><span class=cm> * header. Finally it send a &#39;\r\n&#39; in a line by itself signalling the end of headers
+</span></span></span><span class=line><span class=cl><span class=cm> * and the beginning of any content.
+</span></span></span><span class=line><span class=cl><span class=cm> * */</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=kt>void</span> <span class=nf>send_headers</span><span class=p>(</span><span class=k>const</span> <span class=kt>char</span> <span class=o>*</span><span class=n>path</span><span class=p>,</span> <span class=n>off_t</span> <span class=n>len</span><span class=p>,</span> <span class=k>struct</span> <span class=nc>iovec</span> <span class=o>*</span><span class=n>iov</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=kt>char</span> <span class=n>small_case_path</span><span class=p>[</span><span class=mi>1024</span><span class=p>];</span>
+</span></span><span class=line><span class=cl>    <span class=kt>char</span> <span class=n>send_buffer</span><span class=p>[</span><span class=mi>1024</span><span class=p>];</span>
+</span></span><span class=line><span class=cl>    <span class=n>strcpy</span><span class=p>(</span><span class=n>small_case_path</span><span class=p>,</span> <span class=n>path</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=n>strtolower</span><span class=p>(</span><span class=n>small_case_path</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=kt>char</span> <span class=o>*</span><span class=n>str</span> <span class=o>=</span> <span class=s>&#34;HTTP/1.0 200 OK</span><span class=se>\r\n</span><span class=s>&#34;</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=kt>unsigned</span> <span class=kt>long</span> <span class=n>slen</span> <span class=o>=</span> <span class=n>strlen</span><span class=p>(</span><span class=n>str</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=n>iov</span><span class=p>[</span><span class=mi>0</span><span class=p>].</span><span class=n>iov_base</span> <span class=o>=</span> <span class=n>zh_malloc</span><span class=p>(</span><span class=n>slen</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=n>iov</span><span class=p>[</span><span class=mi>0</span><span class=p>].</span><span class=n>iov_len</span> <span class=o>=</span> <span class=n>slen</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=n>memcpy</span><span class=p>(</span><span class=n>iov</span><span class=p>[</span><span class=mi>0</span><span class=p>].</span><span class=n>iov_base</span><span class=p>,</span> <span class=n>str</span><span class=p>,</span> <span class=n>slen</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=n>slen</span> <span class=o>=</span> <span class=n>strlen</span><span class=p>(</span><span class=n>SERVER_STRING</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=n>iov</span><span class=p>[</span><span class=mi>1</span><span class=p>].</span><span class=n>iov_base</span> <span class=o>=</span> <span class=n>zh_malloc</span><span class=p>(</span><span class=n>slen</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=n>iov</span><span class=p>[</span><span class=mi>1</span><span class=p>].</span><span class=n>iov_len</span> <span class=o>=</span> <span class=n>slen</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=n>memcpy</span><span class=p>(</span><span class=n>iov</span><span class=p>[</span><span class=mi>1</span><span class=p>].</span><span class=n>iov_base</span><span class=p>,</span> <span class=n>SERVER_STRING</span><span class=p>,</span> <span class=n>slen</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=cm>/*
+</span></span></span><span class=line><span class=cl><span class=cm>     * Check the file extension for certain common types of files
+</span></span></span><span class=line><span class=cl><span class=cm>     * on web pages and send the appropriate content-type header.
+</span></span></span><span class=line><span class=cl><span class=cm>     * Since extensions can be mixed case like JPG, jpg or Jpg,
+</span></span></span><span class=line><span class=cl><span class=cm>     * we turn the extension into lower case before checking.
+</span></span></span><span class=line><span class=cl><span class=cm>     * */</span>
+</span></span><span class=line><span class=cl>    <span class=k>const</span> <span class=kt>char</span> <span class=o>*</span><span class=n>file_ext</span> <span class=o>=</span> <span class=n>get_filename_ext</span><span class=p>(</span><span class=n>small_case_path</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=k>if</span> <span class=p>(</span><span class=n>strcmp</span><span class=p>(</span><span class=s>&#34;jpg&#34;</span><span class=p>,</span> <span class=n>file_ext</span><span class=p>)</span> <span class=o>==</span> <span class=mi>0</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>        <span class=n>strcpy</span><span class=p>(</span><span class=n>send_buffer</span><span class=p>,</span> <span class=s>&#34;Content-Type: image/jpeg</span><span class=se>\r\n</span><span class=s>&#34;</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=k>if</span> <span class=p>(</span><span class=n>strcmp</span><span class=p>(</span><span class=s>&#34;jpeg&#34;</span><span class=p>,</span> <span class=n>file_ext</span><span class=p>)</span> <span class=o>==</span> <span class=mi>0</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>        <span class=n>strcpy</span><span class=p>(</span><span class=n>send_buffer</span><span class=p>,</span> <span class=s>&#34;Content-Type: image/jpeg</span><span class=se>\r\n</span><span class=s>&#34;</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=k>if</span> <span class=p>(</span><span class=n>strcmp</span><span class=p>(</span><span class=s>&#34;png&#34;</span><span class=p>,</span> <span class=n>file_ext</span><span class=p>)</span> <span class=o>==</span> <span class=mi>0</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>        <span class=n>strcpy</span><span class=p>(</span><span class=n>send_buffer</span><span class=p>,</span> <span class=s>&#34;Content-Type: image/png</span><span class=se>\r\n</span><span class=s>&#34;</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=k>if</span> <span class=p>(</span><span class=n>strcmp</span><span class=p>(</span><span class=s>&#34;gif&#34;</span><span class=p>,</span> <span class=n>file_ext</span><span class=p>)</span> <span class=o>==</span> <span class=mi>0</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>        <span class=n>strcpy</span><span class=p>(</span><span class=n>send_buffer</span><span class=p>,</span> <span class=s>&#34;Content-Type: image/gif</span><span class=se>\r\n</span><span class=s>&#34;</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=k>if</span> <span class=p>(</span><span class=n>strcmp</span><span class=p>(</span><span class=s>&#34;htm&#34;</span><span class=p>,</span> <span class=n>file_ext</span><span class=p>)</span> <span class=o>==</span> <span class=mi>0</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>        <span class=n>strcpy</span><span class=p>(</span><span class=n>send_buffer</span><span class=p>,</span> <span class=s>&#34;Content-Type: text/html</span><span class=se>\r\n</span><span class=s>&#34;</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=k>if</span> <span class=p>(</span><span class=n>strcmp</span><span class=p>(</span><span class=s>&#34;html&#34;</span><span class=p>,</span> <span class=n>file_ext</span><span class=p>)</span> <span class=o>==</span> <span class=mi>0</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>        <span class=n>strcpy</span><span class=p>(</span><span class=n>send_buffer</span><span class=p>,</span> <span class=s>&#34;Content-Type: text/html</span><span class=se>\r\n</span><span class=s>&#34;</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=k>if</span> <span class=p>(</span><span class=n>strcmp</span><span class=p>(</span><span class=s>&#34;js&#34;</span><span class=p>,</span> <span class=n>file_ext</span><span class=p>)</span> <span class=o>==</span> <span class=mi>0</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>        <span class=n>strcpy</span><span class=p>(</span><span class=n>send_buffer</span><span class=p>,</span> <span class=s>&#34;Content-Type: application/javascript</span><span class=se>\r\n</span><span class=s>&#34;</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=k>if</span> <span class=p>(</span><span class=n>strcmp</span><span class=p>(</span><span class=s>&#34;css&#34;</span><span class=p>,</span> <span class=n>file_ext</span><span class=p>)</span> <span class=o>==</span> <span class=mi>0</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>        <span class=n>strcpy</span><span class=p>(</span><span class=n>send_buffer</span><span class=p>,</span> <span class=s>&#34;Content-Type: text/css</span><span class=se>\r\n</span><span class=s>&#34;</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=k>if</span> <span class=p>(</span><span class=n>strcmp</span><span class=p>(</span><span class=s>&#34;txt&#34;</span><span class=p>,</span> <span class=n>file_ext</span><span class=p>)</span> <span class=o>==</span> <span class=mi>0</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>        <span class=n>strcpy</span><span class=p>(</span><span class=n>send_buffer</span><span class=p>,</span> <span class=s>&#34;Content-Type: text/plain</span><span class=se>\r\n</span><span class=s>&#34;</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=n>slen</span> <span class=o>=</span> <span class=n>strlen</span><span class=p>(</span><span class=n>send_buffer</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=n>iov</span><span class=p>[</span><span class=mi>2</span><span class=p>].</span><span class=n>iov_base</span> <span class=o>=</span> <span class=n>zh_malloc</span><span class=p>(</span><span class=n>slen</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=n>iov</span><span class=p>[</span><span class=mi>2</span><span class=p>].</span><span class=n>iov_len</span> <span class=o>=</span> <span class=n>slen</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=n>memcpy</span><span class=p>(</span><span class=n>iov</span><span class=p>[</span><span class=mi>2</span><span class=p>].</span><span class=n>iov_base</span><span class=p>,</span> <span class=n>send_buffer</span><span class=p>,</span> <span class=n>slen</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=cm>/* Send the content-length header, which is the file size in this case. */</span>
+</span></span><span class=line><span class=cl>    <span class=n>sprintf</span><span class=p>(</span><span class=n>send_buffer</span><span class=p>,</span> <span class=s>&#34;content-length: %ld</span><span class=se>\r\n</span><span class=s>&#34;</span><span class=p>,</span> <span class=n>len</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=n>slen</span> <span class=o>=</span> <span class=n>strlen</span><span class=p>(</span><span class=n>send_buffer</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=n>iov</span><span class=p>[</span><span class=mi>3</span><span class=p>].</span><span class=n>iov_base</span> <span class=o>=</span> <span class=n>zh_malloc</span><span class=p>(</span><span class=n>slen</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=n>iov</span><span class=p>[</span><span class=mi>3</span><span class=p>].</span><span class=n>iov_len</span> <span class=o>=</span> <span class=n>slen</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=n>memcpy</span><span class=p>(</span><span class=n>iov</span><span class=p>[</span><span class=mi>3</span><span class=p>].</span><span class=n>iov_base</span><span class=p>,</span> <span class=n>send_buffer</span><span class=p>,</span> <span class=n>slen</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=cm>/*
+</span></span></span><span class=line><span class=cl><span class=cm>     * When the browser sees a &#39;\r\n&#39; sequence in a line on its own,
+</span></span></span><span class=line><span class=cl><span class=cm>     * it understands there are no more headers. Content may follow.
+</span></span></span><span class=line><span class=cl><span class=cm>     * */</span>
+</span></span><span class=line><span class=cl>    <span class=n>strcpy</span><span class=p>(</span><span class=n>send_buffer</span><span class=p>,</span> <span class=s>&#34;</span><span class=se>\r\n</span><span class=s>&#34;</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=n>slen</span> <span class=o>=</span> <span class=n>strlen</span><span class=p>(</span><span class=n>send_buffer</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=n>iov</span><span class=p>[</span><span class=mi>4</span><span class=p>].</span><span class=n>iov_base</span> <span class=o>=</span> <span class=n>zh_malloc</span><span class=p>(</span><span class=n>slen</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=n>iov</span><span class=p>[</span><span class=mi>4</span><span class=p>].</span><span class=n>iov_len</span> <span class=o>=</span> <span class=n>slen</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=n>memcpy</span><span class=p>(</span><span class=n>iov</span><span class=p>[</span><span class=mi>4</span><span class=p>].</span><span class=n>iov_base</span><span class=p>,</span> <span class=n>send_buffer</span><span class=p>,</span> <span class=n>slen</span><span class=p>);</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=kt>void</span> <span class=nf>handle_get_method</span><span class=p>(</span><span class=kt>char</span> <span class=o>*</span><span class=n>path</span><span class=p>,</span> <span class=kt>int</span> <span class=n>client_socket</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=kt>char</span> <span class=n>final_path</span><span class=p>[</span><span class=mi>1024</span><span class=p>];</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=cm>/*
+</span></span></span><span class=line><span class=cl><span class=cm>     If a path ends in a trailing slash, the client probably wants the index
+</span></span></span><span class=line><span class=cl><span class=cm>     file inside of that directory.
+</span></span></span><span class=line><span class=cl><span class=cm>     */</span>
+</span></span><span class=line><span class=cl>    <span class=k>if</span> <span class=p>(</span><span class=n>path</span><span class=p>[</span><span class=n>strlen</span><span class=p>(</span><span class=n>path</span><span class=p>)</span> <span class=o>-</span> <span class=mi>1</span><span class=p>]</span> <span class=o>==</span> <span class=sc>&#39;/&#39;</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=n>strcpy</span><span class=p>(</span><span class=n>final_path</span><span class=p>,</span> <span class=s>&#34;public&#34;</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>        <span class=n>strcat</span><span class=p>(</span><span class=n>final_path</span><span class=p>,</span> <span class=n>path</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>        <span class=n>strcat</span><span class=p>(</span><span class=n>final_path</span><span class=p>,</span> <span class=s>&#34;index.html&#34;</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>    <span class=k>else</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=n>strcpy</span><span class=p>(</span><span class=n>final_path</span><span class=p>,</span> <span class=s>&#34;public&#34;</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>        <span class=n>strcat</span><span class=p>(</span><span class=n>final_path</span><span class=p>,</span> <span class=n>path</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=cm>/* The stat() system call will give you information about the file
+</span></span></span><span class=line><span class=cl><span class=cm>     * like type (regular file, directory, etc), size, etc. */</span>
+</span></span><span class=line><span class=cl>    <span class=k>struct</span> <span class=nc>stat</span> <span class=n>path_stat</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=k>if</span> <span class=p>(</span><span class=n>stat</span><span class=p>(</span><span class=n>final_path</span><span class=p>,</span> <span class=o>&amp;</span><span class=n>path_stat</span><span class=p>)</span> <span class=o>==</span> <span class=o>-</span><span class=mi>1</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=n>printf</span><span class=p>(</span><span class=s>&#34;404 Not Found: %s (%s)</span><span class=se>\n</span><span class=s>&#34;</span><span class=p>,</span> <span class=n>final_path</span><span class=p>,</span> <span class=n>path</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>        <span class=n>handle_http_404</span><span class=p>(</span><span class=n>client_socket</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>    <span class=k>else</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=cm>/* Check if this is a normal/regular file and not a directory or something else */</span>
+</span></span><span class=line><span class=cl>        <span class=k>if</span> <span class=p>(</span><span class=n>S_ISREG</span><span class=p>(</span><span class=n>path_stat</span><span class=p>.</span><span class=n>st_mode</span><span class=p>))</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>            <span class=k>struct</span> <span class=nc>request</span> <span class=o>*</span><span class=n>req</span> <span class=o>=</span> <span class=n>zh_malloc</span><span class=p>(</span><span class=k>sizeof</span><span class=p>(</span><span class=o>*</span><span class=n>req</span><span class=p>)</span> <span class=o>+</span> <span class=p>(</span><span class=k>sizeof</span><span class=p>(</span><span class=k>struct</span> <span class=nc>iovec</span><span class=p>)</span> <span class=o>*</span> <span class=mi>6</span><span class=p>));</span>
+</span></span><span class=line><span class=cl>            <span class=n>req</span><span class=o>-&gt;</span><span class=n>iovec_count</span> <span class=o>=</span> <span class=mi>6</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>            <span class=n>req</span><span class=o>-&gt;</span><span class=n>client_socket</span> <span class=o>=</span> <span class=n>client_socket</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>            <span class=n>send_headers</span><span class=p>(</span><span class=n>final_path</span><span class=p>,</span> <span class=n>path_stat</span><span class=p>.</span><span class=n>st_size</span><span class=p>,</span> <span class=n>req</span><span class=o>-&gt;</span><span class=n>iov</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>            <span class=n>copy_file_contents</span><span class=p>(</span><span class=n>final_path</span><span class=p>,</span> <span class=n>path_stat</span><span class=p>.</span><span class=n>st_size</span><span class=p>,</span> <span class=o>&amp;</span><span class=n>req</span><span class=o>-&gt;</span><span class=n>iov</span><span class=p>[</span><span class=mi>5</span><span class=p>]);</span>
+</span></span><span class=line><span class=cl>            <span class=n>printf</span><span class=p>(</span><span class=s>&#34;200 %s %ld bytes</span><span class=se>\n</span><span class=s>&#34;</span><span class=p>,</span> <span class=n>final_path</span><span class=p>,</span> <span class=n>path_stat</span><span class=p>.</span><span class=n>st_size</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>            <span class=n>add_write_request</span><span class=p>(</span> <span class=n>req</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>        <span class=p>}</span>
+</span></span><span class=line><span class=cl>        <span class=k>else</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>            <span class=n>handle_http_404</span><span class=p>(</span><span class=n>client_socket</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>            <span class=n>printf</span><span class=p>(</span><span class=s>&#34;404 Not Found: %s</span><span class=se>\n</span><span class=s>&#34;</span><span class=p>,</span> <span class=n>final_path</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>        <span class=p>}</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=cm>/*
+</span></span></span><span class=line><span class=cl><span class=cm> * This function looks at method used and calls the appropriate handler function.
+</span></span></span><span class=line><span class=cl><span class=cm> * Since we only implement GET and POST methods, it calls handle_unimplemented_method()
+</span></span></span><span class=line><span class=cl><span class=cm> * in case both these don&#39;t match. This sends an error to the client.
+</span></span></span><span class=line><span class=cl><span class=cm> * */</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=kt>void</span> <span class=nf>handle_http_method</span><span class=p>(</span><span class=kt>char</span> <span class=o>*</span><span class=n>method_buffer</span><span class=p>,</span> <span class=kt>int</span> <span class=n>client_socket</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=kt>char</span> <span class=o>*</span><span class=n>method</span><span class=p>,</span> <span class=o>*</span><span class=n>path</span><span class=p>,</span> <span class=o>*</span><span class=n>saveptr</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=n>method</span> <span class=o>=</span> <span class=n>strtok_r</span><span class=p>(</span><span class=n>method_buffer</span><span class=p>,</span> <span class=s>&#34; &#34;</span><span class=p>,</span> <span class=o>&amp;</span><span class=n>saveptr</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=n>strtolower</span><span class=p>(</span><span class=n>method</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=n>path</span> <span class=o>=</span> <span class=n>strtok_r</span><span class=p>(</span><span class=nb>NULL</span><span class=p>,</span> <span class=s>&#34; &#34;</span><span class=p>,</span> <span class=o>&amp;</span><span class=n>saveptr</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=k>if</span> <span class=p>(</span><span class=n>strcmp</span><span class=p>(</span><span class=n>method</span><span class=p>,</span> <span class=s>&#34;get&#34;</span><span class=p>)</span> <span class=o>==</span> <span class=mi>0</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=n>handle_get_method</span><span class=p>(</span><span class=n>path</span><span class=p>,</span> <span class=n>client_socket</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>    <span class=k>else</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=n>handle_unimplemented_method</span><span class=p>(</span><span class=n>client_socket</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=kt>int</span> <span class=nf>get_line</span><span class=p>(</span><span class=k>const</span> <span class=kt>char</span> <span class=o>*</span><span class=n>src</span><span class=p>,</span> <span class=kt>char</span> <span class=o>*</span><span class=n>dest</span><span class=p>,</span> <span class=kt>int</span> <span class=n>dest_sz</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=k>for</span> <span class=p>(</span><span class=kt>int</span> <span class=n>i</span> <span class=o>=</span> <span class=mi>0</span><span class=p>;</span> <span class=n>i</span> <span class=o>&lt;</span> <span class=n>dest_sz</span><span class=p>;</span> <span class=n>i</span><span class=o>++</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=n>dest</span><span class=p>[</span><span class=n>i</span><span class=p>]</span> <span class=o>=</span> <span class=n>src</span><span class=p>[</span><span class=n>i</span><span class=p>];</span>
+</span></span><span class=line><span class=cl>        <span class=k>if</span> <span class=p>(</span><span class=n>src</span><span class=p>[</span><span class=n>i</span><span class=p>]</span> <span class=o>==</span> <span class=sc>&#39;\r&#39;</span> <span class=o>&amp;&amp;</span> <span class=n>src</span><span class=p>[</span><span class=n>i</span><span class=o>+</span><span class=mi>1</span><span class=p>]</span> <span class=o>==</span> <span class=sc>&#39;\n&#39;</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>            <span class=n>dest</span><span class=p>[</span><span class=n>i</span><span class=p>]</span> <span class=o>=</span> <span class=sc>&#39;\0&#39;</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>            <span class=k>return</span> <span class=mi>0</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>        <span class=p>}</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>    <span class=k>return</span> <span class=mi>1</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=kt>int</span> <span class=nf>handle_client_request</span><span class=p>(</span><span class=k>struct</span> <span class=nc>request</span> <span class=o>*</span><span class=n>req</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=kt>char</span> <span class=n>http_request</span><span class=p>[</span><span class=mi>1024</span><span class=p>];</span>
+</span></span><span class=line><span class=cl>    <span class=cm>/* Get the first line, which will be the request */</span>
+</span></span><span class=line><span class=cl>    <span class=k>if</span><span class=p>(</span><span class=n>get_line</span><span class=p>(</span><span class=n>req</span><span class=o>-&gt;</span><span class=n>iov</span><span class=p>[</span><span class=mi>0</span><span class=p>].</span><span class=n>iov_base</span><span class=p>,</span> <span class=n>http_request</span><span class=p>,</span> <span class=k>sizeof</span><span class=p>(</span><span class=n>http_request</span><span class=p>)))</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=n>fprintf</span><span class=p>(</span><span class=n>stderr</span><span class=p>,</span> <span class=s>&#34;Malformed request</span><span class=se>\n</span><span class=s>&#34;</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>        <span class=n>exit</span><span class=p>(</span><span class=mi>1</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>    <span class=n>handle_http_method</span><span class=p>(</span><span class=n>http_request</span><span class=p>,</span> <span class=n>req</span><span class=o>-&gt;</span><span class=n>client_socket</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=k>return</span> <span class=mi>0</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=kt>void</span> <span class=nf>server_loop</span><span class=p>(</span><span class=kt>int</span> <span class=n>server_socket</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=k>struct</span> <span class=nc>io_uring_cqe</span> <span class=o>*</span><span class=n>cqe</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=k>struct</span> <span class=nc>sockaddr_in</span> <span class=n>client_addr</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=n>socklen_t</span> <span class=n>client_addr_len</span> <span class=o>=</span> <span class=k>sizeof</span><span class=p>(</span><span class=n>client_addr</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=n>add_accept_request</span><span class=p>(</span><span class=n>server_socket</span><span class=p>,</span> <span class=o>&amp;</span><span class=n>client_addr</span><span class=p>,</span> <span class=o>&amp;</span><span class=n>client_addr_len</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=k>while</span> <span class=p>(</span><span class=mi>1</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=kt>int</span> <span class=n>ret</span> <span class=o>=</span> <span class=n>io_uring_wait_cqe</span><span class=p>(</span><span class=o>&amp;</span><span class=n>ring</span><span class=p>,</span> <span class=o>&amp;</span><span class=n>cqe</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>        <span class=k>struct</span> <span class=nc>request</span> <span class=o>*</span><span class=n>req</span> <span class=o>=</span> <span class=p>(</span><span class=k>struct</span> <span class=nc>request</span> <span class=o>*</span><span class=p>)</span> <span class=n>cqe</span><span class=o>-&gt;</span><span class=n>user_data</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>        <span class=k>if</span> <span class=p>(</span><span class=n>ret</span> <span class=o>&lt;</span> <span class=mi>0</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>            <span class=n>fatal_error</span><span class=p>(</span><span class=s>&#34;io_uring_wait_cqe&#34;</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>        <span class=k>if</span> <span class=p>(</span><span class=n>cqe</span><span class=o>-&gt;</span><span class=n>res</span> <span class=o>&lt;</span> <span class=mi>0</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>            <span class=n>fprintf</span><span class=p>(</span><span class=n>stderr</span><span class=p>,</span> <span class=s>&#34;Async request failed: %s for event: %d</span><span class=se>\n</span><span class=s>&#34;</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>                    <span class=n>strerror</span><span class=p>(</span><span class=o>-</span><span class=n>cqe</span><span class=o>-&gt;</span><span class=n>res</span><span class=p>),</span> <span class=n>req</span><span class=o>-&gt;</span><span class=n>event_type</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>            <span class=n>exit</span><span class=p>(</span><span class=mi>1</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>        <span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>        <span class=k>switch</span> <span class=p>(</span><span class=n>req</span><span class=o>-&gt;</span><span class=n>event_type</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>            <span class=k>case</span> <span class=nl>EVENT_TYPE_ACCEPT</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>                <span class=n>add_accept_request</span><span class=p>(</span><span class=n>server_socket</span><span class=p>,</span> <span class=o>&amp;</span><span class=n>client_addr</span><span class=p>,</span> <span class=o>&amp;</span><span class=n>client_addr_len</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>                <span class=n>add_read_request</span><span class=p>(</span><span class=n>cqe</span><span class=o>-&gt;</span><span class=n>res</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>                <span class=n>free</span><span class=p>(</span><span class=n>req</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>                <span class=k>break</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>            <span class=k>case</span> <span class=nl>EVENT_TYPE_READ</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>                <span class=k>if</span> <span class=p>(</span><span class=o>!</span><span class=n>cqe</span><span class=o>-&gt;</span><span class=n>res</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>                    <span class=n>fprintf</span><span class=p>(</span><span class=n>stderr</span><span class=p>,</span> <span class=s>&#34;Empty request!</span><span class=se>\n</span><span class=s>&#34;</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>                    <span class=k>break</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>                <span class=p>}</span>
+</span></span><span class=line><span class=cl>                <span class=n>handle_client_request</span><span class=p>(</span><span class=n>req</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>                <span class=n>free</span><span class=p>(</span><span class=n>req</span><span class=o>-&gt;</span><span class=n>iov</span><span class=p>[</span><span class=mi>0</span><span class=p>].</span><span class=n>iov_base</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>                <span class=n>free</span><span class=p>(</span><span class=n>req</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>                <span class=k>break</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>            <span class=k>case</span> <span class=nl>EVENT_TYPE_WRITE</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>                <span class=k>for</span> <span class=p>(</span><span class=kt>int</span> <span class=n>i</span> <span class=o>=</span> <span class=mi>0</span><span class=p>;</span> <span class=n>i</span> <span class=o>&lt;</span> <span class=n>req</span><span class=o>-&gt;</span><span class=n>iovec_count</span><span class=p>;</span> <span class=n>i</span><span class=o>++</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>                    <span class=n>free</span><span class=p>(</span><span class=n>req</span><span class=o>-&gt;</span><span class=n>iov</span><span class=p>[</span><span class=n>i</span><span class=p>].</span><span class=n>iov_base</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>                <span class=p>}</span>
+</span></span><span class=line><span class=cl>                <span class=n>close</span><span class=p>(</span><span class=n>req</span><span class=o>-&gt;</span><span class=n>client_socket</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>                <span class=n>free</span><span class=p>(</span><span class=n>req</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>                <span class=k>break</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>        <span class=p>}</span>
+</span></span><span class=line><span class=cl>        <span class=cm>/* Mark this request as processed */</span>
+</span></span><span class=line><span class=cl>        <span class=n>io_uring_cqe_seen</span><span class=p>(</span><span class=o>&amp;</span><span class=n>ring</span><span class=p>,</span> <span class=n>cqe</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=kt>void</span> <span class=nf>sigint_handler</span><span class=p>(</span><span class=kt>int</span> <span class=n>signo</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=n>printf</span><span class=p>(</span><span class=s>&#34;^C pressed. Shutting down.</span><span class=se>\n</span><span class=s>&#34;</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=n>io_uring_queue_exit</span><span class=p>(</span><span class=o>&amp;</span><span class=n>ring</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=n>exit</span><span class=p>(</span><span class=mi>0</span><span class=p>);</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=kt>int</span> <span class=nf>main</span><span class=p>()</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=kt>int</span> <span class=n>server_socket</span> <span class=o>=</span> <span class=n>setup_listening_socket</span><span class=p>(</span><span class=n>DEFAULT_SERVER_PORT</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=n>signal</span><span class=p>(</span><span class=n>SIGINT</span><span class=p>,</span> <span class=n>sigint_handler</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=n>io_uring_queue_init</span><span class=p>(</span><span class=n>QUEUE_DEPTH</span><span class=p>,</span> <span class=o>&amp;</span><span class=n>ring</span><span class=p>,</span> <span class=mi>0</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=n>server_loop</span><span class=p>(</span><span class=n>server_socket</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=k>return</span> <span class=mi>0</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><h2 id=程序结构>程序结构</h2><p>首先，main() 调用 setup_listening_socket() 来监听一个端口。但我们不用 accept() 来监听端口，我们使用的是 io_uring 提供的。</p><p>程序的核心自然是 server_loop() ，用来提交请求给 io_uring，并且等待 CQE 之后对他们进行处理。我们看看</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span><span class=lnt>20
+</span><span class=lnt>21
+</span><span class=lnt>22
+</span><span class=lnt>23
+</span><span class=lnt>24
+</span><span class=lnt>25
+</span><span class=lnt>26
+</span><span class=lnt>27
+</span><span class=lnt>28
+</span><span class=lnt>29
+</span><span class=lnt>30
+</span><span class=lnt>31
+</span><span class=lnt>32
+</span><span class=lnt>33
+</span><span class=lnt>34
+</span><span class=lnt>35
+</span><span class=lnt>36
+</span><span class=lnt>37
+</span><span class=lnt>38
+</span><span class=lnt>39
+</span><span class=lnt>40
+</span><span class=lnt>41
+</span><span class=lnt>42
+</span><span class=lnt>43
+</span><span class=lnt>44
+</span><span class=lnt>45
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=kt>void</span> <span class=nf>server_loop</span><span class=p>(</span><span class=kt>int</span> <span class=n>server_socket</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=k>struct</span> <span class=nc>io_uring_cqe</span> <span class=o>*</span><span class=n>cqe</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=k>struct</span> <span class=nc>sockaddr_in</span> <span class=n>client_addr</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=n>socklen_t</span> <span class=n>client_addr_len</span> <span class=o>=</span> <span class=k>sizeof</span><span class=p>(</span><span class=n>client_addr</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=n>add_accept_request</span><span class=p>(</span><span class=n>server_socket</span><span class=p>,</span> <span class=o>&amp;</span><span class=n>client_addr</span><span class=p>,</span> <span class=o>&amp;</span><span class=n>client_addr_len</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=k>while</span> <span class=p>(</span><span class=mi>1</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=kt>int</span> <span class=n>ret</span> <span class=o>=</span> <span class=n>io_uring_wait_cqe</span><span class=p>(</span><span class=o>&amp;</span><span class=n>ring</span><span class=p>,</span> <span class=o>&amp;</span><span class=n>cqe</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>        <span class=k>struct</span> <span class=nc>request</span> <span class=o>*</span><span class=n>req</span> <span class=o>=</span> <span class=p>(</span><span class=k>struct</span> <span class=nc>request</span> <span class=o>*</span><span class=p>)</span> <span class=n>cqe</span><span class=o>-&gt;</span><span class=n>user_data</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>        <span class=k>if</span> <span class=p>(</span><span class=n>ret</span> <span class=o>&lt;</span> <span class=mi>0</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>            <span class=n>fatal_error</span><span class=p>(</span><span class=s>&#34;io_uring_wait_cqe&#34;</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>        <span class=k>if</span> <span class=p>(</span><span class=n>cqe</span><span class=o>-&gt;</span><span class=n>res</span> <span class=o>&lt;</span> <span class=mi>0</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>            <span class=n>fprintf</span><span class=p>(</span><span class=n>stderr</span><span class=p>,</span> <span class=s>&#34;Async request failed: %s for event: %d</span><span class=se>\n</span><span class=s>&#34;</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>                    <span class=n>strerror</span><span class=p>(</span><span class=o>-</span><span class=n>cqe</span><span class=o>-&gt;</span><span class=n>res</span><span class=p>),</span> <span class=n>req</span><span class=o>-&gt;</span><span class=n>event_type</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>            <span class=n>exit</span><span class=p>(</span><span class=mi>1</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>        <span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>        <span class=k>switch</span> <span class=p>(</span><span class=n>req</span><span class=o>-&gt;</span><span class=n>event_type</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>            <span class=k>case</span> <span class=nl>EVENT_TYPE_ACCEPT</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>                <span class=n>add_accept_request</span><span class=p>(</span><span class=n>server_socket</span><span class=p>,</span> <span class=o>&amp;</span><span class=n>client_addr</span><span class=p>,</span> <span class=o>&amp;</span><span class=n>client_addr_len</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>                <span class=n>add_read_request</span><span class=p>(</span><span class=n>cqe</span><span class=o>-&gt;</span><span class=n>res</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>                <span class=n>free</span><span class=p>(</span><span class=n>req</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>                <span class=k>break</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>            <span class=k>case</span> <span class=nl>EVENT_TYPE_READ</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>                <span class=k>if</span> <span class=p>(</span><span class=o>!</span><span class=n>cqe</span><span class=o>-&gt;</span><span class=n>res</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>                    <span class=n>fprintf</span><span class=p>(</span><span class=n>stderr</span><span class=p>,</span> <span class=s>&#34;Empty request!</span><span class=se>\n</span><span class=s>&#34;</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>                    <span class=k>break</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>                <span class=p>}</span>
+</span></span><span class=line><span class=cl>                <span class=n>handle_client_request</span><span class=p>(</span><span class=n>req</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>                <span class=n>free</span><span class=p>(</span><span class=n>req</span><span class=o>-&gt;</span><span class=n>iov</span><span class=p>[</span><span class=mi>0</span><span class=p>].</span><span class=n>iov_base</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>                <span class=n>free</span><span class=p>(</span><span class=n>req</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>                <span class=k>break</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>            <span class=k>case</span> <span class=nl>EVENT_TYPE_WRITE</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>                <span class=k>for</span> <span class=p>(</span><span class=kt>int</span> <span class=n>i</span> <span class=o>=</span> <span class=mi>0</span><span class=p>;</span> <span class=n>i</span> <span class=o>&lt;</span> <span class=n>req</span><span class=o>-&gt;</span><span class=n>iovec_count</span><span class=p>;</span> <span class=n>i</span><span class=o>++</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>                    <span class=n>free</span><span class=p>(</span><span class=n>req</span><span class=o>-&gt;</span><span class=n>iov</span><span class=p>[</span><span class=n>i</span><span class=p>].</span><span class=n>iov_base</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>                <span class=p>}</span>
+</span></span><span class=line><span class=cl>                <span class=n>close</span><span class=p>(</span><span class=n>req</span><span class=o>-&gt;</span><span class=n>client_socket</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>                <span class=n>free</span><span class=p>(</span><span class=n>req</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>                <span class=k>break</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>        <span class=p>}</span>
+</span></span><span class=line><span class=cl>        <span class=cm>/* Mark this request as processed */</span>
+</span></span><span class=line><span class=cl>        <span class=n>io_uring_cqe_seen</span><span class=p>(</span><span class=o>&amp;</span><span class=n>ring</span><span class=p>,</span> <span class=n>cqe</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>   
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><p>在 while 循环中，我们提交 accept 请求，通过调用 <code>add_accept_request()</code>。</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=kt>int</span> <span class=nf>add_accept_request</span><span class=p>(</span><span class=kt>int</span> <span class=n>server_socket</span><span class=p>,</span> <span class=k>struct</span> <span class=nc>sockaddr_in</span> <span class=o>*</span><span class=n>client_addr</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>                       <span class=n>socklen_t</span> <span class=o>*</span><span class=n>client_addr_len</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=k>struct</span> <span class=nc>io_uring_sqe</span> <span class=o>*</span><span class=n>sqe</span> <span class=o>=</span> <span class=n>io_uring_get_sqe</span><span class=p>(</span><span class=o>&amp;</span><span class=n>ring</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=n>io_uring_prep_accept</span><span class=p>(</span><span class=n>sqe</span><span class=p>,</span> <span class=n>server_socket</span><span class=p>,</span> <span class=p>(</span><span class=k>struct</span> <span class=nc>sockaddr</span> <span class=o>*</span><span class=p>)</span> <span class=n>client_addr</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>                         <span class=n>client_addr_len</span><span class=p>,</span> <span class=mi>0</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=k>struct</span> <span class=nc>request</span> <span class=o>*</span><span class=n>req</span> <span class=o>=</span> <span class=n>malloc</span><span class=p>(</span><span class=k>sizeof</span><span class=p>(</span><span class=o>*</span><span class=n>req</span><span class=p>));</span>
+</span></span><span class=line><span class=cl>    <span class=n>req</span><span class=o>-&gt;</span><span class=n>event_type</span> <span class=o>=</span> <span class=n>EVENT_TYPE_ACCEPT</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=n>io_uring_sqe_set_data</span><span class=p>(</span><span class=n>sqe</span><span class=p>,</span> <span class=n>req</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=n>io_uring_submit</span><span class=p>(</span><span class=o>&amp;</span><span class=n>ring</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=k>return</span> <span class=mi>0</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><p>我们先获取一个 SQE，然后准备使用 <code>io_uring_prep_accept()</code> 来提交 accept 请求。使用结构体 <code>request</code> 来跟踪我们的每一个请求。这个 req 实例包含了每个请求的从一个状态到另一个状态时的上下文。</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=k>struct</span> <span class=nc>request</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=kt>int</span> <span class=n>event_type</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=kt>int</span> <span class=n>iovec_count</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=kt>int</span> <span class=n>client_socket</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=k>struct</span> <span class=nc>iovec</span> <span class=n>iov</span><span class=p>[];</span>
+</span></span><span class=line><span class=cl><span class=p>};</span>
+</span></span></code></pre></td></tr></table></div></div><p>客户端会经历三个请求，此外这个结构体可以保存足够的信息来 handle 这些请求并转移这个状态。三个请求的顺序：</p><p>Accepted -> Request read -> Response written</p><p>我们来看看一旦 accept 完成，在 switch 中的 completion side 会发生什么：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl>           <span class=k>case</span> <span class=nl>EVENT_TYPE_ACCEPT</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>                <span class=n>add_accept_request</span><span class=p>(</span><span class=n>server_socket</span><span class=p>,</span> <span class=o>&amp;</span><span class=n>client_addr</span><span class=p>,</span> <span class=o>&amp;</span><span class=n>client_addr_len</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>                <span class=n>add_read_request</span><span class=p>(</span><span class=n>cqe</span><span class=o>-&gt;</span><span class=n>res</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>                <span class=n>free</span><span class=p>(</span><span class=n>req</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>                <span class=k>break</span><span class=p>;</span>
+</span></span></code></pre></td></tr></table></div></div><p>我们重新提交一个 accept 请求，因为我们之前已经处理过一个了。否则我们的程序就不能再接受来自其他客户端的 accept。之后就可以调用 read 请求使用 readv 来读取客户端的 HTTP 请求。</p><p>这里有很多要说的：我们看使用 read，但直到 kernel 5.6 才支持该函数，在撰写本文时，他是最新的稳定版本。</p><p>使用 readv/writev 也能允许我们实现常规操作，尤其是 buffer 管理。现在我们来看 <code>add_read_request()</code></p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=kt>int</span> <span class=nf>add_read_request</span><span class=p>(</span><span class=kt>int</span> <span class=n>client_socket</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=k>struct</span> <span class=nc>io_uring_sqe</span> <span class=o>*</span><span class=n>sqe</span> <span class=o>=</span> <span class=n>io_uring_get_sqe</span><span class=p>(</span><span class=o>&amp;</span><span class=n>ring</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=k>struct</span> <span class=nc>request</span> <span class=o>*</span><span class=n>req</span> <span class=o>=</span> <span class=n>malloc</span><span class=p>(</span><span class=k>sizeof</span><span class=p>(</span><span class=o>*</span><span class=n>req</span><span class=p>)</span> <span class=o>+</span> <span class=k>sizeof</span><span class=p>(</span><span class=k>struct</span> <span class=nc>iovec</span><span class=p>));</span>
+</span></span><span class=line><span class=cl>    <span class=n>req</span><span class=o>-&gt;</span><span class=n>iov</span><span class=p>[</span><span class=mi>0</span><span class=p>].</span><span class=n>iov_base</span> <span class=o>=</span> <span class=n>malloc</span><span class=p>(</span><span class=n>READ_SZ</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=n>req</span><span class=o>-&gt;</span><span class=n>iov</span><span class=p>[</span><span class=mi>0</span><span class=p>].</span><span class=n>iov_len</span> <span class=o>=</span> <span class=n>READ_SZ</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=n>req</span><span class=o>-&gt;</span><span class=n>event_type</span> <span class=o>=</span> <span class=n>EVENT_TYPE_READ</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=n>req</span><span class=o>-&gt;</span><span class=n>client_socket</span> <span class=o>=</span> <span class=n>client_socket</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=n>memset</span><span class=p>(</span><span class=n>req</span><span class=o>-&gt;</span><span class=n>iov</span><span class=p>[</span><span class=mi>0</span><span class=p>].</span><span class=n>iov_base</span><span class=p>,</span> <span class=mi>0</span><span class=p>,</span> <span class=n>READ_SZ</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=cm>/* Linux kernel 5.5 has support for readv, but not for recv() or read() */</span>
+</span></span><span class=line><span class=cl>    <span class=n>io_uring_prep_readv</span><span class=p>(</span><span class=n>sqe</span><span class=p>,</span> <span class=n>client_socket</span><span class=p>,</span> <span class=o>&amp;</span><span class=n>req</span><span class=o>-&gt;</span><span class=n>iov</span><span class=p>[</span><span class=mi>0</span><span class=p>],</span> <span class=mi>1</span><span class=p>,</span> <span class=mi>0</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=n>io_uring_sqe_set_data</span><span class=p>(</span><span class=n>sqe</span><span class=p>,</span> <span class=n>req</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=n>io_uring_submit</span><span class=p>(</span><span class=o>&amp;</span><span class=n>ring</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=k>return</span> <span class=mi>0</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><blockquote><p>译者：在2024年看到这篇文章，那肯定是都支持了。官方手册里也说，使用 readv 不如 read 性能高，此外 read 还支持别的操作。这里也是把 readv 当 read 用。</p></blockquote><p>很直接，我们分配一个足够大的 buffer 来处理客户端请求，之后 <code>io_uring_prep_readv()</code>，对应的 handling 在 switch 语句中是：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span><span class=lnt>7
+</span><span class=lnt>8
+</span><span class=lnt>9
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl>            <span class=k>case</span> <span class=nl>EVENT_TYPE_READ</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>                <span class=k>if</span> <span class=p>(</span><span class=o>!</span><span class=n>cqe</span><span class=o>-&gt;</span><span class=n>res</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>                    <span class=n>fprintf</span><span class=p>(</span><span class=n>stderr</span><span class=p>,</span> <span class=s>&#34;Empty request!</span><span class=se>\n</span><span class=s>&#34;</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>                    <span class=k>break</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>                <span class=p>}</span>
+</span></span><span class=line><span class=cl>                <span class=n>handle_client_request</span><span class=p>(</span><span class=n>req</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>                <span class=n>free</span><span class=p>(</span><span class=n>req</span><span class=o>-&gt;</span><span class=n>iov</span><span class=p>[</span><span class=mi>0</span><span class=p>].</span><span class=n>iov_base</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>                <span class=n>free</span><span class=p>(</span><span class=n>req</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>                <span class=k>break</span><span class=p>;</span>
+</span></span></code></pre></td></tr></table></div></div><p>这里，我们调用 handle_client_request 函数处理 HTTP 请求，如果一切正常的话，客户端正在请求一个本地的文件，这一段会处理请求</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span><span class=lnt>7
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl>            <span class=k>struct</span> <span class=nc>request</span> <span class=o>*</span><span class=n>req</span> <span class=o>=</span> <span class=n>zh_malloc</span><span class=p>(</span><span class=k>sizeof</span><span class=p>(</span><span class=o>*</span><span class=n>req</span><span class=p>)</span> <span class=o>+</span> <span class=p>(</span><span class=k>sizeof</span><span class=p>(</span><span class=k>struct</span> <span class=nc>iovec</span><span class=p>)</span> <span class=o>*</span> <span class=mi>6</span><span class=p>));</span>
+</span></span><span class=line><span class=cl>            <span class=n>req</span><span class=o>-&gt;</span><span class=n>iovec_count</span> <span class=o>=</span> <span class=mi>6</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>            <span class=n>req</span><span class=o>-&gt;</span><span class=n>client_socket</span> <span class=o>=</span> <span class=n>client_socket</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>            <span class=n>set_headers</span><span class=p>(</span><span class=n>final_path</span><span class=p>,</span> <span class=n>path_stat</span><span class=p>.</span><span class=n>st_size</span><span class=p>,</span> <span class=n>req</span><span class=o>-&gt;</span><span class=n>iov</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>            <span class=n>copy_file_contents</span><span class=p>(</span><span class=n>final_path</span><span class=p>,</span> <span class=n>path_stat</span><span class=p>.</span><span class=n>st_size</span><span class=p>,</span> <span class=o>&amp;</span><span class=n>req</span><span class=o>-&gt;</span><span class=n>iov</span><span class=p>[</span><span class=mi>5</span><span class=p>]);</span>
+</span></span><span class=line><span class=cl>            <span class=n>printf</span><span class=p>(</span><span class=s>&#34;200 %s %ld bytes</span><span class=se>\n</span><span class=s>&#34;</span><span class=p>,</span> <span class=n>final_path</span><span class=p>,</span> <span class=n>path_stat</span><span class=p>.</span><span class=n>st_size</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>            <span class=n>add_write_request</span><span class=p>(</span> <span class=n>req</span><span class=p>);</span>
+</span></span></code></pre></td></tr></table></div></div><p><code>set_headers()</code> 包括了 5 个小的 buffer，代表 5 个不同的 iovec，最后一个包含了读取的数据，最终 调用 <code>add_write_request()</code></p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span><span class=lnt>7
+</span><span class=lnt>8
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl>  <span class=kt>int</span> <span class=nf>add_write_request</span><span class=p>(</span><span class=k>struct</span> <span class=nc>request</span> <span class=o>*</span><span class=n>req</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>      <span class=k>struct</span> <span class=nc>io_uring_sqe</span> <span class=o>*</span><span class=n>sqe</span> <span class=o>=</span> <span class=n>io_uring_get_sqe</span><span class=p>(</span><span class=o>&amp;</span><span class=n>ring</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>      <span class=n>req</span><span class=o>-&gt;</span><span class=n>event_type</span> <span class=o>=</span> <span class=n>EVENT_TYPE_WRITE</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>      <span class=n>io_uring_prep_writev</span><span class=p>(</span><span class=n>sqe</span><span class=p>,</span> <span class=n>req</span><span class=o>-&gt;</span><span class=n>client_socket</span><span class=p>,</span> <span class=n>req</span><span class=o>-&gt;</span><span class=n>iov</span><span class=p>,</span> <span class=n>req</span><span class=o>-&gt;</span><span class=n>iovec_count</span><span class=p>,</span> <span class=mi>0</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>      <span class=n>io_uring_sqe_set_data</span><span class=p>(</span><span class=n>sqe</span><span class=p>,</span> <span class=n>req</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>      <span class=n>io_uring_submit</span><span class=p>(</span><span class=o>&amp;</span><span class=n>ring</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>      <span class=k>return</span> <span class=mi>0</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>  <span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><p>completion side:</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span><span class=lnt>7
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl>              <span class=k>case</span> <span class=nl>EVENT_TYPE_WRITE</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>                  <span class=k>for</span> <span class=p>(</span><span class=kt>int</span> <span class=n>i</span> <span class=o>=</span> <span class=mi>0</span><span class=p>;</span> <span class=n>i</span> <span class=o>&lt;</span> <span class=n>req</span><span class=o>-&gt;</span><span class=n>iovec_count</span><span class=p>;</span> <span class=n>i</span><span class=o>++</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>                      <span class=n>free</span><span class=p>(</span><span class=n>req</span><span class=o>-&gt;</span><span class=n>iov</span><span class=p>[</span><span class=n>i</span><span class=p>].</span><span class=n>iov_base</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>                  <span class=p>}</span>
+</span></span><span class=line><span class=cl>                  <span class=n>close</span><span class=p>(</span><span class=n>req</span><span class=o>-&gt;</span><span class=n>client_socket</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>                  <span class=n>free</span><span class=p>(</span><span class=n>req</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>                  <span class=k>break</span><span class=p>;</span>
+</span></span></code></pre></td></tr></table></div></div><p>把所有的 iovec 释放，把所有的 req 释放，并且关闭 socket，这就是完整的 HTTP client 服务。</p><h2 id=conclusion>Conclusion</h2><p>I hope you had a good time reading this article series. I sure had a lot of fun trying <code>io_uring</code> out. It is still early days for <code>io_uring</code>. It continues to gain features and gets better at performance as the days go by. I’m confident it will very quickly be adopted by various software projects.</p><h3 id=source-code>Source code</h3><p>The full source code for all the examples is available <a class=link href=https://github.com/shuveb/io_uring-by-example target=_blank rel=noopener>here at Github</a>.</p><h2 id=about-me>About me</h2><p>My name is Shuveb Hussain and I’m the author of this Linux-focused blog. You can <a class=link href=https://twitter.com/shuveb target=_blank rel=noopener>follow me on Twitter</a> where I post tech-related content mostly focusing on Linux, performance, scalability and cloud technologies.</p></section><footer class=article-footer><section class=article-copyright><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-copyright" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="12" r="9"/><path d="M14.5 9a3.5 4 0 100 6"/></svg>
+<span>Licensed under CC BY-NC-SA 4.0</span></section><section class=article-lastmod><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/></svg>
+<span>最后更新于 Feb 26, 2024 00:00 UTC</span></section></footer></article><footer class=site-footer><section class=copyright>&copy;
+2023 -
+2024 Roses</section><section class=powerby>使用 <a href=https://gohugo.io/ target=_blank rel=noopener>Hugo</a> 构建<br>主题 <b><a href=https://github.com/CaiJimmy/hugo-theme-stack target=_blank rel=noopener data-version=3.26.0>Stack</a></b> 由 <a href=https://jimmycai.com target=_blank rel=noopener>Jimmy</a> 设计</section></footer><div class=pswp tabindex=-1 role=dialog aria-hidden=true><div class=pswp__bg></div><div class=pswp__scroll-wrap><div class=pswp__container><div class=pswp__item></div><div class=pswp__item></div><div class=pswp__item></div></div><div class="pswp__ui pswp__ui--hidden"><div class=pswp__top-bar><div class=pswp__counter></div><button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
+<button class="pswp__button pswp__button--share" title=Share></button>
+<button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
+<button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button><div class=pswp__preloader><div class=pswp__preloader__icn><div class=pswp__preloader__cut><div class=pswp__preloader__donut></div></div></div></div></div><div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap"><div class=pswp__share-tooltip></div></div><button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
+</button>
+<button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)"></button><div class=pswp__caption><div class=pswp__caption__center></div></div></div></div></div><script src=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo=" crossorigin=anonymous defer></script><script src=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU=" crossorigin=anonymous defer></script><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css crossorigin=anonymous><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css crossorigin=anonymous></main></div><script src=https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z+KMkF24hUW8WePSA9HM=" crossorigin=anonymous></script><script type=text/javascript src=/ts/main.js defer></script><script>(function(){const e=document.createElement("link");e.href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap",e.type="text/css",e.rel="stylesheet",document.head.appendChild(e)})()</script></body></html>

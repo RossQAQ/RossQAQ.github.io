@@ -1,0 +1,1094 @@
+<!doctype html><html lang=zh-cn dir=ltr><head><meta charset=utf-8><meta name=viewport content='width=device-width,initial-scale=1'><meta name=description content="阅读 mq白 现代 C++ 模板教程知识点记录。"><title>现代 C++ 模板应该学习什么？</title>
+<link rel=canonical href=https://rossqaq.github.io/article/modern-cxx-template/><link rel=stylesheet href=/scss/style.min.0304c6baf04e01a8fe70693791cb744d56a3578a3120a8796cefc66825aa39c7.css><meta property='og:title' content="现代 C++ 模板应该学习什么？"><meta property='og:description' content="阅读 mq白 现代 C++ 模板教程知识点记录。"><meta property='og:url' content='https://rossqaq.github.io/article/modern-cxx-template/'><meta property='og:site_name' content='Roses'><meta property='og:type' content='article'><meta property='article:section' content='Post'><meta property='article:published_time' content='2024-02-12T09:00:00+00:00'><meta property='article:modified_time' content='2024-02-12T09:00:00+00:00'><meta name=twitter:title content="现代 C++ 模板应该学习什么？"><meta name=twitter:description content="阅读 mq白 现代 C++ 模板教程知识点记录。"><link rel="shortcut icon" href=/favicon.png></head><body class=article-page><script>(function(){const e="StackColorScheme";localStorage.getItem(e)||localStorage.setItem(e,"auto")})()</script><script>(function(){const t="StackColorScheme",e=localStorage.getItem(t),n=window.matchMedia("(prefers-color-scheme: dark)").matches===!0;e=="dark"||e==="auto"&&n?document.documentElement.dataset.scheme="dark":document.documentElement.dataset.scheme="light"})()</script><div class="container main-container flex on-phone--column extended"><aside class="sidebar left-sidebar sticky"><button class="hamburger hamburger--spin" type=button id=toggle-menu aria-label=切换菜单>
+<span class=hamburger-box><span class=hamburger-inner></span></span></button><header><figure class=site-avatar><a href=/><img src=/img/avatar_hu57fe4ea25b3b752b8c24bca0d657f08c_427356_300x0_resize_box_3.png width=300 height=300 class=site-logo loading=lazy alt=Avatar>
+</a><span class=emoji>♉</span></figure><div class=site-meta><h1 class=site-name><a href=/>Roses</a></h1><h2 class=site-description>有限的时间，无尽的痛苦。</h2></div></header><ol class=menu-social><li><a href=https://space.bilibili.com/3078464 target=_blank title=Bilibili rel=me><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-brand-bilibili" width="44" height="44" viewBox="0 0 24 24" stroke-width="1.5" stroke="#2c3e50" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M3 10a4 4 0 014-4h10a4 4 0 014 4v6a4 4 0 01-4 4H7a4 4 0 01-4-4v-6z"/><path d="M8 3l2 3"/><path d="M16 3l-2 3"/><path d="M9 13v-2"/><path d="M15 11v2"/></svg></a></li><li><a href=https://github.com/RossQAQ target=_blank title=Github rel=me><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-brand-github" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M9 19c-4.3 1.4-4.3-2.5-6-3m12 5v-3.5c0-1 .1-1.4-.5-2 2.8-.3 5.5-1.4 5.5-6a4.6 4.6.0 00-1.3-3.2 4.2 4.2.0 00-.1-3.2s-1.1-.3-3.5 1.3a12.3 12.3.0 00-6.2.0C6.5 2.8 5.4 3.1 5.4 3.1a4.2 4.2.0 00-.1 3.2A4.6 4.6.0 004 9.5c0 4.6 2.7 5.7 5.5 6-.6.6-.6 1.2-.5 2V21"/></svg></a></li><li><a href='https://music.163.com/playlist?id=109571638&amp;userid=93740300' target=_blank title=网易云音乐 rel=me><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-brand-netease-music" width="44" height="44" viewBox="0 0 24 24" stroke-width="1.5" stroke="#2c3e50" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M9 4c-2.93 1.346-5 5.046-5 8.492C4 17 8 20 12 20s8-3 8-7c0-3.513-3.5-5.513-6-5.513S9 9 9 12c0 2 1.5 3 3 3s3-1 3-3c0-3.513-2-4.508-2-6.515.0-3.504 3.5-2.603 4-1.502"/></svg></a></li><li><a href=mailto:rossqaq@outlook.com target=_blank title=邮件 rel=me><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-mail" width="44" height="44" viewBox="0 0 24 24" stroke-width="1.5" stroke="#2c3e50" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M3 7a2 2 0 012-2h14a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2V7z"/><path d="M3 7l9 6 9-6"/></svg></a></li></ol><ol class=menu id=main-menu><li><a href=/><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-home" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><polyline points="5 12 3 12 12 3 21 12 19 12"/><path d="M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7"/><path d="M9 21v-6a2 2 0 012-2h2a2 2 0 012 2v6"/></svg>
+<span>主页</span></a></li><li><a href=/archives/><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-archive" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><rect x="3" y="4" width="18" height="4" rx="2"/><path d="M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
+<span>归档</span></a></li><li><a href=/search/><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-search" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="10" cy="10" r="7"/><line x1="21" y1="21" x2="15" y2="15"/></svg>
+<span>搜索</span></a></li><li><a href=/%E5%8F%8B%E6%83%85%E9%93%BE%E6%8E%A5/><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-link" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><path d="M10 14a3.5 3.5.0 005 0l4-4a3.5 3.5.0 00-5-5l-.5.5"/><path d="M14 10a3.5 3.5.0 00-5 0l-4 4a3.5 3.5.0 005 5l.5-.5"/></svg>
+<span>友情链接</span></a></li><li class=menu-bottom-section><ol class=menu><li id=dark-mode-toggle><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="8" cy="12" r="2"/><rect x="2" y="6" width="20" height="12" rx="6"/></svg>
+<svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="16" cy="12" r="2"/><rect x="2" y="6" width="20" height="12" rx="6"/></svg>
+<span>暗色模式</span></li></ol></li></ol></aside><aside class="sidebar right-sidebar sticky"><section class="widget archives"><div class=widget-icon><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-hash" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><line x1="5" y1="9" x2="19" y2="9"/><line x1="5" y1="15" x2="19" y2="15"/><line x1="11" y1="4" x2="7" y2="20"/><line x1="17" y1="4" x2="13" y2="20"/></svg></div><h2 class="widget-title section-title">目录</h2><div class=widget--toc><nav id=TableOfContents><ol><li><a href=#函数模板>函数模板</a><ol><li><a href=#使用函数模板>使用函数模板</a></li><li><a href=#函数模板参数推导规则>函数模板参数推导规则</a></li><li><a href=#函数模板默认实参>函数模板默认实参</a></li><li><a href=#非类型模板实参>非类型模板实参</a></li><li><a href=#重载函数模板>重载函数模板</a></li><li><a href=#可变参数模板>可变参数模板</a></li><li><a href=#模板分文件>模板分文件</a></li></ol></li><li><a href=#类模板>类模板</a><ol><li><a href=#初始类模板>初始类模板</a></li><li><a href=#用户定义推导指引>用户定义推导指引</a></li><li><a href=#类模板有默认实参的模板形参>类模板有默认实参的模板形参</a></li><li><a href=#模板模板形参>模板模板形参</a></li><li><a href=#成员函数模板>成员函数模板</a></li><li><a href=#可变参数类模板>可变参数类模板</a></li></ol></li><li><a href=#变量模板>变量模板</a><ol><li><a href=#初识变量模板>初识变量模板</a></li><li><a href=#变量模板默认实参与非类型模板实参>变量模板默认实参与非类型模板实参</a></li><li><a href=#可变参数变量模板>可变参数变量模板</a></li><li><a href=#类静态数据成员模板>类静态数据成员模板</a></li></ol></li><li><a href=#模板全特化>模板全特化</a><ol><li><a href=#函数模板全特化>函数模板全特化</a></li><li><a href=#类模板全特化>类模板全特化</a></li><li><a href=#变量模板全特化>变量模板全特化</a></li><li><a href=#模板全特化细节>模板全特化细节</a></li><li><a href=#特化的成员与总结>特化的成员与总结</a></li></ol></li><li><a href=#模板偏特化>模板偏特化</a><ol><li><a href=#变量模板偏特化>变量模板偏特化</a></li><li><a href=#类模板偏特化>类模板偏特化</a></li><li><a href=#实现-is_same_v>实现 is_same_v</a></li></ol></li><li><a href=#函数模板显式实例化解决分文件问题>函数模板显式实例化解决分文件问题</a><ol><li><a href=#函数模板-1>函数模板</a></li><li><a href=#类模板-1>类模板</a></li></ol></li><li><a href=#折叠表达式>折叠表达式</a><ol><li><a href=#一元>一元</a></li><li><a href=#二元>二元</a></li></ol></li><li><a href=#待决名>待决名</a><ol><li><a href=#typename-消除待决名歧义>typename 消除待决名歧义</a></li><li><a href=#template-消除歧义符>template 消除歧义符</a></li><li><a href=#非待决名绑定规则>非待决名绑定规则</a></li><li><a href=#待决与非待决查找规则>待决与非待决查找规则</a></li></ol></li><li><a href=#sfinae>SFINAE</a><ol><li><a href=#sfinae-1>SFINAE?</a></li><li><a href=#代换失败与硬错误>代换失败与硬错误</a></li><li><a href=#sfinae-基础示例>SFINAE 基础示例</a></li><li><a href=#stdenable_if>std::enable_if</a></li><li><a href=#stdvoid_t>std::void_t</a></li><li><a href=#stddeclval>std::declval</a></li><li><a href=#偏特化中的-sfinae>偏特化中的 SFINAE</a></li></ol></li><li><a href=#约束与概念>约束与概念</a><ol><li><a href=#前言>前言</a></li><li><a href=#约束与概念-1>约束与概念</a></li><li><a href=#简写函数模板与标准概念库>简写函数模板与标准概念库</a></li><li><a href=#requires-子句>requires 子句</a></li><li><a href=#约束---合取析取>约束 - 合取析取</a></li><li><a href=#requires-表达式>requires 表达式</a></li><li><a href=#简单要求>简单要求</a></li><li><a href=#类型要求>类型要求</a></li><li><a href=#复合要求>复合要求</a></li><li><a href=#嵌套要求>嵌套要求</a></li><li><a href=#总结>总结</a></li></ol></li></ol></nav></div></section></aside><main class="main full-width"><article class=main-article><header class=article-header><div class=article-details><header class=article-category><a href=/categories/cppnotes/ style=background-color:#2a9d8f;color:#fff>C++ 随记
+</a><a href=/categories/continuous/ style=background-color:#2a9d8f;color:#fff>持续更新</a></header><div class=article-title-wrapper><h2 class=article-title><a href=/article/modern-cxx-template/>现代 C++ 模板应该学习什么？</a></h2><h3 class=article-subtitle>阅读 mq白 现代 C++ 模板教程知识点记录。</h3></div><footer class=article-time><div><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><path d="M11.795 21H5a2 2 0 01-2-2V7a2 2 0 012-2h12a2 2 0 012 2v4"/><circle cx="18" cy="18" r="4"/><path d="M15 3v4"/><path d="M7 3v4"/><path d="M3 11h16"/><path d="M18 16.496V18l1 1"/></svg>
+<time class=article-time--published>Feb 12, 2024</time></div><div><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/></svg>
+<time class=article-time--reading>阅读时长: 16 分钟</time></div></footer></div></header><section class=article-content><p><a class=link href=https://github.com/Mq-b/Modern-Cpp-templates-tutorial/blob/main/md/ target=_blank rel=noopener>教程原文</a></p><h2 id=函数模板>函数模板</h2><h3 id=使用函数模板>使用函数模板</h3><ol><li>函数模板使用时才会实例化（隐式实例化）</li></ol><h3 id=函数模板参数推导规则>函数模板参数推导规则</h3><ol><li>函数模板参数推导规则、无法推导的情况</li><li>ADL 对于函数模板调用时的影响</li><li>万能引用、引用折叠，特殊推导规则</li></ol><h3 id=函数模板默认实参>函数模板默认实参</h3><ol><li><p>可以给模板类型实参默认值，既然是类型，那么默认值也要类型</p><p>（func&lt;>() 代表使用默认值）</p></li><li><p>推导时，P/A 对无法推导（例如3P 2A对不上的情况）下的处理</p><p>默认实参？部分指明？通过 decltype 三目表达式配合 decay_t 获取 common_type？</p><p>后置返回值类型配合 decltype</p><p>对于 C++20，甚至可以使用简写函数模板。注意 auto 和 decltype 的推导规则</p></li></ol><h3 id=非类型模板实参>非类型模板实参</h3><p>模板参数接收值或者对象，而不是类型</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=k>template</span> <span class=o>&lt;</span><span class=n>std</span><span class=o>::</span><span class=n>size_t</span> <span class=n>N</span> <span class=o>=</span> <span class=mi>10</span><span class=o>&gt;</span>
+</span></span><span class=line><span class=cl><span class=kt>void</span> <span class=n>func</span><span class=p>()</span> <span class=p>{</span> <span class=n>std</span><span class=o>::</span><span class=n>cout</span> <span class=o>&lt;&lt;</span> <span class=n>N</span> <span class=o>&lt;&lt;</span> <span class=sc>&#39;\n&#39;</span><span class=p>;</span> <span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=n>func</span><span class=o>&lt;</span><span class=mi>5</span><span class=o>&gt;</span><span class=p>();</span>
+</span></span></code></pre></td></tr></table></div></div><h3 id=重载函数模板>重载函数模板</h3><p>函数模板与普通函数都能重载，重载决议规则非常复杂。</p><p>一般而言，会优先选择非模板的函数。（毕竟隐式实例化也有开销）</p><h3 id=可变参数模板>可变参数模板</h3><p>C 语言的可变参数，最常见的例子就是 printf ，<a class=link href=https://github.com/Mq-b/Loser-HomeWork/blob/main/C++CoreGuidelines/%e7%ac%ac4%e7%ab%a0-%e5%87%bd%e6%95%b0.md#f55-%e4%b8%8d%e8%a6%81%e4%bd%bf%e7%94%a8-va_arg-%e5%8f%82%e6%95%b0 target=_blank rel=noopener>参见</a>。</p><p>C++ 中若想使用可变参数，则必须使用模板。</p><p><a class=link href=https://zh.cppreference.com/w/cpp/language/parameter_pack target=_blank rel=noopener><strong>形参包</strong></a></p><ul><li><p>如何实现支持任何类型，任何参数的调用？</p></li><li><p>类型形参包：存类型</p></li><li><p>函数形参包：存参数</p></li><li><p>如何使用？形参包展开</p></li><li><p>什么是<strong>模式</strong>？（[形参包名]&mldr; 中的形参包名是模式，其会被展开为 0 或多个逗号分隔的模式实例）</p></li></ul><p>举个例子</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span><span class=lnt>20
+</span><span class=lnt>21
+</span><span class=lnt>22
+</span><span class=lnt>23
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=k>template</span><span class=o>&lt;</span><span class=k>typename</span><span class=p>...</span> <span class=n>Args</span><span class=o>&gt;</span>
+</span></span><span class=line><span class=cl><span class=kt>void</span> <span class=n>print</span><span class=p>(</span><span class=k>const</span> <span class=n>Args</span><span class=o>&amp;</span><span class=p>...</span> <span class=n>args</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=kt>int</span> <span class=n>_</span><span class=p>[]</span> <span class=p>{</span> <span class=p>(</span><span class=n>std</span><span class=o>::</span><span class=n>cout</span> <span class=o>&lt;&lt;</span> <span class=n>args</span> <span class=o>&lt;&lt;</span> <span class=sc>&#39; &#39;</span><span class=p>,</span> <span class=mi>0</span><span class=p>)...</span> <span class=p>};</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span><span class=line><span class=cl><span class=c1>// (std::cout &lt;&lt; arg0 &lt;&lt; &#39; &#39;, 0), (std::cout &lt;&lt; arg1 &lt;&lt; &#39; &#39;, 0), (std::cout &lt;&lt; arg2 &lt;&lt; &#39; &#39;, 0) 会展开成这种形式
+</span></span></span><span class=line><span class=cl><span class=c1>// 
+</span></span></span><span class=line><span class=cl><span class=c1>// (std::cout &lt;&lt; args &lt;&lt; &#39; &#39;, 0) 是模式
+</span></span></span><span class=line><span class=cl><span class=c1>// 逗号表达式，从左往右顺序执行。
+</span></span></span><span class=line><span class=cl><span class=c1>// , 0，会返回0 然后初始化数组，数组没啥用，只是用于写成这个形式，因为 {} 可以进行包展开。
+</span></span></span><span class=line><span class=cl><span class=c1></span>
+</span></span><span class=line><span class=cl><span class=k>template</span><span class=o>&lt;</span><span class=k>typename</span> <span class=n>T</span><span class=p>,</span> <span class=n>std</span><span class=o>::</span><span class=n>size_t</span> <span class=n>N</span><span class=p>,</span> <span class=k>typename</span><span class=p>...</span> <span class=n>Args</span><span class=o>&gt;</span>
+</span></span><span class=line><span class=cl><span class=kt>void</span> <span class=n>f</span><span class=p>(</span><span class=k>const</span> <span class=n>T</span><span class=p>(</span><span class=o>&amp;</span><span class=n>array</span><span class=p>)[</span><span class=n>N</span><span class=p>],</span> <span class=n>Args</span><span class=p>...</span> <span class=n>index</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=n>print</span><span class=p>(</span><span class=n>array</span><span class=p>[</span><span class=n>index</span><span class=p>]...);</span>	<span class=c1>// 模式 array[index]
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=p>}</span>
+</span></span><span class=line><span class=cl><span class=c1>// const T(&amp;array)[N] 数组引用
+</span></span></span><span class=line><span class=cl><span class=c1>// 内建数组，其 size 是他类型的一部分，所以可以被推导
+</span></span></span><span class=line><span class=cl><span class=c1></span>
+</span></span><span class=line><span class=cl><span class=c1>// const char (&amp;)[5], const int&amp;, const double&amp;
+</span></span></span><span class=line><span class=cl><span class=c1>// const char (&amp;)[5] -&gt; const char*
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=n>print</span><span class=p>(</span><span class=s>&#34;luse&#34;</span><span class=p>,</span> <span class=mi>1</span><span class=p>,</span> <span class=mf>1.2</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=kt>int</span> <span class=n>array</span><span class=p>[</span><span class=mi>10</span><span class=p>]</span> <span class=p>{</span><span class=mi>1</span><span class=p>,</span> <span class=mi>2</span><span class=p>,</span> <span class=mi>3</span><span class=p>,</span> <span class=mi>4</span><span class=p>,</span> <span class=mi>5</span><span class=p>,</span> <span class=mi>6</span><span class=p>,</span> <span class=mi>7</span><span class=p>,</span> <span class=mi>8</span><span class=p>,</span> <span class=mi>9</span><span class=p>,</span> <span class=mi>10</span><span class=p>};</span>
+</span></span><span class=line><span class=cl><span class=n>f</span><span class=p>(</span><span class=n>array</span><span class=p>,</span> <span class=mi>1</span><span class=p>,</span> <span class=mi>3</span><span class=p>,</span> <span class=mi>5</span><span class=p>);</span>
+</span></span></code></pre></td></tr></table></div></div><p>那么如何写一个函数 sum，支持任何类型，任意参数调用</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span><span class=lnt>7
+</span><span class=lnt>8
+</span><span class=lnt>9
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=k>template</span> <span class=o>&lt;</span><span class=k>typename</span><span class=p>...</span> <span class=n>Args</span><span class=p>,</span> <span class=k>typename</span> <span class=n>RT</span> <span class=o>=</span> <span class=n>std</span><span class=o>::</span><span class=n>common_type_t</span><span class=o>&lt;</span><span class=n>Args</span><span class=p>...</span><span class=o>&gt;&gt;</span>
+</span></span><span class=line><span class=cl><span class=n>RT</span> <span class=n>sum</span><span class=p>(</span><span class=k>const</span> <span class=n>Args</span><span class=o>&amp;</span><span class=p>...</span> <span class=n>args</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=n>RT</span> <span class=n>_</span><span class=p>[]</span> <span class=p>{</span> <span class=n>args</span><span class=p>...</span> <span class=p>};</span>
+</span></span><span class=line><span class=cl>    <span class=n>RT</span> <span class=n>n</span><span class=p>{};</span>
+</span></span><span class=line><span class=cl>    <span class=k>for</span> <span class=p>(</span><span class=kt>int</span> <span class=n>i</span> <span class=o>=</span> <span class=mi>0</span><span class=p>;</span> <span class=n>i</span> <span class=o>&lt;</span> <span class=k>sizeof</span><span class=p>...(</span><span class=n>Args</span><span class=p>);</span> <span class=o>++</span><span class=n>i</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=n>n</span> <span class=o>+=</span> <span class=n>_</span><span class=p>[</span><span class=n>i</span><span class=p>];</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>    <span class=k>return</span> <span class=n>n</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><h3 id=模板分文件>模板分文件</h3><p><strong>显然不可能</strong>（当然显式实例化除外）</p><h2 id=类模板>类模板</h2><h3 id=初始类模板>初始类模板</h3><p>类模板不是类，实例化类模板才能生成类。</p><p>函数模板中形参列表可以写的类模板都能写。</p><p>C++17 后，CTAD 可以根据传入的参数推导类模板</p><h3 id=用户定义推导指引>用户定义推导指引</h3><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=n>template_name</span><span class=p>(</span><span class=n>deduced_type</span><span class=p>)</span> <span class=o>-&gt;</span> <span class=n>template_name</span><span class=o>&lt;</span><span class=n>the</span> <span class=n>type</span> <span class=n>you</span> <span class=n>want</span><span class=o>&gt;</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=c1>// e.g.
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=n>Test</span><span class=p>(</span><span class=kt>int</span><span class=p>)</span> <span class=o>-&gt;</span> <span class=n>Test</span><span class=o>&lt;</span><span class=n>size_t</span><span class=o>&gt;</span><span class=p>;</span>
+</span></span></code></pre></td></tr></table></div></div><p>比较复杂的：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span><span class=lnt>7
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=k>template</span> <span class=o>&lt;</span><span class=k>typename</span> <span class=n>Ty</span><span class=p>,</span> <span class=n>std</span><span class=o>::</span><span class=n>size_t</span> <span class=n>size</span><span class=o>&gt;</span>
+</span></span><span class=line><span class=cl><span class=k>struct</span> <span class=nc>array</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>	<span class=n>Ty</span> <span class=n>arr</span><span class=p>[</span><span class=n>size</span><span class=p>];</span>
+</span></span><span class=line><span class=cl><span class=p>};</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=k>template</span> <span class=o>&lt;</span><span class=k>typename</span> <span class=n>T</span><span class=p>,</span> <span class=k>typename</span><span class=p>...</span> <span class=n>Args</span><span class=o>&gt;</span>
+</span></span><span class=line><span class=cl><span class=n>array</span><span class=p>(</span><span class=n>T</span> <span class=n>t</span><span class=p>,</span> <span class=n>Args</span><span class=p>...)</span> <span class=o>-&gt;</span> <span class=n>array</span><span class=o>&lt;</span><span class=n>T</span><span class=p>,</span> <span class=k>sizeof</span><span class=p>...(</span><span class=n>Args</span><span class=p>)</span> <span class=o>+</span> <span class=mi>1</span><span class=o>&gt;</span><span class=p>;</span>
+</span></span></code></pre></td></tr></table></div></div><h3 id=类模板有默认实参的模板形参>类模板有默认实参的模板形参</h3><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span><span class=lnt>7
+</span><span class=lnt>8
+</span><span class=lnt>9
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=k>template</span> <span class=o>&lt;</span><span class=k>typename</span> <span class=n>T</span> <span class=o>=</span> <span class=kt>int</span><span class=o>&gt;</span>
+</span></span><span class=line><span class=cl><span class=k>struct</span> <span class=nc>X</span> <span class=p>{};</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=k>struct</span> <span class=nc>Test</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=n>X</span> <span class=n>x</span><span class=p>;</span>	<span class=c1>// C++17 也不行，类中的不允许省略 &lt;&gt;
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=p>};</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=n>X</span> <span class=n>x</span><span class=p>;</span> 		<span class=c1>// C++17 ok
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=n>X</span><span class=o>&lt;&gt;</span> <span class=n>x</span><span class=p>;</span> 		<span class=c1>// before C++17
+</span></span></span></code></pre></td></tr></table></div></div><p>应用很多，例如 vector，string 等等，分配器。</p><h3 id=模板模板形参>模板模板形参</h3><p>如果想要模板参数接受一个类模板怎么办？</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span><span class=lnt>7
+</span><span class=lnt>8
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=k>template</span><span class=o>&lt;</span><span class=k>typename</span> <span class=n>T</span><span class=o>&gt;</span>
+</span></span><span class=line><span class=cl><span class=k>struct</span> <span class=nc>X</span> <span class=p>{};</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1>// before C++17 template&lt;template&lt;typename T&gt; class C&gt;
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=k>template</span><span class=o>&lt;</span><span class=k>template</span><span class=o>&lt;</span><span class=k>typename</span> <span class=n>T</span><span class=o>&gt;</span> <span class=k>typename</span> <span class=n>C</span><span class=o>&gt;</span>
+</span></span><span class=line><span class=cl><span class=k>struct</span> <span class=nc>Test</span> <span class=p>{};</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=n>Test</span><span class=o>&lt;</span><span class=n>X</span><span class=o>&gt;</span><span class=n>arr</span><span class=p>;</span>
+</span></span></code></pre></td></tr></table></div></div><ul><li><p>template &lt;typename T> typename C 是模板模板形参语法</p></li><li><p>typename C 是模板模板形参，可以自定义</p></li></ul><p>模板模板形参包也可以</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=k>template</span><span class=o>&lt;</span><span class=k>template</span><span class=o>&lt;</span><span class=k>typename</span> <span class=n>T</span><span class=o>&gt;</span> <span class=k>class</span><span class=err>... </span><span class=nc>Args</span><span class=o>&gt;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=n>test</span><span class=o>&lt;</span><span class=n>X</span><span class=p>,</span> <span class=n>Y</span><span class=p>,</span> <span class=n>Z</span><span class=o>&gt;</span> <span class=n>t</span><span class=p>;</span>
+</span></span></code></pre></td></tr></table></div></div><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=k>template</span> <span class=o>&lt;</span><span class=n>std</span><span class=o>::</span><span class=n>size_t</span><span class=o>&gt;</span>
+</span></span><span class=line><span class=cl><span class=k>struct</span> <span class=nc>Y</span><span class=p>{};</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=k>template</span> <span class=o>&lt;</span><span class=k>template</span><span class=o>&lt;</span><span class=n>std</span><span class=o>::</span><span class=n>size_t</span><span class=o>&gt;</span> <span class=k>class</span> <span class=nc>T</span><span class=o>&gt;</span>
+</span></span><span class=line><span class=cl><span class=k>struct</span> <span class=nc>X</span><span class=p>{};</span>
+</span></span></code></pre></td></tr></table></div></div><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span><span class=lnt>7
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=k>template</span> <span class=o>&lt;</span><span class=k>typename</span><span class=p>...</span> <span class=n>Args</span><span class=o>&gt;</span>
+</span></span><span class=line><span class=cl><span class=k>struct</span> <span class=nc>Y</span><span class=p>{};</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=k>template</span> <span class=o>&lt;</span><span class=k>template</span><span class=o>&lt;</span><span class=k>typename</span><span class=p>...</span> <span class=n>Args</span><span class=o>&gt;</span> <span class=k>class</span> <span class=nc>T</span><span class=o>&gt;</span>
+</span></span><span class=line><span class=cl><span class=k>struct</span> <span class=nc>X</span><span class=p>{};</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=n>X</span><span class=o>&lt;</span><span class=n>Y</span><span class=o>&gt;</span> <span class=n>t</span><span class=p>;</span>
+</span></span></code></pre></td></tr></table></div></div><p>基本就是，要接受什么，就复制其模板声明，之后再声明一个 T</p><h3 id=成员函数模板>成员函数模板</h3><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span><span class=lnt>20
+</span><span class=lnt>21
+</span><span class=lnt>22
+</span><span class=lnt>23
+</span><span class=lnt>24
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=c1>// 模板类和函数
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=k>template</span><span class=o>&lt;</span><span class=k>typename</span> <span class=n>T</span><span class=o>&gt;</span>
+</span></span><span class=line><span class=cl><span class=k>struct</span> <span class=nc>X</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=kt>void</span> <span class=nf>f</span><span class=p>(</span><span class=n>T</span> <span class=n>arg</span><span class=p>)</span> <span class=p>{}</span>
+</span></span><span class=line><span class=cl><span class=p>};</span>
+</span></span><span class=line><span class=cl><span class=n>X</span><span class=o>&lt;</span><span class=kt>int</span><span class=o>&gt;</span> <span class=n>x</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=n>x</span><span class=p>.</span><span class=n>f</span><span class=p>(</span><span class=mi>123</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1>// 模板类和模板函数
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=k>template</span><span class=o>&lt;</span><span class=k>typename</span> <span class=n>T</span><span class=o>&gt;</span>
+</span></span><span class=line><span class=cl><span class=k>struct</span> <span class=nc>X</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=k>template</span><span class=o>&lt;</span><span class=k>typename</span><span class=p>...</span> <span class=n>Args</span><span class=o>&gt;</span>
+</span></span><span class=line><span class=cl>    <span class=kt>void</span> <span class=n>f</span><span class=p>(</span><span class=n>Args</span><span class=o>&amp;&amp;</span><span class=p>...</span> <span class=n>args</span><span class=p>)</span> <span class=p>{}</span>
+</span></span><span class=line><span class=cl><span class=p>};</span>
+</span></span><span class=line><span class=cl><span class=n>X</span><span class=o>&lt;</span><span class=kt>int</span><span class=p>,</span> <span class=kt>double</span><span class=p>,</span> <span class=kt>float</span><span class=o>&gt;</span> <span class=n>x</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=n>x</span><span class=p>.</span><span class=n>f</span><span class=p>(</span><span class=mi>1</span><span class=p>,</span> <span class=mi>2</span><span class=p>,</span> <span class=mi>3</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1>// 普通类和模板函数
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=k>struct</span> <span class=nc>X</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=k>template</span><span class=o>&lt;</span><span class=k>typename</span><span class=p>...</span> <span class=n>Args</span><span class=o>&gt;</span>
+</span></span><span class=line><span class=cl>    <span class=kt>void</span> <span class=n>f</span><span class=p>(</span><span class=n>Args</span><span class=o>&amp;&amp;</span><span class=p>...</span> <span class=n>args</span><span class=p>)</span> <span class=p>{}</span>
+</span></span><span class=line><span class=cl><span class=p>};</span>
+</span></span><span class=line><span class=cl><span class=n>X</span> <span class=n>x</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=n>x</span><span class=p>.</span><span class=n>f</span><span class=p>(</span><span class=mi>1</span><span class=p>,</span> <span class=mi>2</span><span class=p>,</span> <span class=mi>3</span><span class=p>);</span>
+</span></span></code></pre></td></tr></table></div></div><h3 id=可变参数类模板>可变参数类模板</h3><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=cp>#include</span> <span class=cpf>&lt;iostream&gt;</span><span class=cp>
+</span></span></span><span class=line><span class=cl><span class=cp>#include</span> <span class=cpf>&lt;tuple&gt;</span><span class=cp>
+</span></span></span><span class=line><span class=cl><span class=cp></span>
+</span></span><span class=line><span class=cl><span class=k>template</span><span class=o>&lt;</span><span class=k>typename</span><span class=p>...</span> <span class=n>Args</span><span class=o>&gt;</span>
+</span></span><span class=line><span class=cl><span class=k>struct</span> <span class=nc>X</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>	<span class=n>X</span><span class=p>(</span><span class=n>Args</span><span class=p>...</span> <span class=n>args</span><span class=p>)</span> <span class=o>:</span> <span class=n>value</span><span class=p>{</span> <span class=n>args</span><span class=p>...</span> <span class=p>}</span> <span class=p>{}</span>
+</span></span><span class=line><span class=cl>	<span class=n>std</span><span class=o>::</span><span class=n>tuple</span><span class=o>&lt;</span><span class=n>Args</span><span class=p>...</span><span class=o>&gt;</span> <span class=n>value</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=p>};</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=kt>int</span> <span class=nf>main</span><span class=p>()</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>	<span class=n>X</span> <span class=n>x</span><span class=p>{</span> <span class=mi>1</span><span class=p>,</span> <span class=mf>2.1</span><span class=p>,</span> <span class=s>&#34;2&#34;</span><span class=p>,</span> <span class=sc>&#39;3&#39;</span> <span class=p>};</span>
+</span></span><span class=line><span class=cl>	<span class=n>std</span><span class=o>::</span><span class=n>cout</span> <span class=o>&lt;&lt;</span> <span class=n>std</span><span class=o>::</span><span class=n>get</span><span class=o>&lt;</span><span class=mi>2</span><span class=o>&gt;</span><span class=p>(</span><span class=n>x</span><span class=p>.</span><span class=n>value</span><span class=p>);</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><p>可以使用 cpp insights 辅助。</p><h2 id=变量模板>变量模板</h2><h3 id=初识变量模板>初识变量模板</h3><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=k>template</span> <span class=o>&lt;</span><span class=k>typename</span> <span class=n>T</span><span class=o>&gt;</span>
+</span></span><span class=line><span class=cl><span class=n>T</span> <span class=n>v</span><span class=p>;</span>
+</span></span></code></pre></td></tr></table></div></div><p>跟函数模板、类模板同理，变量模板也不是变量，实例化之后是全局变量。自然也可以 cv 修饰等等。</p><h3 id=变量模板默认实参与非类型模板实参>变量模板默认实参与非类型模板实参</h3><p>跟函数、类同理。</p><h3 id=可变参数变量模板>可变参数变量模板</h3><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span><span class=lnt>7
+</span><span class=lnt>8
+</span><span class=lnt>9
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=k>template</span> <span class=o>&lt;</span><span class=k>typename</span><span class=p>...</span> <span class=n>Args</span><span class=o>&gt;</span>
+</span></span><span class=line><span class=cl><span class=n>size_t</span> <span class=n>N</span> <span class=o>=</span> <span class=k>sizeof</span><span class=p>...(</span><span class=n>Args</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=k>template</span> <span class=o>&lt;</span><span class=n>std</span><span class=o>::</span><span class=n>size_t</span><span class=p>...</span> <span class=n>value</span><span class=o>&gt;</span>
+</span></span><span class=line><span class=cl><span class=k>constexpr</span> <span class=n>std</span><span class=o>::</span><span class=n>size_t</span> <span class=n>array</span><span class=p>[]</span> <span class=p>{</span><span class=n>value</span><span class=p>...};</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=k>for</span> <span class=p>(</span><span class=k>const</span> <span class=k>auto</span><span class=o>&amp;</span> <span class=nl>i</span> <span class=p>:</span> <span class=n>array</span><span class=o>&lt;</span><span class=mi>1</span><span class=p>,</span> <span class=mi>2</span><span class=p>,</span> <span class=mi>3</span><span class=p>,</span> <span class=mi>4</span><span class=p>,</span> <span class=mi>5</span><span class=o>&gt;</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=n>std</span><span class=o>::</span><span class=n>cout</span> <span class=o>&lt;&lt;</span> <span class=n>i</span> <span class=o>&lt;&lt;</span> <span class=sc>&#39; &#39;</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><h3 id=类静态数据成员模板>类静态数据成员模板</h3><p>首先说类的普通静态成员</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=k>struct</span> <span class=nc>X</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=k>static</span> <span class=kt>int</span> <span class=n>n</span><span class=p>;</span>	<span class=c1>// 声明，没有定义
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=p>};</span>
+</span></span><span class=line><span class=cl><span class=kt>int</span> <span class=n>X</span><span class=o>::</span><span class=n>n</span><span class=p>;</span>			<span class=c1>// 类外定义，当然也可以给初始值
+</span></span></span></code></pre></td></tr></table></div></div><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=k>struct</span> <span class=nc>X</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>	<span class=k>static</span> <span class=k>const</span> <span class=kt>int</span> <span class=n>n</span> <span class=o>=</span> <span class=mi>10</span><span class=p>;</span>	<span class=c1>// 不是定义，还是声明
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=p>};</span>
+</span></span><span class=line><span class=cl><span class=c1>// 这种情况能用是因为
+</span></span></span><span class=line><span class=cl><span class=c1>// 读取编译时常量，不是 ODR 调用，没有违反 ODR
+</span></span></span><span class=line><span class=cl><span class=c1>// 如果要单一使用，就必须要定义
+</span></span></span></code></pre></td></tr></table></div></div><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=k>struct</span> <span class=nc>X</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>	<span class=k>static</span> <span class=kr>inline</span> <span class=kt>int</span> <span class=n>n</span> <span class=o>=</span> <span class=mi>10</span><span class=p>;</span>	<span class=c1>// C++17, 定义，可以 ODR 使用
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=p>};</span>
+</span></span></code></pre></td></tr></table></div></div><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=k>struct</span> <span class=nc>X</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>	<span class=k>static</span> <span class=k>constexpr</span> <span class=kt>int</span> <span class=n>n</span> <span class=o>=</span> <span class=mi>10</span><span class=p>;</span>	<span class=c1>// C++17, 定义
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=p>};</span>
+</span></span><span class=line><span class=cl><span class=c1>// static constexpr 自带 inline 属性，所以可以 ODR 使用
+</span></span></span></code></pre></td></tr></table></div></div><p>来看看类的静态变量模板</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=k>struct</span> <span class=nc>limits</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>	<span class=k>template</span><span class=o>&lt;</span><span class=k>typename</span> <span class=n>T</span><span class=o>&gt;</span>
+</span></span><span class=line><span class=cl>    <span class=k>static</span> <span class=k>const</span> <span class=n>T</span> <span class=n>min</span><span class=p>;</span>	<span class=c1>// 声明
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=p>};</span>
+</span></span><span class=line><span class=cl><span class=k>template</span><span class=o>&lt;</span><span class=k>typename</span> <span class=n>T</span><span class=o>&gt;</span>
+</span></span><span class=line><span class=cl><span class=k>const</span> <span class=n>T</span> <span class=n>limits</span><span class=o>::</span><span class=n>min</span> <span class=o>=</span> <span class=p>{};</span>	<span class=c1>// 静态数据成员模板定义
+</span></span></span></code></pre></td></tr></table></div></div><h2 id=模板全特化>模板全特化</h2><h3 id=函数模板全特化>函数模板全特化</h3><p>特化，对某些类型进行定制的操作</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span><span class=lnt>7
+</span><span class=lnt>8
+</span><span class=lnt>9
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=k>template</span><span class=o>&lt;</span><span class=k>typename</span> <span class=n>T</span><span class=p>,</span><span class=k>typename</span> <span class=n>T2</span><span class=o>&gt;</span>
+</span></span><span class=line><span class=cl><span class=k>auto</span> <span class=n>f</span><span class=p>(</span><span class=k>const</span> <span class=n>T</span><span class=o>&amp;</span> <span class=n>a</span><span class=p>,</span> <span class=k>const</span> <span class=n>T2</span><span class=o>&amp;</span> <span class=n>b</span><span class=p>)</span>  <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=k>return</span> <span class=n>a</span> <span class=o>+</span> <span class=n>b</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=k>template</span><span class=o>&lt;&gt;</span>
+</span></span><span class=line><span class=cl><span class=k>auto</span> <span class=n>f</span><span class=o>&lt;</span><span class=kt>double</span><span class=p>,</span> <span class=kt>int</span><span class=o>&gt;</span><span class=p>(</span><span class=k>const</span> <span class=kt>double</span><span class=o>&amp;</span> <span class=n>a</span><span class=p>,</span> <span class=k>const</span> <span class=kt>int</span><span class=o>&amp;</span> <span class=n>b</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=k>return</span> <span class=n>a</span> <span class=o>-</span> <span class=n>b</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><h3 id=类模板全特化>类模板全特化</h3><p>实现个 std::is_void</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span><span class=lnt>7
+</span><span class=lnt>8
+</span><span class=lnt>9
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=k>template</span><span class=o>&lt;</span><span class=k>typename</span> <span class=n>T</span><span class=o>&gt;</span>
+</span></span><span class=line><span class=cl><span class=k>struct</span> <span class=nc>is_void</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=k>static</span> <span class=k>constexpr</span> <span class=kt>bool</span> <span class=n>value</span> <span class=p>{</span><span class=nb>false</span><span class=p>};</span>
+</span></span><span class=line><span class=cl><span class=p>};</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=k>template</span><span class=o>&lt;&gt;</span>
+</span></span><span class=line><span class=cl><span class=k>struct</span> <span class=nc>is_void</span><span class=o>&lt;</span><span class=kt>void</span><span class=o>&gt;</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=k>static</span> <span class=k>constexpr</span> <span class=kt>bool</span> <span class=n>value</span> <span class=p>{</span><span class=nb>true</span><span class=p>};</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><p>C++17 还引入了 _v 版本</p><p>使用的是变量模板</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=k>template</span><span class=o>&lt;</span><span class=k>typename</span> <span class=n>T</span><span class=o>&gt;</span>
+</span></span><span class=line><span class=cl><span class=k>constexpr</span> <span class=kt>bool</span> <span class=n>is_void_v</span> <span class=o>=</span> <span class=n>is_void</span><span class=o>&lt;</span><span class=n>T</span><span class=o>&gt;::</span><span class=n>value</span><span class=p>;</span>
+</span></span></code></pre></td></tr></table></div></div><p>注意不同实例化的模板类之间没有任何关系，他们是互相独立的</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span><span class=lnt>7
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=k>template</span> <span class=o>&lt;</span><span class=k>typename</span> <span class=n>T</span><span class=o>&gt;</span>
+</span></span><span class=line><span class=cl><span class=k>struct</span> <span class=nc>X</span> <span class=p>{};</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=k>template</span><span class=o>&lt;&gt;</span>
+</span></span><span class=line><span class=cl><span class=k>struct</span> <span class=nc>X</span><span class=o>&lt;</span><span class=kt>int</span><span class=o>&gt;</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=kt>void</span> <span class=nf>f</span><span class=p>()</span> <span class=p>{}</span>
+</span></span><span class=line><span class=cl><span class=p>};</span>
+</span></span></code></pre></td></tr></table></div></div><h3 id=变量模板全特化>变量模板全特化</h3><p>没什么好说。</p><h3 id=模板全特化细节>模板全特化细节</h3><ul><li><p>特化必须在发生隐式实例化之前，在使用到其的翻译单元中声明</p></li><li><p>只有声明没有定义的模板特化可以像其他不完整类型一样使用（例如使用到他的指针或引用</p></li><li><p>函数模板和变量模板的显式特化是否为 inline/constexpr/constinit/consteval 只与特化自身有关。主模版的声明是否带有对应说明符对其没有影响。模板声明中出现的属性在它的显式特化中也没有效果。</p></li></ul><h3 id=特化的成员与总结>特化的成员与总结</h3><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span><span class=lnt>7
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=k>template</span><span class=o>&lt;</span><span class=k>typename</span> <span class=n>T</span><span class=o>&gt;</span>
+</span></span><span class=line><span class=cl><span class=k>struct</span> <span class=nc>A</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>	<span class=k>struct</span> <span class=nc>B</span> <span class=p>{};</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>	<span class=k>template</span><span class=o>&lt;</span><span class=k>typename</span> <span class=n>U</span><span class=o>&gt;</span>
+</span></span><span class=line><span class=cl>	<span class=k>struct</span> <span class=nc>C</span> <span class=p>{};</span>
+</span></span><span class=line><span class=cl><span class=p>};</span>
+</span></span></code></pre></td></tr></table></div></div><p>特化后类内成名，类外定义：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span><span class=lnt>7
+</span><span class=lnt>8
+</span><span class=lnt>9
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=k>template</span><span class=o>&lt;&gt;</span>
+</span></span><span class=line><span class=cl><span class=k>struct</span> <span class=nc>A</span><span class=o>&lt;</span><span class=kt>void</span><span class=o>&gt;</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>	<span class=kt>void</span> <span class=nf>f</span><span class=p>();</span>
+</span></span><span class=line><span class=cl><span class=p>};</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=kt>void</span> <span class=n>A</span><span class=o>&lt;</span><span class=kt>void</span><span class=o>&gt;::</span><span class=n>f</span><span class=p>()</span> <span class=p>{}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=n>A</span><span class=o>&lt;</span><span class=kt>void</span><span class=o>&gt;</span> <span class=n>a</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=n>a</span><span class=p>.</span><span class=n>f</span><span class=p>();</span>
+</span></span></code></pre></td></tr></table></div></div><p>特化 A&lt;char> 情况下的 B 成员类</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span><span class=lnt>7
+</span><span class=lnt>8
+</span><span class=lnt>9
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=k>template</span><span class=o>&lt;&gt;</span>
+</span></span><span class=line><span class=cl><span class=k>struct</span> <span class=nc>A</span><span class=o>&lt;</span><span class=kt>char</span><span class=o>&gt;::</span><span class=n>B</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>	<span class=kt>void</span> <span class=nf>f</span><span class=p>();</span>
+</span></span><span class=line><span class=cl><span class=p>};</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=kt>void</span> <span class=n>A</span><span class=o>&lt;</span><span class=kt>char</span><span class=o>&gt;::</span><span class=n>B</span><span class=o>::</span><span class=n>f</span><span class=p>()</span> <span class=p>{}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=n>A</span><span class=o>&lt;</span><span class=kt>char</span><span class=o>&gt;::</span><span class=n>B</span> <span class=n>b_c</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=n>b_c</span><span class=p>.</span><span class=n>f</span><span class=p>();</span>
+</span></span></code></pre></td></tr></table></div></div><p>特化成员类模板 A&lt;int> C 的定义</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=k>template</span><span class=o>&lt;&gt;</span>
+</span></span><span class=line><span class=cl><span class=k>template</span><span class=o>&lt;</span><span class=k>typename</span> <span class=n>U</span><span class=o>&gt;</span>
+</span></span><span class=line><span class=cl><span class=k>struct</span> <span class=nc>A</span><span class=o>&lt;</span><span class=kt>int</span><span class=o>&gt;::</span><span class=n>C</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>	<span class=kt>void</span> <span class=nf>f</span><span class=p>();</span>
+</span></span><span class=line><span class=cl><span class=p>};</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=k>template</span><span class=o>&lt;&gt;</span>
+</span></span><span class=line><span class=cl><span class=k>template</span><span class=o>&lt;</span><span class=k>typename</span> <span class=n>U</span><span class=o>&gt;</span>
+</span></span><span class=line><span class=cl><span class=kt>void</span> <span class=n>A</span><span class=o>&lt;</span><span class=kt>int</span><span class=o>&gt;::</span><span class=n>C</span><span class=o>&lt;</span><span class=n>U</span><span class=o>&gt;::</span><span class=n>f</span><span class=p>()</span> <span class=p>{}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=n>A</span><span class=o>&lt;</span><span class=kt>int</span><span class=o>&gt;::</span><span class=n>C</span><span class=o>&lt;</span><span class=kt>void</span><span class=o>&gt;</span> <span class=n>c_v</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=n>c_v</span><span class=p>.</span><span class=n>f</span><span class=p>();</span>
+</span></span></code></pre></td></tr></table></div></div><p><strong>特化普通类的成员函数模板</strong></p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=k>struct</span> <span class=nc>X</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>	<span class=k>template</span><span class=o>&lt;</span><span class=k>typename</span> <span class=n>T</span><span class=o>&gt;</span>
+</span></span><span class=line><span class=cl>	<span class=kt>void</span> <span class=n>f</span><span class=p>(</span><span class=n>T</span><span class=p>)</span> <span class=p>{}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>	<span class=k>template</span><span class=o>&lt;&gt;</span>
+</span></span><span class=line><span class=cl>	<span class=kt>void</span> <span class=n>f</span><span class=o>&lt;</span><span class=kt>int</span><span class=o>&gt;</span><span class=p>(</span><span class=kt>int</span><span class=p>)</span> <span class=p>{}</span>	<span class=c1>// 可以类内直接特化
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=p>};</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=k>template</span><span class=o>&lt;&gt;</span>
+</span></span><span class=line><span class=cl><span class=kt>void</span> <span class=n>X</span><span class=o>::</span><span class=n>f</span><span class=o>&lt;</span><span class=kt>double</span><span class=o>&gt;</span><span class=p>(</span><span class=kt>double</span><span class=p>)</span> <span class=p>{}</span>	<span class=c1>// 类外特化
+</span></span></span></code></pre></td></tr></table></div></div><p><strong>特化类模板的成员函数模板</strong></p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span><span class=lnt>7
+</span><span class=lnt>8
+</span><span class=lnt>9
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=k>template</span><span class=o>&lt;</span><span class=k>typename</span> <span class=n>T</span><span class=o>&gt;</span>
+</span></span><span class=line><span class=cl><span class=k>struct</span> <span class=nc>X</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>	<span class=k>template</span><span class=o>&lt;</span><span class=k>typename</span> <span class=n>U</span><span class=o>&gt;</span>
+</span></span><span class=line><span class=cl>	<span class=kt>void</span> <span class=n>f</span><span class=p>(</span><span class=n>U</span><span class=p>)</span> <span class=p>{}</span>
+</span></span><span class=line><span class=cl><span class=p>};</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=k>template</span><span class=o>&lt;&gt;</span>
+</span></span><span class=line><span class=cl><span class=k>template</span><span class=o>&lt;&gt;</span>
+</span></span><span class=line><span class=cl><span class=kt>void</span> <span class=n>X</span><span class=o>&lt;</span><span class=kt>int</span><span class=o>&gt;::</span><span class=n>f</span><span class=o>&lt;</span><span class=kt>char</span><span class=o>&gt;</span><span class=p>(</span><span class=kt>char</span><span class=p>)</span> <span class=p>{}</span>
+</span></span></code></pre></td></tr></table></div></div><h2 id=模板偏特化>模板偏特化</h2><p>对有共同一类特征的类模板、变量模板进行定制行为（函数模板不能偏特化）</p><h3 id=变量模板偏特化>变量模板偏特化</h3><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=k>template</span><span class=o>&lt;</span><span class=k>typename</span> <span class=n>T</span><span class=o>&gt;</span>
+</span></span><span class=line><span class=cl><span class=k>const</span> <span class=kt>char</span><span class=o>*</span> <span class=n>s</span> <span class=o>=</span> <span class=s>&#34;?&#34;</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=k>template</span><span class=o>&lt;</span><span class=k>typename</span> <span class=n>T</span><span class=o>&gt;</span>
+</span></span><span class=line><span class=cl><span class=k>const</span> <span class=kt>char</span><span class=o>*</span> <span class=n>s</span><span class=o>&lt;</span><span class=n>T</span><span class=o>*&gt;</span> <span class=o>=</span> <span class=s>&#34;pointer&#34;</span><span class=p>;</span>	<span class=c1>// 对指针这一类类型特化
+</span></span></span><span class=line><span class=cl><span class=c1></span>
+</span></span><span class=line><span class=cl><span class=k>template</span><span class=o>&lt;</span><span class=k>typename</span> <span class=n>T</span><span class=o>&gt;</span>
+</span></span><span class=line><span class=cl><span class=k>const</span> <span class=kt>char</span><span class=o>*</span> <span class=n>S</span><span class=o>&lt;</span><span class=n>T</span><span class=p>[]</span><span class=o>&gt;</span> <span class=o>=</span> <span class=s>&#34;array&#34;</span><span class=p>;</span>	<span class=c1>// 针对 T[] 进行偏特化，而不是数组类型
+</span></span></span><span class=line><span class=cl><span class=c1></span>								<span class=c1>// T[] 和 T[N] 肯定不是一个类型
+</span></span></span><span class=line><span class=cl><span class=c1></span>
+</span></span><span class=line><span class=cl><span class=k>template</span><span class=o>&lt;</span><span class=k>typename</span> <span class=n>T</span><span class=p>,</span> <span class=k>typename</span> <span class=n>T2</span><span class=o>&gt;</span>
+</span></span><span class=line><span class=cl><span class=k>const</span> <span class=kt>char</span><span class=o>*</span> <span class=n>s</span> <span class=o>=</span> <span class=s>&#34;?&#34;</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=k>template</span><span class=o>&lt;</span><span class=k>typename</span> <span class=n>T2</span><span class=o>&gt;</span>
+</span></span><span class=line><span class=cl><span class=k>const</span> <span class=kt>char</span><span class=o>*</span> <span class=n>s</span><span class=o>&lt;</span><span class=kt>int</span><span class=p>,</span> <span class=n>T2</span><span class=o>&gt;</span> <span class=o>=</span> <span class=s>&#34; T == int &#34;</span><span class=p>;</span>
+</span></span></code></pre></td></tr></table></div></div><h3 id=类模板偏特化>类模板偏特化</h3><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=k>template</span><span class=o>&lt;</span><span class=k>typename</span> <span class=n>T</span><span class=p>,</span> <span class=k>typename</span> <span class=n>T2</span><span class=o>&gt;</span>
+</span></span><span class=line><span class=cl><span class=k>struct</span> <span class=nc>X</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>	<span class=kt>void</span> <span class=nf>f</span><span class=p>()</span> <span class=k>const</span> <span class=p>{}</span>
+</span></span><span class=line><span class=cl><span class=p>};</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=k>template</span><span class=o>&lt;</span><span class=k>typename</span> <span class=n>T</span><span class=o>&gt;</span>
+</span></span><span class=line><span class=cl><span class=k>struct</span> <span class=nc>X</span><span class=o>&lt;</span><span class=kt>void</span><span class=p>,</span> <span class=n>T</span><span class=o>&gt;</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=kt>void</span> <span class=nf>g</span><span class=p>()</span> <span class=k>const</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=k>template</span><span class=o>&lt;</span><span class=k>typename</span> <span class=n>T</span><span class=o>&gt;</span>
+</span></span><span class=line><span class=cl><span class=kt>void</span> <span class=n>X</span><span class=o>&lt;</span><span class=kt>void</span><span class=p>,</span> <span class=n>T</span><span class=o>&gt;::</span><span class=n>g</span><span class=p>()</span> <span class=k>const</span> <span class=p>{}</span>	<span class=c1>// 不建议写到类外
+</span></span></span></code></pre></td></tr></table></div></div><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=k>template</span><span class=o>&lt;</span><span class=k>typename</span> <span class=n>T</span><span class=p>,</span> <span class=n>std</span><span class=o>::</span><span class=n>size_t</span> <span class=n>N</span><span class=o>&gt;</span>
+</span></span><span class=line><span class=cl><span class=k>struct</span> <span class=nc>X</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>	<span class=k>template</span><span class=o>&lt;</span><span class=k>typename</span> <span class=n>U</span><span class=p>,</span> <span class=k>typename</span> <span class=n>V</span><span class=o>&gt;</span> 
+</span></span><span class=line><span class=cl>    <span class=k>struct</span> <span class=nc>Y</span><span class=p>{};</span>
+</span></span><span class=line><span class=cl><span class=p>};</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=k>template</span><span class=o>&lt;&gt;</span>
+</span></span><span class=line><span class=cl><span class=k>template</span><span class=o>&lt;</span><span class=k>typename</span> <span class=n>V</span><span class=o>&gt;</span>
+</span></span><span class=line><span class=cl><span class=k>struct</span> <span class=nc>X</span><span class=o>&lt;</span><span class=kt>int</span><span class=p>,</span> <span class=mi>5</span><span class=o>&gt;::</span><span class=n>Y</span><span class=o>&lt;</span><span class=kt>int</span><span class=p>,</span> <span class=n>V</span><span class=o>&gt;</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=kt>void</span> <span class=nf>f</span><span class=p>()</span> <span class=k>const</span> <span class=p>{}</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><h3 id=实现-is_same_v>实现 is_same_v</h3><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=k>template</span><span class=o>&lt;</span><span class=k>class</span><span class=err>, </span><span class=nc>class</span><span class=o>&gt;</span>
+</span></span><span class=line><span class=cl><span class=k>struct</span> <span class=nc>is_same</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>	<span class=k>static</span> <span class=k>constexpr</span> <span class=kt>bool</span> <span class=n>value</span><span class=p>{</span> <span class=nb>false</span> <span class=p>};</span>
+</span></span><span class=line><span class=cl><span class=p>};</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=k>template</span><span class=o>&lt;</span><span class=k>class</span> <span class=nc>Ty</span><span class=o>&gt;</span>
+</span></span><span class=line><span class=cl><span class=k>struct</span> <span class=nc>is_same</span><span class=o>&lt;</span><span class=n>Ty</span><span class=p>,</span> <span class=n>Ty</span><span class=o>&gt;</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>	<span class=k>static</span> <span class=k>constexpr</span> <span class=kt>bool</span> <span class=n>value</span><span class=p>{</span> <span class=nb>true</span> <span class=p>};</span>
+</span></span><span class=line><span class=cl><span class=p>};</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1>// 变量模板
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=k>template</span> <span class=o>&lt;</span><span class=k>class</span> <span class=nc>T</span><span class=p>,</span> <span class=k>class</span> <span class=nc>T2</span><span class=o>&gt;</span>
+</span></span><span class=line><span class=cl><span class=k>constexpr</span> <span class=kt>bool</span> <span class=n>is_same_v</span> <span class=o>=</span> <span class=n>is_same</span><span class=o>&lt;</span><span class=n>T</span><span class=p>,</span> <span class=n>T2</span><span class=o>&gt;::</span><span class=n>value</span><span class=p>;</span>
+</span></span></code></pre></td></tr></table></div></div><p>当然也可以用变量模板直接写</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=k>template</span> <span class=o>&lt;</span><span class=k>class</span><span class=err>, </span><span class=nc>class</span><span class=o>&gt;</span>
+</span></span><span class=line><span class=cl><span class=k>constexpr</span> <span class=kt>bool</span> <span class=n>is_same_v</span> <span class=o>=</span> <span class=nb>false</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=k>template</span> <span class=o>&lt;</span><span class=k>class</span> <span class=nc>Ty</span><span class=o>&gt;</span>
+</span></span><span class=line><span class=cl><span class=k>constexpr</span> <span class=kt>bool</span> <span class=n>is_same_v</span><span class=o>&lt;</span><span class=n>Ty</span><span class=p>,</span> <span class=n>Ty</span><span class=o>&gt;</span> <span class=o>=</span> <span class=nb>true</span><span class=p>;</span>
+</span></span></code></pre></td></tr></table></div></div><h2 id=函数模板显式实例化解决分文件问题>函数模板显式实例化解决分文件问题</h2><h3 id=函数模板-1>函数模板</h3><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=k>template</span><span class=o>&lt;</span><span class=k>typename</span> <span class=n>T</span><span class=o>&gt;</span>
+</span></span><span class=line><span class=cl><span class=kt>void</span> <span class=n>f</span><span class=p>(</span><span class=n>T</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>	<span class=n>std</span><span class=o>::</span><span class=n>cout</span> <span class=o>&lt;&lt;</span> <span class=k>typeid</span><span class=p>(</span><span class=n>T</span><span class=p>).</span><span class=n>name</span><span class=p>()</span> <span class=o>&lt;&lt;</span> <span class=s>&#34;</span><span class=se>\n</span><span class=s>&#34;</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=k>template</span> <span class=kt>void</span> <span class=nf>f</span><span class=p>(</span><span class=kt>int</span><span class=p>);</span>	<span class=c1>// 编译器会实例化 f&lt;int&gt;(int)
+</span></span></span></code></pre></td></tr></table></div></div><p>之后就可以把模板放在头文件，在cpp文件内显式实例化，然后其他 cpp 引入头文件就可以使用了。</p><h3 id=类模板-1>类模板</h3><p>类的完整定义不包含成员函数的完整定义，所以可以创建对象，但是不能调用成员函数。</p><p>需要显式实例化成员函数</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=k>template</span><span class=o>&lt;</span><span class=k>typename</span> <span class=n>T</span><span class=o>&gt;</span>
+</span></span><span class=line><span class=cl><span class=k>struct</span> <span class=nc>X</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=kt>void</span> <span class=nf>f</span><span class=p>();</span>
+</span></span><span class=line><span class=cl><span class=p>};</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=k>template</span> <span class=kt>void</span> <span class=n>X</span><span class=o>&lt;</span><span class=kt>int</span><span class=o>&gt;::</span><span class=n>f</span><span class=p>();</span>
+</span></span></code></pre></td></tr></table></div></div><h2 id=折叠表达式>折叠表达式</h2><h3 id=一元>一元</h3><p>C++17 引入折叠表达式，更方便进行<strong>形参包展开</strong></p><p>之前在新参包中的写法非常愚蠢，在C++17之后就可以使用折叠表达式了。</p><p>折叠表达式是左折叠还是右折叠，取决于 <code>...</code> 的位置</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span><span class=lnt>7
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=k>template</span><span class=o>&lt;</span><span class=k>typename</span><span class=p>...</span> <span class=n>Args</span><span class=o>&gt;</span>
+</span></span><span class=line><span class=cl><span class=kt>void</span> <span class=n>print</span><span class=p>(</span><span class=k>const</span> <span class=n>Args</span><span class=o>&amp;</span><span class=p>...</span> <span class=n>args</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=p>((</span><span class=n>std</span><span class=o>::</span><span class=n>cout</span> <span class=o>&lt;&lt;</span> <span class=n>args</span> <span class=o>&lt;&lt;</span> <span class=sc>&#39; &#39;</span><span class=p>),</span> <span class=p>...);</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span><span class=line><span class=cl><span class=c1>// 一元 右折叠 -&gt; (E 运算符 ...) : E-&gt; (std::cout &lt;&lt; args &lt;&lt; &#39; &#39;)；运算符-&gt; , 
+</span></span></span><span class=line><span class=cl><span class=c1>// 剩下点和括号就不说了，括号是折叠表达式语法的一部分
+</span></span></span><span class=line><span class=cl><span class=c1>// 展开为 (E1 运算符 (... 运算符 (EN-1 运算符 EN)))
+</span></span></span></code></pre></td></tr></table></div></div><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=k>template</span><span class=o>&lt;</span><span class=k>typename</span><span class=p>...</span> <span class=n>Args</span><span class=o>&gt;</span>
+</span></span><span class=line><span class=cl><span class=kt>void</span> <span class=n>print</span><span class=p>(</span><span class=k>const</span> <span class=n>Args</span><span class=o>&amp;</span><span class=p>...</span> <span class=n>args</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=p>(...,</span> <span class=p>(</span><span class=n>std</span><span class=o>::</span><span class=n>cout</span> <span class=o>&lt;&lt;</span> <span class=n>args</span> <span class=o>&lt;&lt;</span> <span class=sc>&#39; &#39;</span><span class=p>));</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span><span class=line><span class=cl><span class=c1>// 一元 左折叠
+</span></span></span><span class=line><span class=cl><span class=c1>// (... 运算符 E) -&gt; (((E1 运算符 E2) 运算符 ...) 运算符 EN)
+</span></span></span></code></pre></td></tr></table></div></div><p>那打印顺序会变吗？不会！因为逗号从左到右执行，不管左折叠还是右折叠都不影响。当然其他运算符会有一些区别。</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=k>template</span><span class=o>&lt;</span><span class=kt>int</span><span class=p>...</span> <span class=n>I</span><span class=o>&gt;</span>
+</span></span><span class=line><span class=cl><span class=k>constexpr</span> <span class=kt>int</span> <span class=n>v_r</span> <span class=o>=</span> <span class=p>(</span><span class=n>I</span> <span class=o>-</span> <span class=p>...);</span>	<span class=c1>// 一元右折叠
+</span></span></span><span class=line><span class=cl><span class=c1></span>
+</span></span><span class=line><span class=cl><span class=k>template</span><span class=o>&lt;</span><span class=kt>int</span><span class=p>...</span> <span class=n>I</span><span class=o>&gt;</span>
+</span></span><span class=line><span class=cl><span class=k>constexpr</span> <span class=kt>int</span> <span class=n>v_l</span> <span class=o>=</span> <span class=p>(...</span> <span class=o>-</span> <span class=n>I</span><span class=p>);</span>	<span class=c1>// 一元左折叠
+</span></span></span><span class=line><span class=cl><span class=c1></span>
+</span></span><span class=line><span class=cl><span class=kt>int</span> <span class=nf>main</span><span class=p>()</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>	<span class=n>std</span><span class=o>::</span><span class=n>cout</span> <span class=o>&lt;&lt;</span> <span class=n>v_r</span><span class=o>&lt;</span><span class=mi>4</span><span class=p>,</span> <span class=mi>5</span><span class=p>,</span> <span class=mi>6</span><span class=o>&gt;</span> <span class=o>&lt;&lt;</span> <span class=sc>&#39;\n&#39;</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>	<span class=n>std</span><span class=o>::</span><span class=n>cout</span> <span class=o>&lt;&lt;</span> <span class=n>v_l</span><span class=o>&lt;</span><span class=mi>4</span><span class=p>,</span> <span class=mi>5</span><span class=p>,</span> <span class=mi>6</span><span class=o>&gt;</span> <span class=o>&lt;&lt;</span> <span class=sc>&#39;\n&#39;</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span><span class=line><span class=cl><span class=c1>// v_r (4-(5-6)) = 5
+</span></span></span><span class=line><span class=cl><span class=c1>// v_l ((4-5)-6) = -7
+</span></span></span></code></pre></td></tr></table></div></div><p>大部分会求值的表达式会影响结果。</p><h3 id=二元>二元</h3><p>二元会长成: <strong>运算符 &mldr; 运算符</strong></p><p>二元左折叠 (&mldr; 在形参包左边)</p><p><code>(I 运算符 ... 运算符 E)</code>，I 是初值表达式</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=k>template</span><span class=o>&lt;</span><span class=k>typename</span><span class=p>...</span> <span class=n>Args</span><span class=o>&gt;</span>
+</span></span><span class=line><span class=cl><span class=kt>void</span> <span class=n>print</span><span class=p>(</span><span class=n>Args</span><span class=o>&amp;&amp;</span><span class=p>...</span> <span class=n>args</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>	<span class=p>(</span><span class=n>std</span><span class=o>::</span><span class=n>cout</span> <span class=o>&lt;&lt;</span> <span class=p>...</span> <span class=o>&lt;&lt;</span> <span class=n>args</span><span class=p>);</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span><span class=line><span class=cl><span class=c1>// 这样写，在打印的情况下会比较抽象。
+</span></span></span></code></pre></td></tr></table></div></div><ul><li><p>I：std::cout</p></li><li><p>运算符: &#171; .. &#171;</p></li><li><p>E: args</p></li></ul><p>展开形式和一元的很像 <code>((((I 运算符 E1) 运算符 E2) 运算符 ...) 运算符 EN)</code>，只不过多了一个 I，右折叠同理，最后多了 I</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=k>template</span><span class=o>&lt;</span><span class=kt>int</span><span class=p>...</span> <span class=n>I</span><span class=o>&gt;</span>
+</span></span><span class=line><span class=cl><span class=k>constexpr</span> <span class=kt>int</span> <span class=n>v_r</span> <span class=o>=</span> <span class=p>(</span><span class=n>I</span> <span class=o>+</span> <span class=p>...</span> <span class=o>+</span> <span class=mi>10</span><span class=p>);</span>	<span class=c1>//二元右折叠
+</span></span></span><span class=line><span class=cl><span class=c1></span>
+</span></span><span class=line><span class=cl><span class=k>template</span><span class=o>&lt;</span><span class=kt>int</span><span class=p>...</span> <span class=n>I</span><span class=o>&gt;</span>
+</span></span><span class=line><span class=cl><span class=k>constexpr</span> <span class=kt>int</span> <span class=n>v_l</span> <span class=o>=</span> <span class=p>(</span><span class=mi>10</span> <span class=o>+</span> <span class=p>...</span> <span class=o>+</span> <span class=n>I</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=kt>int</span> <span class=nf>main</span><span class=p>()</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>	<span class=n>std</span><span class=o>::</span><span class=n>cout</span> <span class=o>&lt;&lt;</span> <span class=n>v_r</span><span class=o>&lt;</span><span class=mi>1</span><span class=p>,</span> <span class=mi>2</span><span class=p>,</span> <span class=mi>3</span><span class=p>,</span> <span class=mi>4</span><span class=o>&gt;</span> <span class=o>&lt;&lt;</span> <span class=sc>&#39;\n&#39;</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>	<span class=n>std</span><span class=o>::</span><span class=n>cout</span> <span class=o>&lt;&lt;</span> <span class=n>v_l</span><span class=o>&lt;</span><span class=mi>1</span><span class=p>,</span> <span class=mi>2</span><span class=p>,</span> <span class=mi>3</span><span class=p>,</span> <span class=mi>4</span><span class=o>&gt;</span> <span class=o>&lt;&lt;</span> <span class=sc>&#39;\n&#39;</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><p>结果显然都是 20</p><p>v_r: <code>(1+(2+(3+(4+10))))</code></p><p>v_l: <code>((((10+1)+2)+3)+4)</code></p><p>初值无论如何都是第一个计算。</p><h2 id=待决名>待决名</h2><blockquote><p>在模板（类模板和函数模板）定义中，某些构造的含义可以在不同的实例化间有所不同。特别是，<strong>类型和表达式可能会取决于类型模板形参的类型和非类型模板形参的值</strong>。</p></blockquote><h3 id=typename-消除待决名歧义>typename 消除待决名歧义</h3><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=k>template</span><span class=o>&lt;</span><span class=k>typename</span> <span class=n>T</span><span class=o>&gt;</span>
+</span></span><span class=line><span class=cl><span class=k>const</span> <span class=n>T</span><span class=o>::</span><span class=n>type</span><span class=o>&amp;</span> <span class=n>f</span><span class=p>(</span><span class=k>const</span> <span class=n>T</span><span class=o>&amp;</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>	<span class=k>return</span> <span class=mi>0</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=k>struct</span> <span class=nc>X</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>	<span class=k>using</span> <span class=n>type</span> <span class=o>=</span> <span class=kt>int</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=p>};</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=n>X</span> <span class=n>x</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=n>f</span><span class=p>(</span><span class=n>x</span><span class=p>);</span>
+</span></span></code></pre></td></tr></table></div></div><p>无法编译，因为编译器认为 T::type 是标识符，我们需要加上 typename 提示编译器他是类型</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=k>template</span><span class=o>&lt;</span><span class=k>typename</span> <span class=n>T</span><span class=o>&gt;</span>
+</span></span><span class=line><span class=cl><span class=k>const</span> <span class=k>typename</span> <span class=n>T</span><span class=o>::</span><span class=n>type</span><span class=o>&amp;</span> <span class=n>f</span><span class=p>(</span><span class=k>const</span> <span class=n>T</span><span class=o>&amp;</span><span class=p>)</span> <span class=p>{...}</span>
+</span></span></code></pre></td></tr></table></div></div><blockquote><p><strong>在模板（包括别名模版）的声明或定义中，<em>不是当前实例化的成员且取决于某个模板形参的名字</em> 不会被认为是类型，除非使用关键词 typename 或它已经被设立为类型名（例如用 typedef 声明或通过用作基类名）</strong>。</p></blockquote><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span><span class=lnt>20
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=kt>int</span> <span class=n>p</span> <span class=o>=</span> <span class=mi>1</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=k>template</span><span class=o>&lt;</span><span class=k>typename</span> <span class=n>T</span><span class=o>&gt;</span>
+</span></span><span class=line><span class=cl><span class=kt>void</span> <span class=n>foo</span><span class=p>(</span><span class=k>const</span> <span class=n>std</span><span class=o>::</span><span class=n>vector</span><span class=o>&lt;</span><span class=n>T</span><span class=o>&gt;&amp;</span> <span class=n>v</span><span class=p>){</span>
+</span></span><span class=line><span class=cl>    <span class=c1>// std::vector&lt;T&gt;::const_iterator 是待决名，
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=k>typename</span> <span class=n>std</span><span class=o>::</span><span class=n>vector</span><span class=o>&lt;</span><span class=n>T</span><span class=o>&gt;::</span><span class=n>const_iterator</span> <span class=n>it</span> <span class=o>=</span> <span class=n>v</span><span class=p>.</span><span class=n>begin</span><span class=p>();</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=c1>// 下列内容因为没有 &#39;typename&#39; 而会被解析成
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=c1>// 类型待决的成员变量 &#39;const_iterator&#39; 和某变量 &#39;p&#39; 的乘法。
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=c1>// 因为在此处有一个可见的全局 &#39;p&#39;，所以此模板定义能编译。
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=n>std</span><span class=o>::</span><span class=n>vector</span><span class=o>&lt;</span><span class=n>T</span><span class=o>&gt;::</span><span class=n>const_iterator</span><span class=o>*</span> <span class=n>p</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=k>typedef</span> <span class=k>typename</span> <span class=n>std</span><span class=o>::</span><span class=n>vector</span><span class=o>&lt;</span><span class=n>T</span><span class=o>&gt;::</span><span class=n>const_iterator</span> <span class=n>iter_t</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=n>iter_t</span><span class=o>*</span> <span class=n>p2</span><span class=p>;</span> <span class=c1>// iter_t 是待决名，但已知它是类型名
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=kt>int</span> <span class=nf>main</span><span class=p>(){</span>
+</span></span><span class=line><span class=cl>    <span class=n>std</span><span class=o>::</span><span class=n>vector</span><span class=o>&lt;</span><span class=kt>int</span><span class=o>&gt;</span><span class=n>v</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=n>foo</span><span class=p>(</span><span class=n>v</span><span class=p>);</span> <span class=c1>// 实例化失败
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><h3 id=template-消除歧义符>template 消除歧义符</h3><blockquote><p><strong><em>模板定义中 不是当前实例化的成员 的待决名 同样不被认为是模板名</em>，除非使用消歧义关键词 template，或它已被设立为模板名</strong></p></blockquote><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=k>template</span><span class=o>&lt;</span><span class=k>typename</span> <span class=n>T</span><span class=o>&gt;</span>
+</span></span><span class=line><span class=cl><span class=k>struct</span> <span class=nc>S</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>	<span class=k>template</span><span class=o>&lt;</span><span class=k>typename</span> <span class=n>U</span><span class=o>&gt;</span>
+</span></span><span class=line><span class=cl>	<span class=kt>void</span> <span class=n>foo</span><span class=p>()</span> <span class=p>{}</span>
+</span></span><span class=line><span class=cl><span class=p>};</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=k>template</span><span class=o>&lt;</span><span class=k>typename</span> <span class=n>T</span><span class=o>&gt;</span>
+</span></span><span class=line><span class=cl><span class=kt>void</span> <span class=n>bar</span><span class=p>()</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>	<span class=n>S</span><span class=o>&lt;</span><span class=n>T</span><span class=o>&gt;</span> <span class=n>s</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>	<span class=n>s</span><span class=p>.</span><span class=n>foo</span><span class=o>&lt;</span><span class=n>T</span><span class=o>&gt;</span><span class=p>();</span>
+</span></span><span class=line><span class=cl>    <span class=c1>// s.template foo&lt;T&gt;();
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><p><strong><code>template</code> 的使用比 <code>typename</code> 少，并且 <code>template</code> 只能用于 <code>::</code>、<code>-></code>、<code>.</code> 三个运算符 *之后*。</strong></p><h3 id=非待决名绑定规则>非待决名绑定规则</h3><blockquote><p>非待决名在模版定义点查找并绑定，即使模板实例化点有更好的匹配，也保持此绑定。</p></blockquote><h3 id=待决与非待决查找规则>待决与非待决查找规则</h3><ul><li>有限名字查找？</li><li>无限名字查找？</li></ul><blockquote><p>对于在模板的定义中所使用的<strong>非待决名</strong>，当<strong>检查该模板的定义时将进行无限定的名字查找</strong>。在这个位置与声明之间的绑定并不会受到在实例化点可见的声明的影响。而对于在模板定义中所使用的<strong>待决名</strong>，<strong>它的查找会推迟到得知它的模板实参之时</strong>。此时，ADL 将同时在模板的定义语境和在模板的实例化语境中检查可见的具有外部连接的 (C++11 前)函数声明，而非 ADL 的查找只会检查在模板的定义语境中可见的具有外部连接的 (C++11 前)函数声明。（换句话说，在模板定义之后添加新的函数声明，除非通过 ADL 否则仍是不可见的。）如果在 ADL 查找所检查的命名空间中，在某个别的翻译单元中声明了一个具有外部连接的更好的匹配声明，或者如果当同样检查这些翻译单元时其查找会导致歧义，那么行为未定义。无论哪种情况，<strong>如果某个基类取决于某个模板形参，那么无限定名字查找不会检查它的作用域（在定义点和实例化点都不会）</strong>。</p></blockquote><p>很长，但是看我们加粗的就够：</p><ul><li>非待决名：检查该模板的定义时将进行无限定的名字查找</li><li>待决名：它的查找会推迟到得知它的模板实参之时</li></ul><p><strong>这个故事告诉我们，this加不加是真的有区别的（this依赖模板参数是待决名）</strong></p><h2 id=sfinae>SFINAE</h2><h3 id=sfinae-1>SFINAE?</h3><p>“代换失败不是错误” (Substitution Failure Is Not An Error)</p><p>在<strong>函数模板的重载决议</strong><a class=link href=https://github.com/Mq-b/Modern-Cpp-templates-tutorial/blob/main/md/%e7%ac%ac%e4%b8%80%e9%83%a8%e5%88%86-%e5%9f%ba%e7%a1%80%e7%9f%a5%e8%af%86/10%e4%ba%86%e8%a7%a3%e4%b8%8e%e5%88%a9%e7%94%a8SFINAE.md#user-content-fn-1-bb04513483baf397e0e69541c096e9f5 target=_blank rel=noopener>1</a>中会应用此规则：当模板形参在替换成显式指定的类型或推导出的类型失败时，从重载集中丢弃这个特化，<em>而非导致编译失败</em>。</p><p>此特性被用于模板元编程。</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=k>template</span><span class=o>&lt;</span><span class=k>typename</span> <span class=n>T</span><span class=p>,</span> <span class=k>typename</span> <span class=n>T2</span> <span class=o>=</span> <span class=k>typename</span> <span class=n>T</span><span class=o>::</span><span class=n>type</span><span class=o>&gt;</span>
+</span></span><span class=line><span class=cl><span class=kt>void</span> <span class=n>f</span><span class=p>(</span><span class=kt>int</span><span class=p>)</span> <span class=p>{</span> <span class=n>std</span><span class=o>::</span><span class=n>puts</span><span class=p>(</span><span class=s>&#34;int&#34;</span><span class=p>);</span> <span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=n>f</span><span class=o>&lt;</span><span class=kt>int</span><span class=o>&gt;</span><span class=p>(</span><span class=mi>5</span><span class=p>);</span>
+</span></span></code></pre></td></tr></table></div></div><p>会报错：未找到匹配的重载函数</p><p>因为这里显然 int::type 非良构（不符合语法），代换失败，会丢弃特化，但又没有找到其他重载函数。</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=k>template</span><span class=o>&lt;</span><span class=k>typename</span> <span class=n>T</span><span class=o>&gt;</span>
+</span></span><span class=line><span class=cl><span class=kt>void</span> <span class=n>f</span><span class=p>(</span><span class=kt>double</span><span class=p>)</span> <span class=p>{</span> <span class=n>std</span><span class=o>::</span><span class=n>puts</span><span class=p>(</span><span class=s>&#34;double&#34;</span><span class=p>);</span> <span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><p>这里会选择到 double 版本。</p><p>可以用 typename + decltype 写条件，即可对传入的类型做出要求，比如 operator+ 等等</p><p>对模板形参会进行两次代换（推导前指定，推导后）</p><h3 id=代换失败与硬错误>代换失败与硬错误</h3><blockquote><p><strong>只有在函数类型或其模板形参类型或其 explicit 说明符 (C++20 起)的 <em>立即语境</em> 中的类型与表达式中的失败，才是 <em>SFINAE 错误</em>。</strong></p><p>**如果对代换后的类型/表达式的 <em>求值导致副作用</em>，例如实例化某模板特化、生成某隐式定义的成员函数等，那么这些副作用中的错误都被当做 <em>硬错误</em> **。</p></blockquote><p>SFINAE 可以影响重载决议。</p><p>尤其注意，进行实例化是硬错误。</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=k>template</span><span class=o>&lt;</span><span class=k>typename</span> <span class=n>T</span><span class=o>&gt;</span>
+</span></span><span class=line><span class=cl><span class=k>struct</span> <span class=nc>B</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>	<span class=k>using</span> <span class=n>type</span> <span class=o>=</span> <span class=k>typename</span> <span class=n>T</span><span class=o>::</span><span class=n>type</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=p>};</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=k>template</span><span class=o>&lt;</span><span class=k>typename</span> <span class=n>T</span><span class=o>&gt;</span>
+</span></span><span class=line><span class=cl><span class=kt>void</span> <span class=n>foo</span><span class=p>(</span><span class=kt>double</span><span class=p>)</span> <span class=p>{</span> <span class=n>std</span><span class=o>::</span><span class=n>puts</span><span class=p>(</span><span class=s>&#34;SFINAE&#34;</span><span class=p>);</span> <span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=k>template</span><span class=o>&lt;</span>
+</span></span><span class=line><span class=cl>	<span class=k>class</span> <span class=nc>T</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>	<span class=k>class</span> <span class=nc>U</span> <span class=o>=</span> <span class=k>typename</span> <span class=n>T</span><span class=o>::</span><span class=n>type</span><span class=p>,</span>		<span class=c1>// 如果T 没有 type，就代换失败，如果没有这一行会因为下一行的 B&lt;T&gt; 硬错误编译失败
+</span></span></span><span class=line><span class=cl><span class=c1></span>	<span class=k>class</span> <span class=nc>V</span> <span class=o>=</span> <span class=k>typename</span> <span class=n>B</span><span class=o>&lt;</span><span class=n>T</span><span class=o>&gt;::</span><span class=n>type</span>	<span class=c1>// 这里就是实例化
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=o>&gt;</span>
+</span></span><span class=line><span class=cl><span class=kt>void</span> <span class=n>foo</span><span class=p>(</span><span class=kt>int</span><span class=p>)</span> <span class=p>{</span> <span class=n>std</span><span class=o>::</span><span class=n>puts</span><span class=p>(</span><span class=s>&#34;SFINAE T::type, B&lt;T&gt;::type&#34;</span><span class=p>);</span> <span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=kt>int</span> <span class=nf>main</span><span class=p>()</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>	<span class=n>foo</span><span class=o>&lt;</span><span class=kt>void</span><span class=o>&gt;</span><span class=p>(</span><span class=mi>1</span><span class=p>);</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><h3 id=sfinae-基础示例>SFINAE 基础示例</h3><p>需要写一个 add，要求其类型支持 operator+</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=c1>// 自然可以这里写 decltype，但是这样比较蛋疼
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=k>template</span><span class=o>&lt;</span><span class=k>typename</span> <span class=n>T</span><span class=p>,</span> <span class=k>typename</span> <span class=o>=</span> <span class=k>decltype</span><span class=p>(</span><span class=n>T</span><span class=p>{}</span> <span class=o>+</span> <span class=n>T</span><span class=p>{})</span> <span class=o>&gt;</span>
+</span></span><span class=line><span class=cl><span class=k>auto</span> <span class=n>add</span><span class=p>(</span><span class=k>const</span> <span class=n>T</span><span class=o>&amp;</span> <span class=n>a</span><span class=p>,</span> <span class=k>const</span> <span class=n>T</span><span class=o>&amp;</span> <span class=n>b</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>	<span class=k>return</span> <span class=n>a</span> <span class=o>+</span> <span class=n>b</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1>// 使用 C++11 后置返回类型，此时知道 a 和 b 的类型
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=k>template</span><span class=o>&lt;</span><span class=k>typename</span> <span class=n>T</span><span class=o>&gt;</span>
+</span></span><span class=line><span class=cl><span class=k>auto</span> <span class=n>add</span><span class=p>(</span><span class=k>const</span> <span class=n>T</span><span class=o>&amp;</span> <span class=n>a</span><span class=p>,</span> <span class=k>const</span> <span class=n>T</span><span class=o>&amp;</span> <span class=n>b</span><span class=p>)</span> <span class=o>-&gt;</span> <span class=k>decltype</span><span class=p>(</span><span class=n>a</span> <span class=o>+</span> <span class=n>b</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>	<span class=k>return</span> <span class=n>a</span> <span class=o>+</span> <span class=n>b</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><p>多用 SFINAE 等约束才能有更友好的报错和编译速度。</p><h3 id=stdenable_if>std::enable_if</h3><p>如何要求模板提供的类型？</p><p>第一个参数接受一个返回 bool 值的表达式</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span><span class=lnt>7
+</span><span class=lnt>8
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=k>template</span><span class=o>&lt;</span><span class=kt>bool</span> <span class=n>B</span><span class=p>,</span> <span class=k>class</span> <span class=nc>T</span> <span class=o>=</span> <span class=kt>void</span><span class=o>&gt;</span>
+</span></span><span class=line><span class=cl><span class=k>struct</span> <span class=nc>enable_if</span> <span class=p>{};</span>
+</span></span><span class=line><span class=cl> 
+</span></span><span class=line><span class=cl><span class=k>template</span><span class=o>&lt;</span><span class=k>class</span> <span class=nc>T</span><span class=o>&gt;</span> <span class=c1>// 类模板偏特化
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=k>struct</span> <span class=nc>enable_if</span><span class=o>&lt;</span><span class=nb>true</span><span class=p>,</span> <span class=n>T</span><span class=o>&gt;</span> <span class=p>{</span> <span class=k>typedef</span> <span class=n>T</span> <span class=n>type</span><span class=p>;</span> <span class=p>};</span>     <span class=c1>// 只有 B 为 true，才有 type，即 ::type 才合法
+</span></span></span><span class=line><span class=cl><span class=c1></span>
+</span></span><span class=line><span class=cl><span class=k>template</span><span class=o>&lt;</span> <span class=kt>bool</span> <span class=n>B</span><span class=p>,</span> <span class=k>class</span> <span class=nc>T</span> <span class=o>=</span> <span class=kt>void</span> <span class=o>&gt;</span>
+</span></span><span class=line><span class=cl><span class=k>using</span> <span class=n>enable_if_t</span> <span class=o>=</span> <span class=k>typename</span> <span class=n>enable_if</span><span class=o>&lt;</span><span class=n>B</span><span class=p>,</span><span class=n>T</span><span class=o>&gt;::</span><span class=n>type</span><span class=p>;</span> <span class=c1>// C++14 引入
+</span></span></span></code></pre></td></tr></table></div></div><p>这是一个模板类，在 C++11 引入，它的用法很简单，就是第一个模板参数为 true，此模板类就有 <code>type</code>，不然就没有，以此进行 SFINAE。</p><p>为 false，那么会因为 SFINAE 不选择 true 的那个模板，从而错误。</p><p>C++11，要求提供类型为 int，17之后就可以写的很简单了</p><p>这里第二个typename 纯粹用来做 SFINAE，所以没有名字也无所谓</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=k>template</span><span class=o>&lt;</span><span class=k>typename</span> <span class=n>T</span><span class=p>,</span> <span class=k>typename</span> <span class=o>=</span> <span class=k>typename</span> <span class=n>std</span><span class=o>::</span><span class=n>enable_if</span><span class=o>&lt;</span><span class=n>std</span><span class=o>::</span><span class=n>is_same</span><span class=o>&lt;</span><span class=n>T</span><span class=p>,</span> <span class=kt>int</span><span class=o>&gt;::</span><span class=n>value</span><span class=o>&gt;::</span><span class=n>type</span><span class=o>&gt;</span>	<span class=c1>//C++11
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=kt>void</span> <span class=n>f</span><span class=p>(</span><span class=n>T</span><span class=p>)</span> <span class=p>{}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=k>template</span><span class=o>&lt;</span><span class=k>typename</span> <span class=n>T</span><span class=p>,</span> <span class=k>typename</span> <span class=o>=</span> <span class=n>std</span><span class=o>::</span><span class=n>enable_if_t</span><span class=o>&lt;</span><span class=n>std</span><span class=o>::</span><span class=n>is_same_v</span><span class=o>&lt;</span><span class=n>T</span><span class=p>,</span> <span class=kt>int</span><span class=o>&gt;&gt;&gt;</span>					<span class=c1>//C++17
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=kt>void</span> <span class=n>f</span><span class=p>(</span><span class=n>T</span><span class=p>)</span> <span class=p>{}</span>
+</span></span></code></pre></td></tr></table></div></div><p>再例如 array，之前推导指引时候写过的，升级版本</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=k>template</span> <span class=o>&lt;</span><span class=k>class</span> <span class=nc>Type</span><span class=p>,</span> <span class=k>class</span><span class=err>... </span><span class=nc>Args</span><span class=o>&gt;</span>
+</span></span><span class=line><span class=cl><span class=n>array</span><span class=p>(</span><span class=n>Type</span><span class=p>,</span> <span class=n>Args</span><span class=p>...)</span> <span class=o>-&gt;</span> <span class=n>array</span><span class=o>&lt;</span><span class=n>std</span><span class=o>::</span><span class=n>enable_if_t</span><span class=o>&lt;</span><span class=p>(</span><span class=n>std</span><span class=o>::</span><span class=n>is_same_v</span><span class=o>&lt;</span><span class=n>Type</span><span class=p>,</span> <span class=n>Args</span><span class=o>&gt;</span> <span class=o>&amp;&amp;</span> <span class=p>...),</span> <span class=n>Type</span><span class=o>&gt;</span><span class=p>,</span> <span class=k>sizeof</span><span class=p>...(</span><span class=n>Args</span><span class=p>)</span> <span class=o>+</span> <span class=mi>1</span><span class=o>&gt;</span><span class=p>;</span>
+</span></span></code></pre></td></tr></table></div></div><p><code>(std::is_same_v&lt;Type, Args> && ...)</code> 做 std::enable_if 的第一个模板实参，这里是一个一元右折叠，使用了 <strong><code>&&</code></strong> 运算符，也就是必须 std::is_same_v 全部为 true，才会是 true。<strong>简单的说就是要求类型形参包 Args 中的每一个类型全部都是一样的，不然就是替换失败。</strong></p><h3 id=stdvoid_t>std::void_t</h3><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=k>template</span><span class=o>&lt;</span><span class=k>class</span><span class=err>...</span><span class=o>&gt;</span>
+</span></span><span class=line><span class=cl><span class=k>using</span> <span class=n>void_t</span> <span class=o>=</span> <span class=kt>void</span><span class=p>;</span>
+</span></span></code></pre></td></tr></table></div></div><p>用此元函数检测 SFINAE 语境中的非良构类型</p><p>void_t 防止你写一堆模版参数，这样你就可以写在一起只写一个 typename 了</p><p>需求：函数模板 add，需要传入的对象支持 operator+，有别名 type，成员value f</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=k>template</span><span class=o>&lt;</span><span class=k>typename</span> <span class=n>T</span><span class=p>,</span> <span class=k>typename</span> <span class=o>=</span> 
+</span></span><span class=line><span class=cl>	<span class=n>std</span><span class=o>::</span><span class=n>void_t</span><span class=o>&lt;</span><span class=k>decltype</span><span class=p>(</span><span class=n>T</span><span class=p>{}</span> <span class=o>+</span> <span class=n>T</span><span class=p>{}),</span> <span class=k>typename</span> <span class=n>T</span><span class=o>::</span><span class=n>type</span><span class=p>,</span> <span class=k>decltype</span><span class=p>(</span><span class=o>&amp;</span><span class=n>T</span><span class=o>::</span><span class=n>value</span><span class=p>),</span> <span class=k>decltype</span><span class=p>(</span><span class=o>&amp;</span><span class=n>T</span><span class=o>::</span><span class=n>f</span><span class=p>)</span> <span class=o>&gt;&gt;</span>
+</span></span><span class=line><span class=cl><span class=k>auto</span> <span class=n>add</span><span class=p>(</span><span class=k>const</span> <span class=n>T</span><span class=o>&amp;</span> <span class=n>a</span><span class=p>,</span> <span class=k>const</span> <span class=n>T</span><span class=o>&amp;</span> <span class=n>b</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>	<span class=k>return</span> <span class=n>a</span> <span class=o>+</span> <span class=n>b</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><h3 id=stddeclval>std::declval</h3><p>在上面的 SFINAE 中，decltype(T{}+T{}) 要求 T 能默认构造，显然不正确，我们要的是operator+</p><p>我们需要使用 std::declval</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=k>decltype</span><span class=p>(</span><span class=n>std</span><span class=o>::</span><span class=n>declval</span><span class=o>&lt;</span><span class=n>T</span><span class=o>&gt;</span><span class=p>()</span> <span class=o>+</span> <span class=n>std</span><span class=o>::</span><span class=n>declval</span><span class=o>&lt;</span><span class=n>T</span><span class=o>&gt;</span><span class=p>());</span>
+</span></span></code></pre></td></tr></table></div></div><p>此时就没有问题了。</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=k>template</span><span class=o>&lt;</span><span class=k>class</span> <span class=nc>T</span><span class=o>&gt;</span>
+</span></span><span class=line><span class=cl><span class=k>typename</span> <span class=n>std</span><span class=o>::</span><span class=n>add_rvalue_reference</span><span class=o>&lt;</span><span class=n>T</span><span class=o>&gt;::</span><span class=n>type</span> <span class=n>declval</span><span class=p>()</span> <span class=k>noexcept</span><span class=p>;</span>
+</span></span></code></pre></td></tr></table></div></div><p>这个函数特殊，只能用于不求值语境，不要求 T 有定义</p><h3 id=偏特化中的-sfinae>偏特化中的 SFINAE</h3><p>在确定一个类或变量 (C++14 起)模板的特化是由部分特化还是主模板生成的时候也会出现推导与替换。在这种确定期间，<strong>部分特化的替换失败不会被当作硬错误，而是像函数模板一样*代换失败不是错误*，只是忽略这个部分特化</strong>。</p><h2 id=约束与概念>约束与概念</h2><h3 id=前言>前言</h3><p>C++20 的约束与概念，再也不用写蛋疼的 SFINAE</p><h3 id=约束与概念-1>约束与概念</h3><p>类模板，函数模板，以及非模板函数（通常是类模板的成员），可以与一项约束（constraint）相关联，它指定了对模板实参的一些要求，这些要求可以被用于选择最恰当的函数重载和模板特化。</p><p>这种<strong>要求的具名集合</strong>被称为<em><strong>概念（concept）</strong></em>。每个概念都是一个谓词，它在<strong>编译时求值</strong>，并在将之用作约束时成为模板接口的一部分。</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=c1>// 还是add，要求传入的对象支持 operator+
+</span></span></span><span class=line><span class=cl><span class=c1></span>
+</span></span><span class=line><span class=cl><span class=c1>// 定义概念，概念是模板
+</span></span></span><span class=line><span class=cl><span class=c1>// 概念，要求约束表达式成立
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=k>template</span><span class=o>&lt;</span><span class=k>typename</span> <span class=n>T</span><span class=o>&gt;</span>
+</span></span><span class=line><span class=cl><span class=k>concept</span> <span class=n>Add</span> <span class=o>=</span> <span class=k>requires</span><span class=p>(</span><span class=n>T</span> <span class=n>a</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=n>a</span> <span class=o>+</span> <span class=n>a</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=p>};</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1>// 使用概念
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=k>template</span><span class=o>&lt;</span><span class=n>Add</span> <span class=n>T</span><span class=o>&gt;</span>
+</span></span><span class=line><span class=cl><span class=k>auto</span> <span class=n>add</span><span class=p>(</span><span class=k>const</span> <span class=n>T</span><span class=o>&amp;</span> <span class=n>a</span><span class=p>,</span> <span class=k>const</span> <span class=n>T</span><span class=o>&amp;</span> <span class=n>b</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=k>return</span> <span class=n>a</span> <span class=o>+</span> <span class=n>b</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1>// 自然也可以
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=k>constexpr</span> <span class=kt>bool</span> <span class=n>v</span> <span class=o>=</span> <span class=n>Add</span><span class=o>&lt;</span><span class=kt>int</span><span class=o>&gt;</span><span class=p>;</span> <span class=c1>//true
+</span></span></span></code></pre></td></tr></table></div></div><p>概念定义, <strong>约束表达式只要求在编译期求值，返回 bool 即可</strong></p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=k>template</span> <span class=o>&lt;</span> <span class=err>模板形参列表</span> <span class=o>&gt;</span>
+</span></span><span class=line><span class=cl><span class=k>concept</span> <span class=err>概念名</span> <span class=err>属性</span> <span class=p>(</span><span class=err>可选</span><span class=p>)</span> <span class=o>=</span> <span class=err>约束表达式</span><span class=p>;</span>
+</span></span></code></pre></td></tr></table></div></div><h3 id=简写函数模板与标准概念库>简写函数模板与标准概念库</h3><p>简写函数模板：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=k>decltype</span><span class=p>(</span><span class=k>auto</span><span class=p>)</span> <span class=n>max</span><span class=p>(</span><span class=k>const</span> <span class=k>auto</span><span class=o>&amp;</span> <span class=n>a</span><span class=p>,</span> <span class=k>const</span> <span class=k>auto</span><span class=o>&amp;</span> <span class=n>b</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=k>return</span> <span class=n>a</span> <span class=o>&gt;</span> <span class=n>b</span> <span class=o>?</span> <span class=nl>a</span> <span class=p>:</span> <span class=n>b</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><p>如果约束传入的对象怎么写？我们可以使用标准库设置，位于 <code>concepts</code></p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=cp>#include</span> <span class=cpf>&lt;concepts&gt;</span><span class=cp>
+</span></span></span><span class=line><span class=cl><span class=cp></span><span class=k>decltype</span><span class=p>(</span><span class=k>auto</span><span class=p>)</span> <span class=n>max</span><span class=p>(</span><span class=k>const</span> <span class=n>std</span><span class=o>::</span><span class=n>integral</span> <span class=k>auto</span><span class=o>&amp;</span> <span class=n>a</span><span class=p>,</span> <span class=k>const</span> <span class=n>std</span><span class=o>::</span><span class=n>integral</span> <span class=k>auto</span><span class=o>&amp;</span> <span class=n>b</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=k>return</span> <span class=n>a</span> <span class=o>&gt;</span> <span class=n>b</span> <span class=o>?</span> <span class=nl>a</span> <span class=p>:</span> <span class=n>b</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><p>**此外，概念可以在所有使用 auto 的前面使用。**当然也可以要求个普通变量。</p><p>变量模板、类模板都同理。</p><h3 id=requires-子句>requires 子句</h3><p>requires <strong>只要求编译期求值的表达式</strong></p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=k>template</span><span class=o>&lt;</span><span class=k>typename</span> <span class=n>T</span><span class=o>&gt;</span>
+</span></span><span class=line><span class=cl><span class=k>concept</span> <span class=n>Add</span> <span class=o>=</span> <span class=k>requires</span><span class=p>(</span><span class=n>T</span> <span class=n>a</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=n>a</span> <span class=o>+</span> <span class=n>a</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=p>};</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=k>template</span><span class=o>&lt;</span><span class=k>typename</span> <span class=n>T</span><span class=o>&gt;</span>
+</span></span><span class=line><span class=cl>	<span class=k>requires</span> <span class=n>add</span><span class=o>&lt;</span><span class=n>T</span><span class=o>&gt;</span>
+</span></span><span class=line><span class=cl><span class=kt>void</span> <span class=n>f</span><span class=p>(</span><span class=n>T</span><span class=p>)</span> <span class=p>{}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=k>template</span><span class=o>&lt;</span><span class=k>typename</span> <span class=n>T</span><span class=o>&gt;</span>
+</span></span><span class=line><span class=cl>	<span class=k>requires</span><span class=p>(</span><span class=k>sizeof</span><span class=p>(</span><span class=n>T</span><span class=p>)</span> <span class=o>&gt;=</span> <span class=mi>4</span><span class=p>)</span>
+</span></span><span class=line><span class=cl><span class=kt>void</span> <span class=n>g</span><span class=p>(</span><span class=n>T</span><span class=p>)</span> <span class=p>{}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1>// 甚至可以
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=k>template</span><span class=o>&lt;</span><span class=k>typename</span> <span class=n>T</span><span class=o>&gt;</span>
+</span></span><span class=line><span class=cl>	<span class=k>requires</span> <span class=k>requires</span><span class=p>(</span><span class=n>T</span> <span class=n>a</span><span class=p>)</span> <span class=p>{</span> <span class=n>a</span> <span class=o>+</span> <span class=n>a</span><span class=p>;</span> <span class=p>}</span>
+</span></span><span class=line><span class=cl><span class=kt>void</span> <span class=nf>h</span><span class=p>(</span><span class=n>T</span><span class=p>)</span> <span class=p>{}</span>
+</span></span><span class=line><span class=cl><span class=c1>// 第一个是 requires 子句，为 true 才会选择这个模板
+</span></span></span><span class=line><span class=cl><span class=c1>// 第二个是 requires 表达式，恰好编译器求值
+</span></span></span></code></pre></td></tr></table></div></div><h3 id=约束---合取析取>约束 - 合取析取</h3><p>约束是逻辑操作和操作数的序列，它指定了对模板实参的要求。它们可以在 requires 表达式（见下文）中出现，也可以直接作为概念的主体。</p><p>有三种类型的约束：</p><ol><li>合取（conjunction）(&&)</li><li>析取（disjunction） (||)</li></ol><h3 id=requires-表达式>requires 表达式</h3><p><strong>产生描述约束的 bool 类型的纯右值表达式</strong>。</p><blockquote><p><em>注意，<code>requires</code> 表达式 和 <code>requires</code> 子句，没关系</em>。</p></blockquote><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=k>requires</span> <span class=p>{</span> <span class=err>要求序列</span> <span class=p>}</span>
+</span></span><span class=line><span class=cl><span class=k>requires</span> <span class=p>(</span> <span class=err>形参列表</span> <span class=p>(</span><span class=err>可选</span><span class=p>)</span> <span class=p>)</span> <span class=p>{</span> <span class=err>要求序列</span> <span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><p>requires 表达式可以检测表达式是否合法，语句不合法会返回 false，而不会认为程序非脸狗</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span><span class=lnt>7
+</span><span class=lnt>8
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=k>template</span><span class=o>&lt;</span><span class=k>typename</span> <span class=n>T</span><span class=o>&gt;</span>
+</span></span><span class=line><span class=cl><span class=kt>void</span> <span class=n>f</span><span class=p>(</span><span class=n>T</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=k>constexpr</span> <span class=kt>bool</span> <span class=n>v</span> <span class=o>=</span> <span class=k>requires</span> <span class=p>{</span> <span class=k>typename</span> <span class=n>T</span><span class=o>::</span><span class=n>type</span><span class=p>;};</span>	<span class=c1>// 待决名，不加 typename 会认为他是变量
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=kt>int</span> <span class=nf>main</span><span class=p>()</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=n>f</span><span class=p>(</span><span class=mi>1</span><span class=p>);</span> 	<span class=c1>// v 此时为 false
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><h3 id=简单要求>简单要求</h3><p>简单要求是任何不以关键词 requires 开始的表达式语句。它断言该表达式是有效的。表达式是不求值的操作数；只检查语言的正确性。</p><p>例如前文的 Add 概念的 requires 表达式</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=k>template</span><span class=o>&lt;</span><span class=k>typename</span> <span class=n>T</span><span class=p>,</span> <span class=k>typename</span> <span class=n>U</span><span class=o>&gt;</span>
+</span></span><span class=line><span class=cl><span class=k>concept</span> <span class=n>Swappable</span> <span class=o>=</span> <span class=k>requires</span><span class=p>(</span><span class=n>T</span><span class=o>&amp;&amp;</span> <span class=n>t</span><span class=p>,</span> <span class=n>U</span><span class=o>&amp;&amp;</span> <span class=n>u</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=n>swap</span><span class=p>(</span><span class=n>std</span><span class=o>::</span><span class=n>forward</span><span class=o>&lt;</span><span class=n>T</span><span class=o>&gt;</span><span class=p>(</span><span class=n>t</span><span class=p>),</span> <span class=n>std</span><span class=o>::</span><span class=n>forward</span><span class=o>&lt;</span><span class=n>U</span><span class=o>&gt;</span><span class=p>(</span><span class=n>u</span><span class=p>));</span>
+</span></span><span class=line><span class=cl>    <span class=n>swap</span><span class=p>(</span><span class=n>std</span><span class=o>::</span><span class=n>forward</span><span class=o>&lt;</span><span class=n>U</span><span class=o>&gt;</span><span class=p>(</span><span class=n>u</span><span class=p>),</span> <span class=n>std</span><span class=o>::</span><span class=n>forward</span><span class=o>&lt;</span><span class=n>T</span><span class=o>&gt;</span><span class=p>(</span><span class=n>t</span><span class=p>));</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><h3 id=类型要求>类型要求</h3><p>类型要求是关键词 <strong><code>typename</code></strong> 后面接一个可以被限定的<strong>类型名称</strong>。该要求是，所指名的类型是有效的。</p><p>可以用来验证：</p><ol><li>某个<strong>指名的嵌套类型</strong>是否存在。(typename T::type)</li><li>某个<strong>类模板特化</strong>是否指名了某个类型。(typename S&lt;T>)</li><li>某个<strong>别名模板特化</strong>是否指名了某个类型。(using)</li></ol><h3 id=复合要求>复合要求</h3><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>{ 表达式 } noexcept(可选) 返回类型要求 (可选) ;
+</span></span></code></pre></td></tr></table></div></div><blockquote><p>返回类型要求：-> 类型约束（<em>概念</em> concept）</p></blockquote><p>并断言所指名表达式的属性。替换和语义约束检查按以下顺序进行：</p><ol><li>模板实参 (若存在) 被替换到 表达式 中；</li><li>如果使用了<code>noexcept</code>，表达式 一定不能潜在抛出；</li><li>如果返回类型要求存在，则：<ul><li>模板实参被替换到<em>返回类型要求</em> 中；</li><li><code>decltype((表达式))</code> 必须满足<em>类型约束</em> 蕴含的约束。否则，被包含的 requires 表达式是 <strong><code>false</code></strong>。</li></ul></li></ol><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span><span class=lnt>20
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=k>template</span><span class=o>&lt;</span><span class=k>typename</span> <span class=n>T</span><span class=o>&gt;</span>
+</span></span><span class=line><span class=cl><span class=k>concept</span> <span class=n>C2</span> <span class=o>=</span> <span class=k>requires</span><span class=p>(</span><span class=n>T</span> <span class=n>x</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=c1>// 首先 *x 得合法
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=c1>// 类型要合法，这里要有嵌套类型
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=c1>// 并且 *x 的结果必须可以转换为 T::inner
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=p>{</span><span class=o>*</span><span class=n>x</span><span class=p>}</span><span class=o>-&gt;</span><span class=n>std</span><span class=o>::</span><span class=n>convertible_to</span><span class=o>&lt;</span><span class=k>typename</span> <span class=n>T</span><span class=o>::</span><span class=n>inner</span><span class=o>&gt;</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    
+</span></span><span class=line><span class=cl>    <span class=c1>// 表达式 x + 1 必须合法
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=c1>// 并且 std::same_as&lt;decltype((x + 1)), int&gt; 必须满足
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=c1>// 即, (x + 1) 必须为 int 类型的纯右值
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=c1>// std::same_as 是个概念
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=p>{</span><span class=n>x</span> <span class=o>+</span> <span class=mi>1</span><span class=p>}</span> <span class=o>-&gt;</span> <span class=n>std</span><span class=o>::</span><span class=n>same_as</span><span class=o>&lt;</span><span class=kt>int</span><span class=o>&gt;</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=c1>// 表达式 x * 1 必须合法
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=c1>// 并且 它的结果必须可以转换为 T
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=p>{</span><span class=n>x</span> <span class=o>*</span> <span class=mi>1</span><span class=p>}</span> <span class=o>-&gt;</span> <span class=n>std</span><span class=o>::</span><span class=n>convertible_to</span><span class=o>&lt;</span><span class=n>T</span><span class=o>&gt;</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>        
+</span></span><span class=line><span class=cl>    <span class=c1>// 复合：&#34;x.~T()&#34; 是不会抛出异常的合法表达式
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=p>{</span> <span class=n>x</span><span class=p>.</span><span class=o>~</span><span class=n>T</span><span class=p>()</span> <span class=p>}</span> <span class=k>noexcept</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><h3 id=嵌套要求>嵌套要求</h3><p>嵌套要求具有如下形式</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>requires 约束表达式 ;
+</span></span></code></pre></td></tr></table></div></div><p>就是在 requires 里再写一个 requires</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span><span class=lnt>7
+</span><span class=lnt>8
+</span><span class=lnt>9
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=k>template</span><span class=o>&lt;</span><span class=k>typename</span> <span class=n>T</span><span class=o>&gt;</span>
+</span></span><span class=line><span class=cl><span class=k>concept</span> <span class=n>C3</span> <span class=o>=</span> <span class=k>requires</span><span class=p>(</span><span class=n>T</span> <span class=n>a</span><span class=p>,</span> <span class=n>std</span><span class=o>::</span><span class=n>size_t</span> <span class=n>n</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=k>requires</span> <span class=n>std</span><span class=o>::</span><span class=n>is_same_v</span><span class=o>&lt;</span><span class=n>T</span><span class=o>*</span><span class=p>,</span> <span class=k>decltype</span><span class=p>(</span><span class=o>&amp;</span><span class=n>a</span><span class=p>)</span><span class=o>&gt;</span><span class=p>;</span>     <span class=c1>// 要求 is_same_v          求值为 true
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=k>requires</span> <span class=n>std</span><span class=o>::</span><span class=n>same_as</span><span class=o>&lt;</span><span class=n>T</span><span class=o>*</span><span class=p>,</span> <span class=k>decltype</span><span class=p>(</span><span class=k>new</span> <span class=n>T</span><span class=p>[</span><span class=n>n</span><span class=p>])</span><span class=o>&gt;</span><span class=p>;</span> <span class=c1>// 要求 same_as            求值为 true
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=k>requires</span> <span class=k>requires</span><span class=p>{</span> <span class=n>a</span> <span class=o>+</span> <span class=n>a</span><span class=p>;</span> <span class=p>};</span>                   <span class=c1>// 要求 requires{ a + a; } 求值为 true
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=k>requires</span> <span class=nf>sizeof</span><span class=p>(</span><span class=n>a</span><span class=p>)</span> <span class=o>&gt;</span> <span class=mi>4</span><span class=p>;</span>                        <span class=c1>// 要求 sizeof(a) &gt; 4      求值为 true
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=p>};</span>
+</span></span><span class=line><span class=cl><span class=n>std</span><span class=o>::</span><span class=n>cout</span> <span class=o>&lt;&lt;</span> <span class=n>std</span><span class=o>::</span><span class=n>boolalpha</span> <span class=o>&lt;&lt;</span> <span class=n>C3</span><span class=o>&lt;</span><span class=kt>int</span><span class=o>&gt;</span> <span class=o>&lt;&lt;</span> <span class=sc>&#39;\n&#39;</span><span class=p>;</span>    <span class=c1>// false
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=n>std</span><span class=o>::</span><span class=n>cout</span> <span class=o>&lt;&lt;</span> <span class=n>std</span><span class=o>::</span><span class=n>boolalpha</span> <span class=o>&lt;&lt;</span> <span class=n>C3</span><span class=o>&lt;</span><span class=kt>double</span><span class=o>&gt;</span> <span class=o>&lt;&lt;</span> <span class=sc>&#39;\n&#39;</span><span class=p>;</span> <span class=c1>// true
+</span></span></span></code></pre></td></tr></table></div></div><p>在上面示例中 <code>requires requires{ a + a; }</code> 其实是更加麻烦的写法，目的只是为了展示 <code>requires</code> 表达式是编译期产生 <code>bool</code> 值的表达式，所以有可能会有<strong>两个 <code>requires</code>连用的情况</strong>；我们完全可以直接改成 <code>a + a</code>，效果完全一样。</p><p>这里用 <code>std::is_same_v</code> 和 <code>std::same_as</code> 其实毫无区别，因为它们都是编译时求值，返回 <code>bool</code> 值的表达式。</p><h3 id=总结>总结</h3><p>总之记住：</p><p>可以连用 <code>requires requires</code> 的情况，都是因为第一个 <code>requires</code> 期待一个可以编译期产生 <code>bool</code> 值的表达式；而 <strong><code>requires</code> 表达式就是产生描述约束的 bool 类型的纯右值表达式</strong>。</p></section><footer class=article-footer><section class=article-copyright><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-copyright" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="12" r="9"/><path d="M14.5 9a3.5 4 0 100 6"/></svg>
+<span>Licensed under CC BY-NC-SA 4.0</span></section><section class=article-lastmod><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/></svg>
+<span>最后更新于 Feb 12, 2024 09:00 UTC</span></section></footer></article><footer class=site-footer><section class=copyright>&copy;
+2023 -
+2024 Roses</section><section class=powerby>使用 <a href=https://gohugo.io/ target=_blank rel=noopener>Hugo</a> 构建<br>主题 <b><a href=https://github.com/CaiJimmy/hugo-theme-stack target=_blank rel=noopener data-version=3.26.0>Stack</a></b> 由 <a href=https://jimmycai.com target=_blank rel=noopener>Jimmy</a> 设计</section></footer><div class=pswp tabindex=-1 role=dialog aria-hidden=true><div class=pswp__bg></div><div class=pswp__scroll-wrap><div class=pswp__container><div class=pswp__item></div><div class=pswp__item></div><div class=pswp__item></div></div><div class="pswp__ui pswp__ui--hidden"><div class=pswp__top-bar><div class=pswp__counter></div><button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
+<button class="pswp__button pswp__button--share" title=Share></button>
+<button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
+<button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button><div class=pswp__preloader><div class=pswp__preloader__icn><div class=pswp__preloader__cut><div class=pswp__preloader__donut></div></div></div></div></div><div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap"><div class=pswp__share-tooltip></div></div><button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
+</button>
+<button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)"></button><div class=pswp__caption><div class=pswp__caption__center></div></div></div></div></div><script src=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo=" crossorigin=anonymous defer></script><script src=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU=" crossorigin=anonymous defer></script><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css crossorigin=anonymous><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css crossorigin=anonymous></main></div><script src=https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z+KMkF24hUW8WePSA9HM=" crossorigin=anonymous></script><script type=text/javascript src=/ts/main.js defer></script><script>(function(){const e=document.createElement("link");e.href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap",e.type="text/css",e.rel="stylesheet",document.head.appendChild(e)})()</script></body></html>

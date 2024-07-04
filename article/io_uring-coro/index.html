@@ -1,0 +1,690 @@
+<!doctype html><html lang=zh-cn dir=ltr><head><meta charset=utf-8><meta name=viewport content='width=device-width,initial-scale=1'><meta name=description content="一起阅读文章，学习 io_uring 以及 协程 以及 多线程如何组合成为强力的武器。"><title>io_uring + coroutine</title>
+<link rel=canonical href=https://rossqaq.github.io/article/io_uring-coro/><link rel=stylesheet href=/scss/style.min.0304c6baf04e01a8fe70693791cb744d56a3578a3120a8796cefc66825aa39c7.css><meta property='og:title' content="io_uring + coroutine"><meta property='og:description' content="一起阅读文章，学习 io_uring 以及 协程 以及 多线程如何组合成为强力的武器。"><meta property='og:url' content='https://rossqaq.github.io/article/io_uring-coro/'><meta property='og:site_name' content='Roses'><meta property='og:type' content='article'><meta property='article:section' content='Post'><meta property='article:published_time' content='2024-03-09T00:00:00+00:00'><meta property='article:modified_time' content='2024-03-09T00:00:00+00:00'><meta name=twitter:title content="io_uring + coroutine"><meta name=twitter:description content="一起阅读文章，学习 io_uring 以及 协程 以及 多线程如何组合成为强力的武器。"><link rel="shortcut icon" href=/favicon.png></head><body class=article-page><script>(function(){const e="StackColorScheme";localStorage.getItem(e)||localStorage.setItem(e,"auto")})()</script><script>(function(){const t="StackColorScheme",e=localStorage.getItem(t),n=window.matchMedia("(prefers-color-scheme: dark)").matches===!0;e=="dark"||e==="auto"&&n?document.documentElement.dataset.scheme="dark":document.documentElement.dataset.scheme="light"})()</script><div class="container main-container flex on-phone--column extended"><aside class="sidebar left-sidebar sticky"><button class="hamburger hamburger--spin" type=button id=toggle-menu aria-label=切换菜单>
+<span class=hamburger-box><span class=hamburger-inner></span></span></button><header><figure class=site-avatar><a href=/><img src=/img/avatar_hu57fe4ea25b3b752b8c24bca0d657f08c_427356_300x0_resize_box_3.png width=300 height=300 class=site-logo loading=lazy alt=Avatar>
+</a><span class=emoji>♉</span></figure><div class=site-meta><h1 class=site-name><a href=/>Roses</a></h1><h2 class=site-description>有限的时间，无尽的痛苦。</h2></div></header><ol class=menu-social><li><a href=https://space.bilibili.com/3078464 target=_blank title=Bilibili rel=me><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-brand-bilibili" width="44" height="44" viewBox="0 0 24 24" stroke-width="1.5" stroke="#2c3e50" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M3 10a4 4 0 014-4h10a4 4 0 014 4v6a4 4 0 01-4 4H7a4 4 0 01-4-4v-6z"/><path d="M8 3l2 3"/><path d="M16 3l-2 3"/><path d="M9 13v-2"/><path d="M15 11v2"/></svg></a></li><li><a href=https://github.com/RossQAQ target=_blank title=Github rel=me><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-brand-github" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M9 19c-4.3 1.4-4.3-2.5-6-3m12 5v-3.5c0-1 .1-1.4-.5-2 2.8-.3 5.5-1.4 5.5-6a4.6 4.6.0 00-1.3-3.2 4.2 4.2.0 00-.1-3.2s-1.1-.3-3.5 1.3a12.3 12.3.0 00-6.2.0C6.5 2.8 5.4 3.1 5.4 3.1a4.2 4.2.0 00-.1 3.2A4.6 4.6.0 004 9.5c0 4.6 2.7 5.7 5.5 6-.6.6-.6 1.2-.5 2V21"/></svg></a></li><li><a href='https://music.163.com/playlist?id=109571638&amp;userid=93740300' target=_blank title=网易云音乐 rel=me><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-brand-netease-music" width="44" height="44" viewBox="0 0 24 24" stroke-width="1.5" stroke="#2c3e50" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M9 4c-2.93 1.346-5 5.046-5 8.492C4 17 8 20 12 20s8-3 8-7c0-3.513-3.5-5.513-6-5.513S9 9 9 12c0 2 1.5 3 3 3s3-1 3-3c0-3.513-2-4.508-2-6.515.0-3.504 3.5-2.603 4-1.502"/></svg></a></li><li><a href=mailto:rossqaq@outlook.com target=_blank title=邮件 rel=me><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-mail" width="44" height="44" viewBox="0 0 24 24" stroke-width="1.5" stroke="#2c3e50" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M3 7a2 2 0 012-2h14a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2V7z"/><path d="M3 7l9 6 9-6"/></svg></a></li></ol><ol class=menu id=main-menu><li><a href=/><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-home" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><polyline points="5 12 3 12 12 3 21 12 19 12"/><path d="M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7"/><path d="M9 21v-6a2 2 0 012-2h2a2 2 0 012 2v6"/></svg>
+<span>主页</span></a></li><li><a href=/archives/><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-archive" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><rect x="3" y="4" width="18" height="4" rx="2"/><path d="M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
+<span>归档</span></a></li><li><a href=/search/><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-search" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="10" cy="10" r="7"/><line x1="21" y1="21" x2="15" y2="15"/></svg>
+<span>搜索</span></a></li><li><a href=/%E5%8F%8B%E6%83%85%E9%93%BE%E6%8E%A5/><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-link" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><path d="M10 14a3.5 3.5.0 005 0l4-4a3.5 3.5.0 00-5-5l-.5.5"/><path d="M14 10a3.5 3.5.0 00-5 0l-4 4a3.5 3.5.0 005 5l.5-.5"/></svg>
+<span>友情链接</span></a></li><li class=menu-bottom-section><ol class=menu><li id=dark-mode-toggle><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="8" cy="12" r="2"/><rect x="2" y="6" width="20" height="12" rx="6"/></svg>
+<svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="16" cy="12" r="2"/><rect x="2" y="6" width="20" height="12" rx="6"/></svg>
+<span>暗色模式</span></li></ol></li></ol></aside><aside class="sidebar right-sidebar sticky"><section class="widget archives"><div class=widget-icon><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-hash" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><line x1="5" y1="9" x2="19" y2="9"/><line x1="5" y1="15" x2="19" y2="15"/><line x1="11" y1="4" x2="7" y2="20"/><line x1="17" y1="4" x2="13" y2="20"/></svg></div><h2 class="widget-title section-title">目录</h2><div class=widget--toc><nav id=TableOfContents><ol><li><a href=#p1-前言>P1 前言</a></li><li><a href=#async-io--coroutines>Async I/O ❤ Coroutines</a></li><li><a href=#目标>目标</a></li><li><a href=#地基>地基</a></li><li><a href=#初次尝试平凡的实现>初次尝试：平凡的实现</a></li><li><a href=#下一步线程池>下一步：线程池</a></li><li><a href=#使用-io_uring>使用 io_uring</a></li><li><a href=#使用-liburing-解析-objs>使用 <code>liburing</code> 解析 OBJs</a></li><li><a href=#p1-结束语>p1 结束语</a></li></ol><ol><li><a href=#p2-前言>P2 前言</a></li><li><a href=#中心思想>中心思想</a></li><li><a href=#暂停执行>暂停执行</a></li><li><a href=#恢复执行>恢复执行</a></li><li><a href=#coroutine-typetask>Coroutine Type：Task</a></li><li><a href=#结合>结合</a></li><li><a href=#p2-结束语>p2 结束语</a></li></ol><ol><li><a href=#p3-前言>P3 前言</a></li><li><a href=#线程池>线程池</a></li><li><a href=#多线程实现>多线程实现</a></li><li><a href=#p3-结束语>P3 结束语</a></li></ol></nav></div></section></aside><main class="main full-width"><article class=main-article><header class=article-header><div class=article-details><header class=article-category><a href=/categories/io-uring/ style=background-color:#2a9d8f;color:#fff>io_uring
+</a><a href=/categories/coroutine/ style=background-color:#2a9d8f;color:#fff>协程渡劫
+</a><a href=/categories/techs/ style=background-color:#2a9d8f;color:#fff>技术
+</a><a href=/categories/finished/ style=background-color:#2a9d8f;color:#fff>施工完毕</a></header><div class=article-title-wrapper><h2 class=article-title><a href=/article/io_uring-coro/>io_uring + coroutine</a></h2><h3 class=article-subtitle>一起阅读文章，学习 io_uring 以及 协程 以及 多线程如何组合成为强力的武器。</h3></div><footer class=article-time><div><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><path d="M11.795 21H5a2 2 0 01-2-2V7a2 2 0 012-2h12a2 2 0 012 2v4"/><circle cx="18" cy="18" r="4"/><path d="M15 3v4"/><path d="M7 3v4"/><path d="M3 11h16"/><path d="M18 16.496V18l1 1"/></svg>
+<time class=article-time--published>Mar 09, 2024</time></div><div><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/></svg>
+<time class=article-time--reading>阅读时长: 16 分钟</time></div></footer></div></header><section class=article-content><p>终于让我发现了 io_uring 与协程结合的教程，后面还包括与多线程结合。让我来验证一下我的猜想究竟对不对…</p><p>本文是系列文章：</p><p><a class=link href=https://pabloariasal.github.io/2022/11/12/couring-1/ target=_blank rel=noopener>C++20 Coroutines and io_uring - Part 1/3</a></p><p><a class=link href=https://pabloariasal.github.io/2022/11/13/couring-2/ target=_blank rel=noopener>C++20 Coroutines and io_uring - Part 2/3</a></p><p><a class=link href=https://pabloariasal.github.io/2022/11/13/couring-3/ target=_blank rel=noopener>C++20 Coroutines and io_uring - Part 3/3</a></p><p>的<strong>翻译与总结</strong>。文章间会使用分割线分开。</p><p>关于作者</p><p>I’m Pablo, a software engineer living in Munich. Please write me an email if you have feedback or have discovered an error in a post.</p><hr><h1 id=part-13>Part 1/3</h1><h2 id=p1-前言>P1 前言</h2><p>在这个系列中，我们会写使用 <code>io_uring</code> 和 C++20 协程的读取很多硬盘上的文件的程序。主要的目的是因为，我发现有很多关于 <code>io_uring</code> 和 C++20 协程的单独资料，也有讲的比较深入的，但是基本没有展示如何结合二者的。我们会揭开异步 IO 和 协程结合的谜底，就像黄油和面包一样。</p><p>这个系列会分成三部分，P1 我们首先仅用 <code>io_uring</code> 来解决问题。P2 我们会重构实现，并且加入协程。P3 我们会使用多线程优化，这才能展现出协程的真正力量。</p><h2 id=async-io--coroutines>Async I/O ❤ Coroutines</h2><p>异步 IO，跟同步 IO 相反，描述一种<strong>不阻塞当前 calling 线程</strong>的 IO 操作。跟等待操作完成不同，当前线程会立刻 release，然后执行其他操作，而此时后台正在执行你请求的 IO 操作。待一段时间后，calling 线程（或者其他的线程）可以回来并且收集请求操作的结果。这就好像你对一个 pizza guy 说：“将 margherita 放到烤箱，我去药房取药，一会回来。”</p><p>异步 IO 可以比同步 IO 更有效率，线程不需要等待资源可用，但同时程序也会变得更加复杂。程序需要异步工作，必须记得回来取走他们点的 margherita。</p><p><strong>协程允许我们以同步的形式编写异步代码</strong>，如果你使用协程来从硬盘读取一个文件，它可以挂起自己然后将控制流返回给 caller，此时文件正在后台读取，等数据读取完后恢复协程，然后获取数据。所有的代码写起来就和 good-old 同步调用类似。</p><p>结合异步 IO 和协程，允许我们编写异步程序，但并不用写繁琐的异步代码。取了二者的长处。</p><h2 id=目标>目标</h2><p>这个系列中，我们会写一个程序，从硬盘中读取并且 parse 几百个 <a class=link href=https://en.wikipedia.org/wiki/Wavefront_.obj_file target=_blank rel=noopener>wavefront OBJ</a> 文件。</p><p>了解读取和 parsing 的区别很重要。读取代表<strong>把文件从内存中装载到内存中</strong>。parsing 代表<strong>从内存中取数据，然后把它翻译为应用程序可以理解的结构</strong>。</p><p>OBJ 文件使用 ASCII 编码，描述的是 3D 三角形组成的网格图形。该文件对构成三角形的网络、顶点、颜色等信息编码。parsing 一个 OBJ 意味着将 ASCII 表现形式转换为有更方便访问网格属性 API 的 C++ 对象形式。</p><blockquote><p>玩过 3dmax 这种建模软件的应该都知道 .obj 吧。不是你程序编译中间生成的目标文件。是记录 3d 图形的。</p></blockquote><p>为了 parsing obj 文件，我们使用一个三方库 <a class=link href=https://github.com/tinyobjloader/tinyobjloader target=_blank rel=noopener>tinyobjloader</a>。它接受一个 string，然后把它 parse 成 <code>ObjReader</code> 对象。</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=n>std</span><span class=o>::</span><span class=n>string</span> <span class=n>obj_data</span> <span class=o>=</span> <span class=p>...;</span>	<span class=c1>// read from obj files
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=n>tinyobj</span><span class=o>::</span><span class=n>ObjReader</span> <span class=n>reader</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=n>reader</span><span class=p>.</span><span class=n>ParseFromString</span><span class=p>(</span><span class=n>obj_data</span><span class=p>);</span>
+</span></span></code></pre></td></tr></table></div></div><p>我们可以使用 <code>reader</code> API 来访问图形的属性，例如，列出有多少个多边形：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=n>std</span><span class=o>::</span><span class=n>cout</span> <span class=o>&lt;&lt;</span> <span class=n>reader</span><span class=p>.</span><span class=n>GetShapes</span><span class=p>().</span><span class=n>size</span><span class=p>()</span> <span class=o>&lt;&lt;</span> <span class=sc>&#39;\n&#39;</span><span class=p>;</span>
+</span></span></code></pre></td></tr></table></div></div><h2 id=地基>地基</h2><p>首先定义一些抽象，来让我们的实现更简单。</p><p>我们要读取文件，所以写一些 RAII 类来管理只读文件：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span><span class=lnt>20
+</span><span class=lnt>21
+</span><span class=lnt>22
+</span><span class=lnt>23
+</span><span class=lnt>24
+</span><span class=lnt>25
+</span><span class=lnt>26
+</span><span class=lnt>27
+</span><span class=lnt>28
+</span><span class=lnt>29
+</span><span class=lnt>30
+</span><span class=lnt>31
+</span><span class=lnt>32
+</span><span class=lnt>33
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=k>class</span> <span class=nc>ReadOnlyFile</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl><span class=k>public</span><span class=o>:</span>
+</span></span><span class=line><span class=cl>  <span class=n>ReadOnlyFile</span><span class=p>(</span><span class=k>const</span> <span class=n>std</span><span class=o>::</span><span class=n>string</span> <span class=o>&amp;</span><span class=n>file_path</span><span class=p>)</span> <span class=o>:</span> <span class=n>path_</span><span class=p>{</span><span class=n>file_path</span><span class=p>}</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=n>fd_</span> <span class=o>=</span> <span class=n>open</span><span class=p>(</span><span class=n>file_path</span><span class=p>.</span><span class=n>c_str</span><span class=p>(),</span> <span class=n>O_RDONLY</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=k>if</span> <span class=p>(</span><span class=n>fd_</span> <span class=o>&lt;</span> <span class=mi>0</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>      <span class=k>throw</span> <span class=n>std</span><span class=o>::</span><span class=n>runtime_error</span><span class=p>(</span><span class=s>&#34;Fail to open file&#34;</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>    <span class=n>size_</span> <span class=o>=</span> <span class=n>get_file_size</span><span class=p>(</span><span class=n>fd_</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=k>if</span> <span class=p>(</span><span class=n>size_</span> <span class=o>&lt;</span> <span class=mi>0</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>      <span class=k>throw</span> <span class=n>std</span><span class=o>::</span><span class=n>runtime_error</span><span class=p>(</span><span class=s>&#34;Fail to get size of file&#34;</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>  <span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  <span class=n>ReadOnlyFile</span><span class=p>(</span><span class=n>ReadOnlyFile</span> <span class=o>&amp;&amp;</span><span class=n>other</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>      <span class=o>:</span> <span class=n>path_</span><span class=p>{</span><span class=n>std</span><span class=o>::</span><span class=n>exchange</span><span class=p>(</span><span class=n>other</span><span class=p>.</span><span class=n>path_</span><span class=p>,</span> <span class=p>{})},</span>
+</span></span><span class=line><span class=cl>        <span class=n>fd_</span><span class=p>{</span><span class=n>std</span><span class=o>::</span><span class=n>exchange</span><span class=p>(</span><span class=n>other</span><span class=p>.</span><span class=n>fd_</span><span class=p>,</span> <span class=o>-</span><span class=mi>1</span><span class=p>)},</span>
+</span></span><span class=line><span class=cl>        <span class=n>size_</span><span class=p>{</span><span class=n>other</span><span class=p>.</span><span class=n>size</span><span class=p>()}</span> <span class=p>{}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  <span class=o>~</span><span class=n>ReadOnlyFile</span><span class=p>()</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=k>if</span> <span class=p>(</span><span class=n>fd_</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>      <span class=n>close</span><span class=p>(</span><span class=n>fd_</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>  <span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  <span class=kt>int</span> <span class=nf>fd</span><span class=p>()</span> <span class=k>const</span> <span class=p>{</span> <span class=k>return</span> <span class=n>fd_</span><span class=p>;</span> <span class=p>}</span>
+</span></span><span class=line><span class=cl>  <span class=n>off_t</span> <span class=nf>size</span><span class=p>()</span> <span class=k>const</span> <span class=p>{</span> <span class=k>return</span> <span class=n>get_file_size</span><span class=p>(</span><span class=n>fd_</span><span class=p>);</span> <span class=p>}</span>
+</span></span><span class=line><span class=cl>  <span class=k>const</span> <span class=n>std</span><span class=o>::</span><span class=n>string</span> <span class=o>&amp;</span><span class=n>path</span><span class=p>()</span> <span class=k>const</span> <span class=p>{</span> <span class=k>return</span> <span class=n>path_</span><span class=p>;</span> <span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=k>private</span><span class=o>:</span>
+</span></span><span class=line><span class=cl>  <span class=n>std</span><span class=o>::</span><span class=n>string</span> <span class=n>path_</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>  <span class=kt>int</span> <span class=n>fd_</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>  <span class=n>off_t</span> <span class=n>size_</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=p>};</span>
+</span></span></code></pre></td></tr></table></div></div><p>非常简单，只读模式打开文件并且析构时关闭文件。实现了一些比较笨的错误处理，以及一个移动构造，这样该类型就可以存在于 <code>std::vector</code> 之类的容器了。</p><blockquote><p>这里作者似乎也忘了 noexcept 了。</p></blockquote><p>另一个类型是 <code>Result</code> ，我们会经常使用：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=k>struct</span> <span class=nc>Result</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>  <span class=n>tinyobj</span><span class=o>::</span><span class=n>ObjReader</span> <span class=n>result</span><span class=p>;</span> <span class=c1>// 存储解析后的对象
+</span></span></span><span class=line><span class=cl><span class=c1></span>  <span class=kt>int</span> <span class=n>status_code</span><span class=p>{</span><span class=mi>0</span><span class=p>};</span>        <span class=c1>// 读操作的状态
+</span></span></span><span class=line><span class=cl><span class=c1></span>  <span class=n>std</span><span class=o>::</span><span class=n>string</span> <span class=n>file</span><span class=p>;</span>          <span class=c1>// OBJ 的路径
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=p>};</span>
+</span></span></code></pre></td></tr></table></div></div><p>我们的程序最终要分析一系列的 OBJ 文件，然后返回 <code>std::vector&lt;Result></code></p><h2 id=初次尝试平凡的实现>初次尝试：平凡的实现</h2><p>该到正餐部分了。像往常一样，我们来实现一个最简单的版本：<strong>单线程阻塞读取</strong></p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span><span class=lnt>7
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=n>Result</span> <span class=nf>readSynchronous</span><span class=p>(</span><span class=k>const</span> <span class=n>ReadOnlyFile</span> <span class=o>&amp;</span><span class=n>file</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>  <span class=n>Result</span> <span class=n>result</span><span class=p>{.</span><span class=n>file</span> <span class=o>=</span> <span class=n>file</span><span class=p>.</span><span class=n>path</span><span class=p>()};</span>
+</span></span><span class=line><span class=cl>  <span class=n>std</span><span class=o>::</span><span class=n>vector</span><span class=o>&lt;</span><span class=kt>char</span><span class=o>&gt;</span> <span class=n>buff</span><span class=p>(</span><span class=n>file</span><span class=p>.</span><span class=n>size</span><span class=p>());</span>
+</span></span><span class=line><span class=cl>  <span class=n>read</span><span class=p>(</span><span class=n>file</span><span class=p>.</span><span class=n>fd</span><span class=p>(),</span> <span class=n>buff</span><span class=p>.</span><span class=n>data</span><span class=p>(),</span> <span class=n>buff</span><span class=p>.</span><span class=n>size</span><span class=p>());</span> <span class=c1>// 完成前会阻塞
+</span></span></span><span class=line><span class=cl><span class=c1></span>  <span class=n>readObjFromBuffer</span><span class=p>(</span><span class=n>buff</span><span class=p>,</span> <span class=n>result</span><span class=p>.</span><span class=n>result</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>  <span class=k>return</span> <span class=n>result</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><p><code>readSynchronous</code> 接收文件，把它的内容读取到 buffer 中，之后将 buffer 中的内容解析为 obj 对象。<code>readObjFromBuffer</code> 包装了一个简单的实现，并且初始化 <code>Result</code> 的 <code>result</code> 成员：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=kt>void</span> <span class=nf>readObjFromBuffer</span><span class=p>(</span><span class=k>const</span> <span class=n>std</span><span class=o>::</span><span class=n>vector</span><span class=o>&lt;</span><span class=kt>char</span><span class=o>&gt;</span> <span class=o>&amp;</span><span class=n>buff</span><span class=p>,</span> <span class=n>tinyobj</span><span class=o>::</span><span class=n>ObjReader</span> <span class=o>&amp;</span><span class=n>reader</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>  <span class=k>auto</span> <span class=n>s</span> <span class=o>=</span> <span class=n>std</span><span class=o>::</span><span class=n>string</span><span class=p>(</span><span class=n>buff</span><span class=p>.</span><span class=n>data</span><span class=p>(),</span> <span class=n>buff</span><span class=p>.</span><span class=n>size</span><span class=p>());</span>
+</span></span><span class=line><span class=cl>  <span class=n>reader</span><span class=p>.</span><span class=n>ParseFromString</span><span class=p>(</span><span class=n>s</span><span class=p>,</span> <span class=n>std</span><span class=o>::</span><span class=n>string</span><span class=p>{});</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><p>可惜，<code>tinyobjloader</code> 不支持 <code>std::string_view</code>，所以我们只能拷贝一次 buffer 了。可能之后我会提 PR。</p><p>现在我们需要做的是对每个文件调用 <code>readSynchronous</code>：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span><span class=lnt>7
+</span><span class=lnt>8
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=n>std</span><span class=o>::</span><span class=n>vector</span><span class=o>&lt;</span><span class=n>Result</span><span class=o>&gt;</span> <span class=n>trivialApproach</span><span class=p>(</span><span class=k>const</span> <span class=n>std</span><span class=o>::</span><span class=n>vector</span><span class=o>&lt;</span><span class=n>ReadOnlyFile</span><span class=o>&gt;</span> <span class=o>&amp;</span><span class=n>files</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>  <span class=n>std</span><span class=o>::</span><span class=n>vector</span><span class=o>&lt;</span><span class=n>Result</span><span class=o>&gt;</span> <span class=n>results</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>  <span class=n>results</span><span class=p>.</span><span class=n>reserve</span><span class=p>(</span><span class=n>files</span><span class=p>.</span><span class=n>size</span><span class=p>());</span>
+</span></span><span class=line><span class=cl>  <span class=k>for</span> <span class=p>(</span><span class=k>const</span> <span class=k>auto</span> <span class=o>&amp;</span><span class=nl>file</span> <span class=p>:</span> <span class=n>files</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=n>results</span><span class=p>.</span><span class=n>push_back</span><span class=p>(</span><span class=n>readSynchronous</span><span class=p>(</span><span class=n>file</span><span class=p>));</span>
+</span></span><span class=line><span class=cl>  <span class=p>}</span>
+</span></span><span class=line><span class=cl>  <span class=k>return</span> <span class=n>results</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><p>太简单了，但是非常慢慢慢慢。<code>read</code> 系统调用会阻塞 calling 线程，直到读取完所有的数据。我意思是 <em>thread</em>，只有一个线程做 IO 然后解析所有文件。<strong>我们不能在下一个文件读取完毕之前做上一个读取好的文件的解析！</strong></p><p>用户态和内核态的上下文切换也很费时间，每次调用 <code>read</code> 都要切换到内核态。如果我们读取几百个文件，就得切换几百次。</p><p>我们可以做的更好一些。</p><h2 id=下一步线程池>下一步：线程池</h2><p>我知道你想说什么，并行！</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=n>std</span><span class=o>::</span><span class=n>vector</span><span class=o>&lt;</span><span class=n>Result</span><span class=o>&gt;</span> <span class=n>threadPool</span><span class=p>(</span><span class=k>const</span> <span class=n>std</span><span class=o>::</span><span class=n>vector</span><span class=o>&lt;</span><span class=n>ReadOnlyFile</span><span class=o>&gt;</span> <span class=o>&amp;</span><span class=n>files</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>  <span class=n>std</span><span class=o>::</span><span class=n>vector</span><span class=o>&lt;</span><span class=n>Result</span><span class=o>&gt;</span> <span class=n>result</span><span class=p>(</span><span class=n>files</span><span class=p>.</span><span class=n>size</span><span class=p>());</span>
+</span></span><span class=line><span class=cl>  <span class=n>BS</span><span class=o>::</span><span class=n>thread_pool</span> <span class=n>pool</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>  <span class=n>pool</span><span class=p>.</span><span class=n>parallelize_loop</span><span class=p>(</span><span class=n>files</span><span class=p>.</span><span class=n>size</span><span class=p>(),</span>
+</span></span><span class=line><span class=cl>                        <span class=p>[</span><span class=o>&amp;</span><span class=n>files</span><span class=p>,</span> <span class=o>&amp;</span><span class=n>result</span><span class=p>](</span><span class=kt>int</span> <span class=n>a</span><span class=p>,</span> <span class=kt>int</span> <span class=n>b</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>                          <span class=k>for</span> <span class=p>(</span><span class=kt>int</span> <span class=n>i</span> <span class=o>=</span> <span class=n>a</span><span class=p>;</span> <span class=n>i</span> <span class=o>&lt;</span> <span class=n>b</span><span class=p>;</span> <span class=o>++</span><span class=n>i</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>                            <span class=n>result</span><span class=p>[</span><span class=n>i</span><span class=p>]</span> <span class=o>=</span> <span class=n>readSynchronous</span><span class=p>(</span><span class=n>files</span><span class=p>[</span><span class=n>i</span><span class=p>]);</span>
+</span></span><span class=line><span class=cl>                          <span class=p>}</span>
+</span></span><span class=line><span class=cl>                        <span class=p>})</span>
+</span></span><span class=line><span class=cl>      <span class=p>.</span><span class=n>wait</span><span class=p>();</span>
+</span></span><span class=line><span class=cl>  <span class=k>return</span> <span class=n>result</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><p>这里使用了 <a class=link href=https://github.com/bshoshany/thread-pool target=_blank rel=noopener>bshoshany’s thread-pool library</a> 来并行执行独立的循环。每个线程都执行固定次数的迭代，记为范围 [a, b)。你也可以用 openMP 之类的库，或者 <code>std::async</code>，思想都一样。</p><blockquote><p>补充：对于不了解这个库的人，这个函数大概就是给 size 分块，线程池里的线程执行固定数量的 IO。</p></blockquote><p>这就好多了，即使线程仍然会在 <code>read</code> 上阻塞，但这次文件会并行处理。代码的更改也很少，然后他还有了更多的优化机会：我们可以给每个线程分配一个 buffer，然后可以被多个文件复用。</p><p>对于大多数程序来说这个已经很效率了，但是想象如果你是 web server 的开发者，一次监听上千个 socket。你会给每个 socket 创建一个线程吗？估计不会。你要做的是告诉操作系统：“听好，我对这些 sockets 感兴趣，当他们有可以被读取的数据时告诉我，我会继续我的工作。” 你需要的是异步 IO。</p><h2 id=使用-io_uring>使用 io_uring</h2><p>linux kernel 5.1 后推出了新的异步 IO API，io_uring。以前通常会使用 <code>epoll</code>, <code>poll</code>, <code>select</code>, <code>aio</code> 等等，它们各有各的限制和问题。<code>io_uring</code> 的目标是使用标准 API 给内核中的所有异步 IO 操作打开一个新的篇章。</p><p>API 叫做 <code>io_uring</code> 因为它基于两个 buffer：submission queue（SQ） 以及 completion queue（CQ）。buffer 在内核和用户之间共享，从它们中读取/写入数据不需要任何 syscall 或者拷贝。</p><p>中心思想很简单：用户代码编写提交给 SQ 的请求，之后把它们提交给内核。内核消耗队列中的请求，执行请求的操作，然后将结果写入 CQ。用户代码可以异步地在之后的某个时间点获取 CQ 中完成后的请求。</p><p><code>io_uring</code> 原生 API 非常复杂，所以应用程序通常会使用库 <code>liburing</code>（<code>io_uring</code> 的作者帮你封装的），它提取了很多重复的操作，为 <code>io_uring</code> 的使用提供了方便的工具。</p><h2 id=使用-liburing-解析-objs>使用 <code>liburing</code> 解析 OBJs</h2><p>我们现在使用 <code>liburing</code> 来完成实现</p><p>首先先封装一个 RAII 类，初始化 io_uring 对象并且释放：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=k>class</span> <span class=nc>IOUring</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl><span class=k>public</span><span class=o>:</span>
+</span></span><span class=line><span class=cl>    <span class=k>explicit</span> <span class=n>IOUring</span><span class=p>(</span><span class=n>size_t</span> <span class=n>queue_size</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=k>if</span> <span class=p>(</span><span class=k>auto</span> <span class=n>s</span> <span class=o>=</span> <span class=n>io_uring_queue_init</span><span class=p>(</span><span class=n>queue_size</span><span class=p>,</span> <span class=o>&amp;</span><span class=n>ring_</span><span class=p>,</span> <span class=mi>0</span><span class=p>);</span> <span class=n>s</span> <span class=o>&lt;</span> <span class=mi>0</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>            <span class=k>throw</span> <span class=n>std</span><span class=o>::</span><span class=n>runtime_error</span><span class=p>(</span><span class=s>&#34;error initializing io_uring: &#34;</span> <span class=o>+</span> <span class=n>std</span><span class=o>::</span><span class=n>to_string</span><span class=p>(</span><span class=n>s</span><span class=p>));</span>
+</span></span><span class=line><span class=cl>        <span class=p>}</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>    <span class=n>IOUring</span><span class=p>(</span><span class=k>const</span> <span class=n>IOUring</span> <span class=o>&amp;</span><span class=p>)</span> <span class=o>=</span> <span class=k>delete</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=n>IOUring</span> <span class=o>&amp;</span><span class=k>operator</span><span class=o>=</span><span class=p>(</span><span class=k>const</span> <span class=n>IOUring</span> <span class=o>&amp;</span><span class=p>)</span> <span class=o>=</span> <span class=k>delete</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=n>IOUring</span><span class=p>(</span><span class=n>IOUring</span> <span class=o>&amp;&amp;</span><span class=p>)</span> <span class=o>=</span> <span class=k>delete</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=n>IOUring</span> <span class=o>&amp;</span><span class=k>operator</span><span class=o>=</span><span class=p>(</span><span class=n>IOUring</span> <span class=o>&amp;&amp;</span><span class=p>)</span> <span class=o>=</span> <span class=k>delete</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=o>~</span><span class=n>IOUring</span><span class=p>()</span> <span class=p>{</span> <span class=n>io_uring_queue_exit</span><span class=p>(</span><span class=o>&amp;</span><span class=n>ring_</span><span class=p>);</span> <span class=p>}</span>
+</span></span><span class=line><span class=cl>    
+</span></span><span class=line><span class=cl>    <span class=k>struct</span> <span class=nc>io_uring</span><span class=o>*</span> <span class=nf>get</span><span class=p>()</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=k>return</span> <span class=o>&amp;</span><span class=n>ring_</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl><span class=k>private</span><span class=o>:</span>
+</span></span><span class=line><span class=cl>    <span class=k>struct</span> <span class=nc>io_uring</span> <span class=n>ring_</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=p>};</span>
+</span></span></code></pre></td></tr></table></div></div><p><code>io_uring_queue_init()</code> 初始化 io_uring 实例，使用 <code>queue_size</code> 的长度（这是 SQ 和 CQ 的环形缓冲区长度）。<code>io_uring_queue_exit()</code> 销毁 io_uring 实例。</p><blockquote><p>这里作者应该说错了，CQ 长度默认是 SQ 的二倍。想要具体指定你可以使用 <code>io_uring_params</code> 传给 <code>io_uring_init_params()</code> 来初始化 <code>io_uring</code></p></blockquote><p>现在我们尝试使用 <code>liburing</code> 来实现 OBJ Loader</p><p>实现必须包含两个部分：首先我们提交读请求给 SQ，之后我们等待完成请求进入到 CQ 中再解析 buffer 中的内容。</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=n>std</span><span class=o>::</span><span class=n>vector</span><span class=o>&lt;</span><span class=n>Result</span><span class=o>&gt;</span> <span class=n>iouringOBJLoader</span><span class=p>(</span><span class=k>const</span> <span class=n>std</span><span class=o>::</span><span class=n>vector</span><span class=o>&lt;</span><span class=n>ReadOnlyFile</span><span class=o>&gt;&amp;</span> <span class=n>files</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=n>IOUring</span> <span class=n>ring</span><span class=p>{</span><span class=n>files</span><span class=p>.</span><span class=n>size</span><span class=p>()};</span>
+</span></span><span class=line><span class=cl>    <span class=k>auto</span> <span class=n>buf</span> <span class=o>=</span> <span class=n>initializeBuffers</span><span class=p>(</span><span class=n>files</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=n>pushEntriesToSubmissionQueue</span><span class=p>(</span><span class=n>files</span><span class=p>,</span> <span class=n>buf</span><span class=p>,</span> <span class=n>uring</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=k>return</span> <span class=nf>readEntriesFromCompletionQueue</span><span class=p>(</span><span class=n>files</span><span class=p>,</span> <span class=n>buf</span><span class=p>,</span> <span class=n>uring</span><span class=p>);</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><p>我们创建足够大的 io_uring 实例来容纳下所有的文件的请求。之后分配 buffer，每个文件一个。</p><p><code>pushEntriesToSubmissionQueue()</code> 内编写 submission entries 提交给 SQ：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span><span class=lnt>7
+</span><span class=lnt>8
+</span><span class=lnt>9
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=kt>void</span> <span class=nf>pushEntriesToSubmissionQueue</span><span class=p>(</span><span class=k>const</span> <span class=n>std</span><span class=o>::</span><span class=n>vector</span><span class=o>&lt;</span><span class=n>ReadOnlyFile</span><span class=o>&gt;</span> <span class=o>&amp;</span><span class=n>files</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>                                  <span class=k>const</span> <span class=n>std</span><span class=o>::</span><span class=n>vector</span><span class=o>&lt;</span><span class=n>std</span><span class=o>::</span><span class=n>vector</span><span class=o>&lt;</span><span class=kt>char</span><span class=o>&gt;&gt;</span> <span class=o>&amp;</span><span class=n>buffs</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>                                  <span class=n>IOUring</span> <span class=o>&amp;</span><span class=n>uring</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>  <span class=k>for</span> <span class=p>(</span><span class=n>size_t</span> <span class=n>i</span> <span class=o>=</span> <span class=mi>0</span><span class=p>;</span> <span class=n>i</span> <span class=o>&lt;</span> <span class=n>files</span><span class=p>.</span><span class=n>size</span><span class=p>();</span> <span class=o>++</span><span class=n>i</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=k>struct</span> <span class=nc>io_uring_sqe</span> <span class=o>*</span><span class=n>sqe</span> <span class=o>=</span> <span class=n>io_uring_get_sqe</span><span class=p>(</span><span class=n>uring</span><span class=p>.</span><span class=n>get</span><span class=p>());</span>
+</span></span><span class=line><span class=cl>    <span class=n>io_uring_prep_read</span><span class=p>(</span><span class=n>sqe</span><span class=p>,</span> <span class=n>files</span><span class=p>[</span><span class=n>i</span><span class=p>].</span><span class=n>fd</span><span class=p>(),</span> <span class=n>buffs</span><span class=p>[</span><span class=n>i</span><span class=p>].</span><span class=n>data</span><span class=p>(),</span> <span class=n>buffs</span><span class=p>[</span><span class=n>i</span><span class=p>].</span><span class=n>size</span><span class=p>(),</span> <span class=mi>0</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=n>io_uring_sqe_set_data64</span><span class=p>(</span><span class=n>sqe</span><span class=p>,</span> <span class=n>i</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>  <span class=p>}</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><p><code>io_uring_get_sqe()</code> 创建一个 SQ 的 entry，<code>sqe</code>。我们现在可以使用 <code>io_uring_prep_read()</code> 来设置 entry 的内容，指定内核读取 <code>files[i].fd()</code> 的文件给 buffer <code>buffs[i]</code>。</p><p>可以通过使用 <code>io_uring_sqe_set_data()</code> 来给 entry 追加<strong>用户数据</strong>。<strong>kernel 不会使用这个部分的数据，只是单纯的拷贝给当前提交请求对应的 completion entry</strong>。这个很重要，可以让我们区分哪个 completion entry 对应的是哪个 submission entry。在这个情况下，我们只是单纯写文件的 index，也可以用来区分。</p><p>在外面把所有的 SQ 都写入队列后，需要将他们提交给内核，并且等待他们出现在 CQ 中。一旦出现了 completion entry，我们就读取对应 OBJ 文件的 buffer。</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span><span class=lnt>20
+</span><span class=lnt>21
+</span><span class=lnt>22
+</span><span class=lnt>23
+</span><span class=lnt>24
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=n>std</span><span class=o>::</span><span class=n>vector</span><span class=o>&lt;</span><span class=n>Result</span><span class=o>&gt;</span> <span class=n>readEntriesFromCompletionQueue</span><span class=p>(</span><span class=k>const</span> <span class=n>std</span><span class=o>::</span><span class=n>vector</span><span class=o>&lt;</span><span class=n>ReadOnlyFile</span><span class=o>&gt;</span> <span class=o>&amp;</span><span class=n>files</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>                                <span class=k>const</span> <span class=n>std</span><span class=o>::</span><span class=n>vector</span><span class=o>&lt;</span><span class=n>std</span><span class=o>::</span><span class=n>vector</span><span class=o>&lt;</span><span class=kt>char</span><span class=o>&gt;&gt;</span> <span class=o>&amp;</span><span class=n>buffs</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>                                <span class=n>IOUring</span> <span class=o>&amp;</span><span class=n>uring</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>  <span class=n>std</span><span class=o>::</span><span class=n>vector</span><span class=o>&lt;</span><span class=n>Result</span><span class=o>&gt;</span> <span class=n>results</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>  <span class=n>results</span><span class=p>.</span><span class=n>reserve</span><span class=p>(</span><span class=n>files</span><span class=p>.</span><span class=n>size</span><span class=p>());</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  <span class=k>while</span> <span class=p>(</span><span class=n>results</span><span class=p>.</span><span class=n>size</span><span class=p>()</span> <span class=o>&lt;</span> <span class=n>files</span><span class=p>.</span><span class=n>size</span><span class=p>())</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=n>io_uring_submit_and_wait</span><span class=p>(</span><span class=n>uring</span><span class=p>.</span><span class=n>get</span><span class=p>(),</span> <span class=mi>1</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=n>io_uring_cqe</span> <span class=o>*</span><span class=n>cqe</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=kt>unsigned</span> <span class=n>head</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=kt>int</span> <span class=n>processed</span><span class=p>{</span><span class=mi>0</span><span class=p>};</span>
+</span></span><span class=line><span class=cl>    <span class=n>io_uring_for_each_cqe</span><span class=p>(</span><span class=n>uring</span><span class=p>.</span><span class=n>get</span><span class=p>(),</span> <span class=n>head</span><span class=p>,</span> <span class=n>cqe</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>      <span class=k>auto</span> <span class=n>id</span> <span class=o>=</span> <span class=n>io_uring_cqe_get_data64</span><span class=p>(</span><span class=n>cqe</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>      <span class=n>results</span><span class=p>.</span><span class=n>push_back</span><span class=p>({.</span><span class=n>status_code</span> <span class=o>=</span> <span class=n>cqe</span><span class=o>-&gt;</span><span class=n>res</span><span class=p>,</span> <span class=p>.</span><span class=n>file</span> <span class=o>=</span> <span class=n>files</span><span class=p>[</span><span class=n>id</span><span class=p>].</span><span class=n>path</span><span class=p>()});</span>
+</span></span><span class=line><span class=cl>      <span class=k>if</span> <span class=p>(</span><span class=n>results</span><span class=p>.</span><span class=n>back</span><span class=p>().</span><span class=n>status_code</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=n>readObjFromBuffer</span><span class=p>(</span><span class=n>buffs</span><span class=p>[</span><span class=n>id</span><span class=p>],</span> <span class=n>results</span><span class=p>.</span><span class=n>back</span><span class=p>().</span><span class=n>result</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>      <span class=p>}</span>
+</span></span><span class=line><span class=cl>      <span class=o>++</span><span class=n>processed</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=n>io_uring_cq_advance</span><span class=p>(</span><span class=n>uring</span><span class=p>.</span><span class=n>get</span><span class=p>(),</span> <span class=n>processed</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>  <span class=p>}</span>
+</span></span><span class=line><span class=cl>  <span class=k>return</span> <span class=n>results</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><p>首先我们调用 <code>io_uring_submit_and_wait()</code>，来提交所有的 entry 给内核，并且阻塞，直到等待第一个 completion entry 出现。</p><p>我们获得 completion entry 后就可以处理他们了。<code>io_uring_for_each_cqe()</code> 是一个定义在 <code>liburing</code> 内的宏，其意义是对 CQ 中的所有 completion entry 执行操作。</p><p>以下是我们需要在 completion entry 到达时执行的操作：</p><ol><li>获取 completion entry 对应的文件的 id。这和我们写给 submission entry 的 id 是同一个。</li><li>将 status code 写入 <code>Result</code> 对象，当前状态是内核执行的 <code>read</code> 操作。</li><li>如果读取成功，从 buffer 中解析 OBJ 文件，放入 <code>Result</code> 对象。</li></ol><p>最后，我们可以释放一些空间，因为我们已经完成了一些 completion entry 的处理。我们使用 <code>io_uring_cq_advance()</code> ，这个函数唯一做的事情就是把 ring buffer 的头向后移动 n 个位置，使得有足够的空间来存放 entries。</p><h2 id=p1-结束语>p1 结束语</h2><p>使用 io_uring 最大的优点就是实现的代码可以减少很多 syscall。实际上，使用 <code>strace</code> 可以看到 <code>io_uring</code> 的实现比同步代码的实现少了 512 次 syscall。这主要是因为 <code>read</code> 的 syscall 的减少：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>&gt; strace -c -e read -- ./build_release/couring --trivial
+</span></span><span class=line><span class=cl>Running trivial
+</span></span><span class=line><span class=cl>Processed 512 files.
+</span></span><span class=line><span class=cl>% time     seconds  usecs/call     calls    errors syscall
+</span></span><span class=line><span class=cl>------ ----------- ----------- --------- --------- ----------------
+</span></span><span class=line><span class=cl>100.00    0.000591           1       517           read
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>&gt; strace -c -e read -- ./build_release/couring --iouring
+</span></span><span class=line><span class=cl>Running iouring
+</span></span><span class=line><span class=cl>Processed 512 files.
+</span></span><span class=line><span class=cl>% time     seconds  usecs/call     calls    errors syscall
+</span></span><span class=line><span class=cl>------ ----------- ----------- --------- --------- ----------------
+</span></span><span class=line><span class=cl>100.00    0.000053          10         5           read
+</span></span></code></pre></td></tr></table></div></div><p>不同于对每个文件都调用 <code>read</code>，<code>io_uring</code> 的做法不会有 syscall，因为向 <code>io_uring</code> 的队列读写并不是 syscall，也不会有上下文切换。</p><p>我们的 <code>io_uring</code> 实现仍然有问题。首先，代码比同步版本明显复杂很多，我们并不能在一个函数内完成读取和解析，而是在一个程序内将请求写入队列然后轮询。这很难扩展。</p><p>其次，我们的程序是 CPU-bound，如下所示 (gprof)，大部分时间在解析 obj：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span><span class=lnt>7
+</span><span class=lnt>8
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl>  <span class=o>%</span>   <span class=n>cumulative</span>   <span class=n>self</span>
+</span></span><span class=line><span class=cl> <span class=n>time</span>   <span class=n>seconds</span>   <span class=n>seconds</span>
+</span></span><span class=line><span class=cl> <span class=mf>31.25</span>      <span class=mf>0.05</span>     <span class=mf>0.05</span>    <span class=n>tinyobj</span><span class=o>::</span><span class=n>tryParseDouble</span><span class=p>(</span><span class=kt>char</span> <span class=k>const</span><span class=o>*</span><span class=p>,</span> <span class=kt>char</span> <span class=k>const</span><span class=o>*</span><span class=p>,</span> <span class=kt>double</span><span class=o>*</span><span class=p>)</span>
+</span></span><span class=line><span class=cl> <span class=mf>18.75</span>      <span class=mf>0.08</span>     <span class=mf>0.03</span>    <span class=n>tinyobj</span><span class=o>::</span><span class=n>LoadObj</span><span class=p>(</span><span class=n>tinyobj</span><span class=o>::</span><span class=n>attrib_t</span><span class=o>*</span><span class=p>,</span> <span class=n>std</span><span class=o>::</span><span class=n>vector</span><span class=o>&lt;</span><span class=n>tinyobj</span><span class=o>::</span><span class=n>shape_t</span><span class=p>,</span> <span class=n>std</span><span class=o>::</span><span class=n>allocator</span><span class=o>&lt;</span><span class=n>tinyobj</span><span class=o>::</span><span class=n>shape_t</span><span class=o>&gt;</span> <span class=o>&gt;*</span><span class=p>,</span> <span class=n>std</span><span class=o>::</span><span class=n>vector</span><span class=o>&lt;</span><span class=n>tinyobj</span><span class=o>::</span><span class=n>material_t</span><span class=p>,</span> <span class=n>std</span><span class=o>::</span><span class=n>allocator</span><span class=o>&lt;</span><span class=n>tinyobj</span><span class=o>::</span><span class=n>material_t</span><span class=o>&gt;</span> <span class=o>&gt;*</span><span class=p>,</span> <span class=n>std</span><span class=o>::</span><span class=n>__cxx11</span><span class=o>::</span><span class=n>basic_string</span><span class=o>&lt;</span><span class=kt>char</span><span class=p>,</span> <span class=n>std</span><span class=o>::</span><span class=n>char_traits</span><span class=o>&lt;</span><span class=kt>char</span><span class=o>&gt;</span><span class=p>,</span> <span class=n>std</span><span class=o>::</span><span class=n>allocator</span><span class=o>&lt;</span><span class=kt>char</span><span class=o>&gt;</span> <span class=o>&gt;*</span><span class=p>,</span> <span class=n>std</span><span class=o>::</span><span class=n>__cxx11</span><span class=o>::</span><span class=n>basic_string</span><span class=o>&lt;</span><span class=kt>char</span><span class=p>,</span> <span class=n>std</span><span class=o>::</span><span class=n>char_traits</span><span class=o>&lt;</span><span class=kt>char</span><span class=o>&gt;</span><span class=p>,</span> <span class=n>std</span><span class=o>::</span><span class=n>allocator</span><span class=o>&lt;</span><span class=kt>char</span><span class=o>&gt;</span> <span class=o>&gt;*</span><span class=p>,</span> <span class=n>std</span><span class=o>::</span><span class=n>istream</span><span class=o>*</span><span class=p>,</span> <span class=n>tinyobj</span><span class=o>::</span><span class=n>MaterialReader</span><span class=o>*</span><span class=p>,</span> <span class=kt>bool</span><span class=p>,</span> <span class=kt>bool</span><span class=p>)</span>
+</span></span><span class=line><span class=cl> <span class=mf>12.50</span>      <span class=mf>0.10</span>     <span class=mf>0.02</span>    <span class=n>allDone</span><span class=p>(</span><span class=n>std</span><span class=o>::</span><span class=n>vector</span><span class=o>&lt;</span><span class=n>Task</span><span class=p>,</span> <span class=n>std</span><span class=o>::</span><span class=n>allocator</span><span class=o>&lt;</span><span class=n>Task</span><span class=o>&gt;</span> <span class=o>&gt;</span> <span class=k>const</span><span class=o>&amp;</span><span class=p>)</span>
+</span></span><span class=line><span class=cl> <span class=mf>12.50</span>      <span class=mf>0.12</span>     <span class=mf>0.02</span>    <span class=n>tinyobj</span><span class=o>::</span><span class=n>parseReal</span><span class=p>(</span><span class=kt>char</span> <span class=k>const</span><span class=o>**</span><span class=p>,</span> <span class=kt>double</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>  <span class=mf>6.25</span>      <span class=mf>0.13</span>     <span class=mf>0.01</span>    <span class=n>tinyobj</span><span class=o>::</span><span class=n>parseReal3</span><span class=p>(</span><span class=kt>float</span><span class=o>*</span><span class=p>,</span> <span class=kt>float</span><span class=o>*</span><span class=p>,</span> <span class=kt>float</span><span class=o>*</span><span class=p>,</span> <span class=kt>char</span> <span class=k>const</span><span class=o>**</span><span class=p>,</span> <span class=kt>double</span><span class=p>,</span> <span class=kt>double</span><span class=p>,</span> <span class=kt>double</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>  <span class=p>...</span>
+</span></span></code></pre></td></tr></table></div></div><p>解析 obj 仍然单线程。处理 SQE 是内核的线程池完成，而消费 CQE 则是用户空间的单线程完成。显然我们必须并行解析。</p><hr><h1 id=part-23>Part 2/3</h1><h2 id=p2-前言>P2 前言</h2><p>这一部分我们会使用 C++20 的协程来重写第一部分的程序，读取 OBJ 之后解析。本文的目标是结合 <code>io_uring</code> 与协程，不懂 C++ 协程的可以自己看 <a class=link href=https://lewissbaker.github.io/ target=_blank rel=noopener>Lewis Baker’s blog series</a>。</p><blockquote><p>本博客内还有其他优秀文章的翻译。Lewiss Baker 的也很不错。</p></blockquote><h2 id=中心思想>中心思想</h2><p>我们要做的很简单：实现一个协程，读取并且解析硬盘中的 OBJ 文件，底层 IO 使用 <code>io_uring</code>。当协程被调用时，它把请求提交给 SQ，然后暂停执行，返回控制权给 caller。一旦相应的 completion entry 完成，那么协程就恢复，OBJ 可以被解析了。</p><blockquote><p>woc，我感觉我是天才，自己悟出来的和文章里想的是一样的。之前悟了几个月。</p></blockquote><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span><span class=lnt>7
+</span><span class=lnt>8
+</span><span class=lnt>9
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=n>Task</span> <span class=nf>parseOBJFile</span><span class=p>(</span><span class=n>IOUring</span><span class=o>&amp;</span> <span class=n>uring</span><span class=p>,</span> <span class=k>const</span> <span class=n>ReadOnlyFile</span><span class=o>&amp;</span> <span class=n>file</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=n>std</span><span class=o>::</span><span class=n>vector</span><span class=o>&lt;</span><span class=kt>char</span><span class=o>&gt;</span> <span class=n>buff</span><span class=p>(</span><span class=n>file</span><span class=p>.</span><span class=n>size</span><span class=p>());</span>
+</span></span><span class=line><span class=cl>    <span class=k>auto</span> <span class=n>status</span> <span class=o>=</span> <span class=k>co_await</span> <span class=n>ReadFileAwaitable</span><span class=p>{</span><span class=n>uring</span><span class=p>,</span> <span class=n>file</span><span class=p>,</span> <span class=n>buff</span><span class=p>};</span>
+</span></span><span class=line><span class=cl>    <span class=c1>// 此时 completion entry 已经准备好,
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=c1>// buff 内也填充了数据，可以解析了
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=n>Result</span> <span class=n>result</span><span class=p>{</span> <span class=p>.</span><span class=n>status_code</span> <span class=o>=</span> <span class=mi>0</span><span class=p>,</span> <span class=p>.</span><span class=n>file</span> <span class=o>=</span> <span class=n>file</span><span class=p>.</span><span class=n>path</span><span class=p>()</span> <span class=p>};</span>
+</span></span><span class=line><span class=cl>    <span class=n>readObjFromBuffer</span><span class=p>(</span><span class=n>buff</span><span class=p>,</span> <span class=n>result</span><span class=p>.</span><span class=n>result</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=k>co_return</span> <span class=n>result</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><p>这是我们的协程。看起来和普通函数很像，实际上，他确实就是按照传统的同步代码模式编写：分配缓冲，读取内容，解析 buffer，返回结果。</p><p>协程天然就不是同步执行的：它在特定位置暂停执行并且让出控制权给 caller。例如，await 表达式：<code>co_await ReadFileAwaitable{uring, file, buff}</code>。这里，我们提交 SQE，并且将控制流返回给 caller。<code>co_await</code> 是一个运算符，需要一个 <em>awaitable</em> 类型，然后暂停执行。<code>ReadFileAwaitable</code> 就是那么一个 awaitable，它的任务是暂停写成然后注册它，准备以后唤醒。一旦协程恢复了执行，那么就从 <code>co_await</code> 的下一行开始执行。</p><h2 id=暂停执行>暂停执行</h2><p><code>ReadFileAwaitable</code> 是一个用来暂停协程的 awaitable。我们会解释发生了什么：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span><span class=lnt>20
+</span><span class=lnt>21
+</span><span class=lnt>22
+</span><span class=lnt>23
+</span><span class=lnt>24
+</span><span class=lnt>25
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=k>class</span> <span class=nc>ReadFileAwaitable</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl><span class=k>public</span><span class=o>:</span>
+</span></span><span class=line><span class=cl>    <span class=n>ReadFileAwaitable</span><span class=p>(</span><span class=n>IOUring</span><span class=o>&amp;</span> <span class=n>ring</span><span class=p>,</span> <span class=n>cont</span> <span class=n>ReadOnlyFile</span><span class=o>&amp;</span> <span class=n>file</span><span class=p>,</span> <span class=k>const</span> <span class=n>std</span><span class=o>::</span><span class=n>vector</span><span class=o>&lt;</span><span class=kt>char</span><span class=o>&gt;&amp;</span> <span class=n>buf</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=n>sqe_</span> <span class=o>=</span> <span class=n>io_uring_get_sqe</span><span class=p>(</span><span class=n>uring</span><span class=p>.</span><span class=n>get</span><span class=p>());</span>
+</span></span><span class=line><span class=cl>        <span class=n>io_uring_prep_read</span><span class=p>(</span><span class=n>sqe_</span><span class=p>,</span> <span class=n>file</span><span class=p>.</span><span class=n>fd</span><span class=p>(),</span> <span class=n>buf</span><span class=p>.</span><span class=n>data</span><span class=p>(),</span> <span class=n>buf</span><span class=p>.</span><span class=n>size</span><span class=p>(),</span> <span class=mi>0</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>    
+</span></span><span class=line><span class=cl>    <span class=k>auto</span> <span class=k>operator</span> <span class=nf>co_await</span><span class=p>()</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=k>struct</span> <span class=nc>Awaiter</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>          	<span class=n>io_uring_sqe</span><span class=o>*</span> <span class=n>entry</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>            <span class=n>RequestData</span> <span class=n>requestData</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>            
+</span></span><span class=line><span class=cl>            <span class=n>Awaitable</span><span class=p>(</span><span class=n>io_uring_sqe</span><span class=o>*</span> <span class=n>sqe</span><span class=p>)</span> <span class=o>:</span> <span class=n>entry</span><span class=p>{</span><span class=n>sqe</span><span class=p>}</span> <span class=p>{}</span>
+</span></span><span class=line><span class=cl>            <span class=kt>bool</span> <span class=n>await_ready</span><span class=p>()</span> <span class=p>{</span><span class=k>return</span> <span class=nb>false</span><span class=p>;}</span>
+</span></span><span class=line><span class=cl>            <span class=kt>void</span> <span class=n>await_suspend</span><span class=p>(</span><span class=n>std</span><span class=o>::</span><span class=n>coroutine_handle</span><span class=o>&lt;&gt;</span> <span class=n>h</span><span class=p>)</span> <span class=k>noexcept</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>                <span class=n>requestData</span><span class=p>.</span><span class=n>handle</span> <span class=o>=</span> <span class=n>h</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>                <span class=n>io_uring_sqe_set_data</span><span class=p>(</span><span class=n>entry</span><span class=p>,</span> <span class=o>&amp;</span><span class=n>requestData</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>            <span class=p>}</span>
+</span></span><span class=line><span class=cl>            <span class=kt>int</span> <span class=n>await_resume</span><span class=p>()</span> <span class=p>{</span><span class=k>return</span> <span class=n>requestData</span><span class=p>.</span><span class=n>statusCode</span><span class=p>;}</span>
+</span></span><span class=line><span class=cl>        <span class=p>};</span>
+</span></span><span class=line><span class=cl>        <span class=k>return</span> <span class=n>Awaiter</span><span class=p>{</span><span class=n>sqe_</span><span class=p>};</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl><span class=k>private</span><span class=o>:</span>
+</span></span><span class=line><span class=cl>    <span class=n>io_uring_sqe</span><span class=o>*</span> <span class=n>sqe_</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=p>};</span>
+</span></span></code></pre></td></tr></table></div></div><p><code>ReadFileAwaitable</code> 创建一个 SQE 然后把它提交。我们必须在协程暂停之前提交我们的请求。</p><blockquote><p>我从来没重载过 operator co_await() 只在文档里看过，感觉还是写 await_transform() 好点。</p></blockquote><p><code>Awaiter</code> 有两个成员变量：<code>entry</code> and <code>requestData</code>，<code>entry</code> 是一个指针，指向 SQE，我们需要他来被传递给 <code>io_uring_sqe_set_data()</code> 以此绑定用户数据。用户数据是任意的（<code>void*</code>）所以我们可以绑定我们的提交请求。用户数据会原样传递给内核，并由内核传递给 CQE，主要用来分辨不同的 CQE，将其链接到正确的 SQE。</p><p><code>ReadFileAwaitable</code> 重载 <code>operator co_await()</code> 返回一个 <em>awaiter</em>：<code>Awaiter</code>. <code>Awaiter</code> 实现了标准要求的三个函数：<code>await_ready()</code>, <code>await_suspend()</code>, <code>await_resume()</code>。</p><p><code>await_ready()</code> 一直返回 <code>false</code>。代表我们的协程永远会在 <code>co_await ReadFileAwaitable{}</code> 处暂停。我们也可以继承自 <code>std::suspend_always</code></p><p>现在我们实现 <code>await_suspend()</code>，这个函数会在协程暂停后调用，并且<strong>参数是协程句柄</strong>。这是一个很好的函数，我们可以用它将用户数据写入 SQE。但用户数据应该写啥呢？</p><p>我们仔细想想：我们提交 SQE。会有一个对应的 CQE 在完成时进入 CQ。一旦 CQE 到达，那么我们就必须恢复我们暂停的协程。我们怎么恢复协程呢？协程句柄已经传递给我们了！我们把写成句柄写入用户数据作为提交请求！</p><blockquote><p>我真是天才，几天前就自己悟了。</p></blockquote><p>协程句柄作为成员变量，存储在 <code>RequestData</code>:</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=k>struct</span> <span class=nc>RequestData</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>  <span class=n>std</span><span class=o>::</span><span class=n>coroutine_handle</span><span class=o>&lt;&gt;</span> <span class=n>handle</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>  <span class=kt>int</span> <span class=n>statusCode</span><span class=p>{</span><span class=o>-</span><span class=mi>1</span><span class=p>};</span>
+</span></span><span class=line><span class=cl><span class=p>};</span>
+</span></span></code></pre></td></tr></table></div></div><p><code>RequestData</code> 存储协程句柄和状态码。状态码之后会被写入 <code>Awaiter</code> 对象，当完成请求到达时，用户数据则是指向 awaiter 对象的 <code>requestData</code> 数据成员的指针。</p><p>最终，我们实现 <code>await_resume()</code> 。<code>await_resume()</code> 会在协程恢复时立刻调用，并且返回写操作的状态码。换句话说，我们可以假设 <code>requestData.statuCode</code> 在 <code>await_resume()</code> 调用时初始化。</p><p><strong><code>await_resume()</code> 的返回值就是整个 <code>co_await</code> 表达式的结果</strong>，我们可以写：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=kt>int</span> <span class=n>status</span> <span class=o>=</span> <span class=k>co_await</span> <span class=n>ReadFileAwaitable</span><span class=p>{};</span>
+</span></span><span class=line><span class=cl><span class=k>if</span> <span class=p>(</span><span class=o>!</span><span class=n>status</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=c1>//...
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><p>就像我们调用了一个普通的 <code>read</code>。</p><h2 id=恢复执行>恢复执行</h2><p>调用 <code>co_await ReadFileAwaitable</code> 会让协程挂起，但我们怎么唤醒它呢？简单，<strong>我们等待 CQE，然后从中取出协程句柄即可。</strong></p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=kt>int</span> <span class=nf>consumeCQEntries</span><span class=p>(</span><span class=n>IOUring</span> <span class=o>&amp;</span><span class=n>uring</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>  <span class=kt>int</span> <span class=n>processed</span><span class=p>{</span><span class=mi>0</span><span class=p>};</span>
+</span></span><span class=line><span class=cl>  <span class=n>io_uring_cqe</span> <span class=o>*</span><span class=n>cqe</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>  <span class=kt>unsigned</span> <span class=n>head</span><span class=p>;</span> <span class=c1>// 环形缓冲区头位置，未被使用
+</span></span></span><span class=line><span class=cl><span class=c1></span>  <span class=n>io_uring_for_each_cqe</span><span class=p>(</span><span class=n>uring</span><span class=p>.</span><span class=n>get</span><span class=p>(),</span> <span class=n>head</span><span class=p>,</span> <span class=n>cqe</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=k>auto</span> <span class=o>*</span><span class=n>request_data</span> <span class=o>=</span> <span class=k>static_cast</span><span class=o>&lt;</span><span class=n>RequestData</span> <span class=o>*&gt;</span><span class=p>(</span><span class=n>io_uring_cqe_get_data</span><span class=p>(</span><span class=n>cqe</span><span class=p>));</span>
+</span></span><span class=line><span class=cl>    <span class=c1>// 记得在恢复协程前设定 statusCode
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=n>request_data</span><span class=o>-&gt;</span><span class=n>statusCode</span> <span class=o>=</span> <span class=n>cqe</span><span class=o>-&gt;</span><span class=n>res</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=n>request_data</span><span class=o>-&gt;</span><span class=n>handle</span><span class=p>.</span><span class=n>resume</span><span class=p>();</span> <span class=c1>// 这里恢复协程然后自动调用 await_resume()
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=o>++</span><span class=n>processed</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>  <span class=p>}</span>
+</span></span><span class=line><span class=cl>  <span class=n>io_uring_cq_advance</span><span class=p>(</span><span class=n>uring</span><span class=p>.</span><span class=n>get</span><span class=p>(),</span> <span class=n>processed</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>  <span class=k>return</span> <span class=n>processed</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><p>在恢复协程前，我们必须在 <code>request_data</code> 中写入 status code。<code>request_data</code> 是一个指向 <code>Awaiter</code> 对象中 <code>reqeustData</code> 数据成员的指针。</p><p>我们现在写一个 <code>consumeCQEntriesBlocking()</code> 帮助函数，会向内核提交 SQE，然后阻塞直到至少有一个 CQE 完成。</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=kt>int</span> <span class=nf>consumeCQEntriesBlocking</span><span class=p>(</span><span class=n>IOUring</span> <span class=o>&amp;</span><span class=n>uring</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>  <span class=n>io_uring_submit_and_wait</span><span class=p>(</span><span class=n>uring</span><span class=p>.</span><span class=n>get</span><span class=p>(),</span> <span class=mi>1</span><span class=p>);</span> <span class=c1>// CQ 为空会阻塞
+</span></span></span><span class=line><span class=cl><span class=c1></span>  <span class=k>return</span> <span class=n>consumeCQEntries</span><span class=p>(</span><span class=n>uring</span><span class=p>);</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><p>我们已经学会了暂停和恢复协程的机制，现在我们可以写客户端代码，来读取 OBJ 文件了。</p><p>直观上，我们必须使用入 <code>std::vector</code> 来包含 <code>parseOBJFile</code> 返回的结果，但是 <code>parseOBJFile</code> 的返回值是什么？协程的返回类型是什么？它是一个 <em>coroutine type</em> ，这里命名为 <code>Task</code>。</p><h2 id=coroutine-typetask>Coroutine Type：Task</h2><p><code>Task</code> 是我们协程的返回类型。我们必须自己实现它，实现标准规定的 API。</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span><span class=lnt>20
+</span><span class=lnt>21
+</span><span class=lnt>22
+</span><span class=lnt>23
+</span><span class=lnt>24
+</span><span class=lnt>25
+</span><span class=lnt>26
+</span><span class=lnt>27
+</span><span class=lnt>28
+</span><span class=lnt>29
+</span><span class=lnt>30
+</span><span class=lnt>31
+</span><span class=lnt>32
+</span><span class=lnt>33
+</span><span class=lnt>34
+</span><span class=lnt>35
+</span><span class=lnt>36
+</span><span class=lnt>37
+</span><span class=lnt>38
+</span><span class=lnt>39
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=k>class</span> <span class=nc>Task</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl><span class=k>public</span><span class=o>:</span>
+</span></span><span class=line><span class=cl>  <span class=k>struct</span> <span class=nc>promise_type</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=n>Result</span> <span class=n>result</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=n>Task</span> <span class=nf>get_return_object</span><span class=p>()</span> <span class=p>{</span> <span class=k>return</span> <span class=n>Task</span><span class=p>(</span><span class=k>this</span><span class=p>);</span> <span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=kt>void</span> <span class=nf>unhandled_exception</span><span class=p>()</span> <span class=k>noexcept</span> <span class=p>{}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=kt>void</span> <span class=nf>return_value</span><span class=p>(</span><span class=n>Result</span> <span class=n>result</span><span class=p>)</span> <span class=k>noexcept</span> <span class=p>{</span> <span class=n>result</span> <span class=o>=</span> <span class=n>std</span><span class=o>::</span><span class=n>move</span><span class=p>(</span><span class=n>result</span><span class=p>);</span> <span class=p>}</span>
+</span></span><span class=line><span class=cl>    <span class=n>std</span><span class=o>::</span><span class=n>suspend_never</span> <span class=n>initial_suspend</span><span class=p>()</span> <span class=k>noexcept</span> <span class=p>{</span> <span class=k>return</span> <span class=p>{};</span> <span class=p>}</span>
+</span></span><span class=line><span class=cl>    <span class=n>std</span><span class=o>::</span><span class=n>suspend_always</span> <span class=n>final_suspend</span><span class=p>()</span> <span class=k>noexcept</span> <span class=p>{</span> <span class=k>return</span> <span class=p>{};</span> <span class=p>}</span>
+</span></span><span class=line><span class=cl>  <span class=p>};</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  <span class=k>explicit</span> <span class=nf>Task</span><span class=p>(</span><span class=n>promise_type</span> <span class=o>*</span><span class=n>promise</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>      <span class=o>:</span> <span class=n>handle_</span><span class=p>{</span><span class=n>HandleT</span><span class=o>::</span><span class=n>from_promise</span><span class=p>(</span><span class=o>*</span><span class=n>promise</span><span class=p>)}</span> <span class=p>{}</span>
+</span></span><span class=line><span class=cl>  <span class=n>Task</span><span class=p>(</span><span class=n>Task</span> <span class=o>&amp;&amp;</span><span class=n>other</span><span class=p>)</span> <span class=o>:</span> <span class=n>handle_</span><span class=p>{</span><span class=n>std</span><span class=o>::</span><span class=n>exchange</span><span class=p>(</span><span class=n>other</span><span class=p>.</span><span class=n>handle_</span><span class=p>,</span> <span class=k>nullptr</span><span class=p>)}</span> <span class=p>{}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  <span class=o>~</span><span class=n>Task</span><span class=p>()</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=k>if</span> <span class=p>(</span><span class=n>handle_</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>      <span class=n>handle_</span><span class=p>.</span><span class=n>destroy</span><span class=p>();</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>  <span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  <span class=n>Result</span> <span class=nf>getResult</span><span class=p>()</span> <span class=k>const</span> <span class=o>&amp;</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=n>assert</span><span class=p>(</span><span class=n>handle_</span><span class=p>.</span><span class=n>done</span><span class=p>());</span>
+</span></span><span class=line><span class=cl>    <span class=k>return</span> <span class=n>handle_</span><span class=p>.</span><span class=n>promise</span><span class=p>().</span><span class=n>result</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>  <span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  <span class=n>Result</span><span class=o>&amp;&amp;</span> <span class=n>getResult</span><span class=p>()</span> <span class=o>&amp;&amp;</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=n>assert</span><span class=p>(</span><span class=n>handle_</span><span class=p>.</span><span class=n>done</span><span class=p>());</span>
+</span></span><span class=line><span class=cl>    <span class=k>return</span> <span class=n>std</span><span class=o>::</span><span class=n>move</span><span class=p>(</span><span class=n>handle_</span><span class=p>.</span><span class=n>promise</span><span class=p>().</span><span class=n>result</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>  <span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  <span class=kt>bool</span> <span class=nf>done</span><span class=p>()</span> <span class=k>const</span> <span class=p>{</span> <span class=k>return</span> <span class=n>handle_</span><span class=p>.</span><span class=n>done</span><span class=p>();</span> <span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  <span class=k>using</span> <span class=n>HandleT</span> <span class=o>=</span> <span class=n>std</span><span class=o>::</span><span class=n>coroutine_handle</span><span class=o>&lt;</span><span class=n>promise_type</span><span class=o>&gt;</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>  <span class=n>HandleT</span> <span class=n>handle_</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=p>};</span>
+</span></span></code></pre></td></tr></table></div></div><p><code>Task</code> 定义了 promise type，每个协程都拥有 promise 对象，其位于协程帧中。promise 对象用于传输协程的数据（或者重新抛出协程抛出的异常）。此外，promise type 有一个成员 <code>Result result</code>，包括了最终的解析 OBJ 文件的结果。</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=k>struct</span> <span class=nc>Result</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>	<span class=n>tinyobj</span><span class=o>::</span><span class=n>ObjReader</span> <span class=n>result</span><span class=p>;</span> <span class=c1>// stores the actual parsed obj
+</span></span></span><span class=line><span class=cl><span class=c1></span>  	<span class=kt>int</span> <span class=n>status_code</span><span class=p>{</span><span class=mi>0</span><span class=p>};</span>        <span class=c1>// the status code of the read operation
+</span></span></span><span class=line><span class=cl><span class=c1></span>  	<span class=n>std</span><span class=o>::</span><span class=n>string</span> <span class=n>file</span><span class=p>;</span>          <span class=c1>// the file the OBJ was loaded from
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=p>};</span>
+</span></span></code></pre></td></tr></table></div></div><p><code>result</code> 通过内部的成员函数 <code>return_value</code> 初始化，当 <code>co_return</code> 执行时会被调用。</p><p><code>Task</code> 定义了一个成员函数 <code>getResult()</code> 来方便的从 promise 对象中得到返回的结果。</p><p><code>promise_type</code> 必须定义成员函数 <code>get_return_object()</code> 返回实际的协程对象。在我们的示例中，是 <code>Task</code> 实例。</p><p><code>unhandled_expection()</code> 在协程体抛异常时会被调用，我们暂未实现因为我们是 exception free （或者目标是）。<code>initial_suspend</code> 和 <code>final_suspend</code> 决定了协程的初始和最终行为，协程是否在开始和结束时暂停。</p><p><code>Task</code> 包含了协程句柄 <code>handle_</code> 并且管理其生命周期：它会通过析构时调用 <code>handle_.destroy()</code> 来销毁协程帧。同时还定义了 <code>done()</code> 成员函数表明协程是否执行完毕。</p><p>C++20 协程是 raw，代表他并不是一个完整的 cake，而是一堆 flour，eggs 和 butter。为了实现一个协程你必须写一些支持代码以及模版，自己来烤蛋糕。因为这些原因，可以使用一些库，比如 <a class=link href=https://github.com/lewissbaker/cppcoro target=_blank rel=noopener>cppcoro by Lewis Baker</a>，实现了泛型版本的 <code>Task</code> 类型，使用了很多有用的抽象，大量减少了模板代码。</p><h2 id=结合>结合</h2><p>现在我们实现顶层函数，使用协程解析 OBJ：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=n>std</span><span class=o>::</span><span class=n>vector</span><span class=o>&lt;</span><span class=n>Result</span><span class=o>&gt;</span> <span class=n>parseOBJFiles</span><span class=p>(</span><span class=k>const</span> <span class=n>std</span><span class=o>::</span><span class=n>vector</span><span class=o>&lt;</span><span class=n>ReadOnlyFile</span><span class=o>&gt;</span> <span class=o>&amp;</span><span class=n>files</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>  <span class=n>IOUring</span> <span class=n>uring</span><span class=p>{</span><span class=n>files</span><span class=p>.</span><span class=n>size</span><span class=p>()};</span>
+</span></span><span class=line><span class=cl>  <span class=n>std</span><span class=o>::</span><span class=n>vector</span><span class=o>&lt;</span><span class=n>Task</span><span class=o>&gt;</span> <span class=n>tasks</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>  <span class=n>tasks</span><span class=p>.</span><span class=n>reserve</span><span class=p>(</span><span class=n>files</span><span class=p>.</span><span class=n>size</span><span class=p>());</span>
+</span></span><span class=line><span class=cl>  <span class=k>for</span> <span class=p>(</span><span class=k>const</span> <span class=k>auto</span> <span class=o>&amp;</span><span class=nl>file</span> <span class=p>:</span> <span class=n>files</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=n>tasks</span><span class=p>.</span><span class=n>push_back</span><span class=p>(</span><span class=n>parseOBJFile</span><span class=p>(</span><span class=n>uring</span><span class=p>,</span> <span class=n>file</span><span class=p>));</span>
+</span></span><span class=line><span class=cl>  <span class=p>}</span>
+</span></span><span class=line><span class=cl>  <span class=k>while</span> <span class=p>(</span><span class=o>!</span><span class=n>allDone</span><span class=p>(</span><span class=n>tasks</span><span class=p>))</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=c1>// consume all entries in the submission queue
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=c1>// if the queue is empty block until the next completion arrives
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=n>consumeCQEntriesBlocking</span><span class=p>(</span><span class=n>uring</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>  <span class=p>}</span>
+</span></span><span class=line><span class=cl>  <span class=k>return</span> <span class=nf>gatherResults</span><span class=p>(</span><span class=n>tasks</span><span class=p>);</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><p>通过执行 <code>parseOBJFile</code> 分配了一个 vector 的 <code>Task</code> 协程。注意 <code>initial_suspend()</code> 返回的是 <code>std::suspend_never</code> ，代表 <code>parseOJBFile</code> 协程在协程开始时永远不会暂停，直到执行到了 <code>co_await ReadFileAwaitable</code>，协程才会暂停。</p><p>一旦协程暂停，内核就会做它的工作，我们什么都不用做，只需要等到 CQE 完成，<code>consumeCQEntriesBlocking</code> 会唤醒协程，因为它们对应的 CQE 已经完成了。</p><p><code>allDone</code> 是一个简单的帮助函数，检查是否所有的协程都已经执行完毕。</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=kt>bool</span> <span class=nf>allDone</span><span class=p>(</span><span class=k>const</span> <span class=n>std</span><span class=o>::</span><span class=n>vector</span><span class=o>&lt;</span><span class=n>Task</span><span class=o>&gt;</span> <span class=o>&amp;</span><span class=n>tasks</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>  <span class=k>return</span> <span class=n>std</span><span class=o>::</span><span class=n>all_of</span><span class=p>(</span><span class=n>tasks</span><span class=p>.</span><span class=n>cbegin</span><span class=p>(),</span> <span class=n>tasks</span><span class=p>.</span><span class=n>cend</span><span class=p>(),</span>
+</span></span><span class=line><span class=cl>                     <span class=p>[](</span><span class=k>const</span> <span class=k>auto</span> <span class=o>&amp;</span><span class=n>t</span><span class=p>)</span> <span class=p>{</span> <span class=k>return</span> <span class=n>t</span><span class=p>.</span><span class=n>done</span><span class=p>();</span> <span class=p>});</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><p>然后协程恢复，解析 OBJ 文件，并且通过 <code>co_return result</code> 返回结果。</p><p>最后我们可以从完成的协程中获取最终的结果：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span><span class=lnt>7
+</span><span class=lnt>8
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=n>std</span><span class=o>::</span><span class=n>vector</span><span class=o>&lt;</span><span class=n>Result</span><span class=o>&gt;</span> <span class=n>gatherResults</span><span class=p>(</span><span class=k>const</span> <span class=n>std</span><span class=o>::</span><span class=n>vector</span><span class=o>&lt;</span><span class=n>Task</span><span class=o>&gt;</span> <span class=o>&amp;</span><span class=n>tasks</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>  <span class=n>std</span><span class=o>::</span><span class=n>vector</span><span class=o>&lt;</span><span class=n>Result</span><span class=o>&gt;</span> <span class=n>results</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>  <span class=n>results</span><span class=p>.</span><span class=n>reserve</span><span class=p>(</span><span class=n>tasks</span><span class=p>.</span><span class=n>size</span><span class=p>());</span>
+</span></span><span class=line><span class=cl>  <span class=k>for</span> <span class=p>(</span><span class=k>auto</span> <span class=o>&amp;&amp;</span><span class=nl>t</span> <span class=p>:</span> <span class=n>tasks</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=n>results</span><span class=p>.</span><span class=n>push_back</span><span class=p>(</span><span class=n>std</span><span class=o>::</span><span class=n>move</span><span class=p>(</span><span class=n>t</span><span class=p>).</span><span class=n>getResult</span><span class=p>());</span>
+</span></span><span class=line><span class=cl>  <span class=p>}</span>
+</span></span><span class=line><span class=cl>  <span class=k>return</span> <span class=n>results</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><p>在函数块最后，所有的 <code>Task</code> 都会销毁，解分配所有的协程帧。</p><h2 id=p2-结束语>p2 结束语</h2><p>你可能有问题：这篇文章的实现和不使用协程实现关键区别在哪？这是一个争议性的问题，有的人可能觉得我们只是像程序中加入了一些模板式的代码来实现已经实现过的功能。也没有更加效率：<strong>我们仍然是单线程串行解析。</strong></p><p>好在我们还没有完成所有的操作。协程的魅力之处在于其可以组合其他功能，在实现了一个基础的协程设施后，添加更多的 awaitable 和 其他协程很简单。</p><p>在 P3 我们会扩展实现，例如使用线程池并行解析文件。这才是协程最终的魔力。</p><h1 id=part-33>Part 3/3</h1><h2 id=p3-前言>P3 前言</h2><p>已经到了系列的最后一篇文章。在 P2 我们写了基于协程的程序，读取并且解析 OBJ 文件，使用协程和 <code>io_uring</code>。程序仍然有最后一个缺点：他是 CPU-bound。解析文件，最耗费时间的部分是算法，是在单线程上串行执行的。</p><p>问题的根源是我们的协程在 main 线程上恢复。理想中我们希望他在其他线程上恢复，这样才可以并行解析文件。</p><p>这正是我们这篇文章要做的。我们添加第二个 <code>await</code> 表达式 <code>co_await pool.schedule()</code>，这会让我们的协程暂停并且被线程池调度和恢复。</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span><span class=lnt>7
+</span><span class=lnt>8
+</span><span class=lnt>9
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=n>Task</span> <span class=nf>parseOBJFile</span><span class=p>(</span><span class=n>IOUring</span> <span class=o>&amp;</span><span class=n>uring</span><span class=p>,</span> <span class=k>const</span> <span class=n>ReadOnlyFile</span> <span class=o>&amp;</span><span class=n>file</span><span class=p>,</span> <span class=n>ThreadPool</span> <span class=o>&amp;</span><span class=n>pool</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>  <span class=n>std</span><span class=o>::</span><span class=n>vector</span><span class=o>&lt;</span><span class=kt>char</span><span class=o>&gt;</span> <span class=n>buff</span><span class=p>(</span><span class=n>file</span><span class=p>.</span><span class=n>size</span><span class=p>());</span>
+</span></span><span class=line><span class=cl>  <span class=kt>int</span> <span class=n>status</span> <span class=o>=</span> <span class=k>co_await</span> <span class=n>ReadFileAwaitable</span><span class=p>(</span><span class=n>uring</span><span class=p>,</span> <span class=n>file</span><span class=p>,</span> <span class=n>buff</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>  <span class=k>co_await</span> <span class=n>pool</span><span class=p>.</span><span class=n>schedule</span><span class=p>();</span>
+</span></span><span class=line><span class=cl>  <span class=c1>// This is now running on a worker thread
+</span></span></span><span class=line><span class=cl><span class=c1></span>  <span class=n>Result</span> <span class=n>result</span><span class=p>{.</span><span class=n>status_code</span> <span class=o>=</span> <span class=mi>0</span><span class=p>,</span> <span class=p>.</span><span class=n>file</span> <span class=o>=</span> <span class=n>file</span><span class=p>.</span><span class=n>path</span><span class=p>()};</span>
+</span></span><span class=line><span class=cl>  <span class=n>readObjFromBuffer</span><span class=p>(</span><span class=n>buff</span><span class=p>,</span> <span class=n>result</span><span class=p>.</span><span class=n>result</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>  <span class=k>co_return</span> <span class=n>result</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><h2 id=线程池>线程池</h2><p><code>ThreadPool</code> 实现了我们的核心思想。</p><p><code>ThreadPool</code> 封装了 <a class=link href=https://github.com/bshoshany/thread-pool target=_blank rel=noopener>bshoshany Thread Pool’s object</a> ，它的 API 很简单，你可以使用 <code>push_task</code> 来调度一个在线程池上跑的任务。</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=k>class</span> <span class=nc>ThreadPool</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl><span class=k>public</span><span class=o>:</span>
+</span></span><span class=line><span class=cl>  <span class=k>auto</span> <span class=n>schedule</span><span class=p>()</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=k>struct</span> <span class=nc>Awaiter</span> <span class=o>:</span> <span class=n>std</span><span class=o>::</span><span class=n>suspend_always</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>      <span class=n>BS</span><span class=o>::</span><span class=n>thread_pool</span> <span class=o>&amp;</span><span class=n>tpool</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>      <span class=n>Awaitable</span><span class=p>(</span><span class=n>BS</span><span class=o>::</span><span class=n>thread_pool</span> <span class=o>&amp;</span><span class=n>pool</span><span class=p>)</span> <span class=o>:</span> <span class=n>tpool</span><span class=p>{</span><span class=n>pool</span><span class=p>}</span> <span class=p>{}</span>
+</span></span><span class=line><span class=cl>      <span class=kt>void</span> <span class=nf>await_suspend</span><span class=p>(</span><span class=n>std</span><span class=o>::</span><span class=n>coroutine_handle</span><span class=o>&lt;&gt;</span> <span class=n>handle</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=n>tpool</span><span class=p>.</span><span class=n>push_task</span><span class=p>([</span><span class=n>handle</span><span class=p>,</span> <span class=k>this</span><span class=p>]()</span> <span class=p>{</span> <span class=n>handle</span><span class=p>.</span><span class=n>resume</span><span class=p>();</span> <span class=p>});</span>
+</span></span><span class=line><span class=cl>      <span class=p>}</span>
+</span></span><span class=line><span class=cl>    <span class=p>};</span>
+</span></span><span class=line><span class=cl>    <span class=k>return</span> <span class=n>Awaiter</span><span class=p>{</span><span class=n>pool_</span><span class=p>};</span>
+</span></span><span class=line><span class=cl>  <span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  <span class=n>size_t</span> <span class=nf>numUnfinishedTasks</span><span class=p>()</span> <span class=k>const</span> <span class=p>{</span> <span class=k>return</span> <span class=n>pool_</span><span class=p>.</span><span class=n>get_tasks_total</span><span class=p>();</span> <span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=k>private</span><span class=o>:</span>
+</span></span><span class=line><span class=cl>  <span class=n>BS</span><span class=o>::</span><span class=n>thread_pool</span> <span class=n>pool_</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=p>};</span>
+</span></span></code></pre></td></tr></table></div></div><p><code>ThreadPool</code> 定义了成员函数 <code>schedule()</code> ，返回一个 <code>Awaiter</code> 的实例。当协程 <code>co_await Awaiter</code> 对象时，协程会暂停（注意 <code>Awaiter</code> 继承自 <code>std::suspend_always</code>）并且在 <code>await_suspend()</code> 中调度在 worker 线程上恢复。</p><p>很棒！通过简单的写 <code>co_await pool.schedule()</code> 我们就可以在线程池中唤醒当前协程，大大提高了我们的执行效率。并行解析 OBJ。</p><h2 id=多线程实现>多线程实现</h2><p>以上。现在我们来实现顶层的函数，使用新的协程来加载和解析 OBJ 文件。</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=n>std</span><span class=o>::</span><span class=n>vector</span><span class=o>&lt;</span><span class=n>Result</span><span class=o>&gt;</span> <span class=n>coroutinesThreadPool</span><span class=p>(</span><span class=k>const</span> <span class=n>std</span><span class=o>::</span><span class=n>vector</span><span class=o>&lt;</span><span class=n>ReadOnlyFile</span><span class=o>&gt;</span> <span class=o>&amp;</span><span class=n>files</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>  <span class=n>IOUring</span> <span class=n>uring</span><span class=p>{</span><span class=n>files</span><span class=p>.</span><span class=n>size</span><span class=p>()};</span>
+</span></span><span class=line><span class=cl>  <span class=n>ThreadPool</span> <span class=n>pool</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>  <span class=n>std</span><span class=o>::</span><span class=n>vector</span><span class=o>&lt;</span><span class=n>Task</span><span class=o>&gt;</span> <span class=n>tasks</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>  <span class=n>tasks</span><span class=p>.</span><span class=n>reserve</span><span class=p>(</span><span class=n>files</span><span class=p>.</span><span class=n>size</span><span class=p>());</span>
+</span></span><span class=line><span class=cl>  <span class=k>for</span> <span class=p>(</span><span class=k>const</span> <span class=k>auto</span> <span class=o>&amp;</span><span class=nl>file</span> <span class=p>:</span> <span class=n>files</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=n>tasks</span><span class=p>.</span><span class=n>push_back</span><span class=p>(</span><span class=n>parseOBJFile</span><span class=p>(</span><span class=n>uring</span><span class=p>,</span> <span class=n>file</span><span class=p>,</span> <span class=n>pool</span><span class=p>));</span>
+</span></span><span class=line><span class=cl>  <span class=p>}</span>
+</span></span><span class=line><span class=cl>  <span class=n>io_uring_submit</span><span class=p>(</span><span class=n>uring</span><span class=p>.</span><span class=n>get</span><span class=p>());</span>
+</span></span><span class=line><span class=cl>  <span class=k>while</span> <span class=p>(</span><span class=n>pool</span><span class=p>.</span><span class=n>numUnfinishedTasks</span><span class=p>()</span> <span class=o>&gt;</span> <span class=mi>0</span> <span class=o>||</span> <span class=o>!</span><span class=n>allDone</span><span class=p>(</span><span class=n>tasks</span><span class=p>))</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=c1>// consume entries in the completion queue
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=c1>// return immediately if the queue is empty
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=n>consumeCQEntriesNonBlocking</span><span class=p>(</span><span class=n>uring</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>  <span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  <span class=k>return</span> <span class=nf>gatherResults</span><span class=p>(</span><span class=n>tasks</span><span class=p>);</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><p>我们初始化一个线程池和 <code>io_uring</code> 实例，然后对每个文件调用 <code>parseOBJFile</code> ，这会填满 SQ，之后我们使用 <code>io_uring_sumbit()</code> 向内核提交请求。</p><p>一旦内核在后台读取文件，协程会在相应的 CQE 到达时被唤醒。这在函数 <code>consumeCQEntriesNonBlocking()</code> 中执行：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span><span class=lnt>7
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=kt>int</span> <span class=nf>consumeCQEntriesNonBlocking</span><span class=p>(</span><span class=n>IOUring</span> <span class=o>&amp;</span><span class=n>uring</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>  <span class=n>io_uring_cqe</span> <span class=o>*</span><span class=n>temp</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>  <span class=k>if</span> <span class=p>(</span><span class=n>io_uring_peek_cqe</span><span class=p>(</span><span class=n>uring</span><span class=p>.</span><span class=n>get</span><span class=p>(),</span> <span class=o>&amp;</span><span class=n>temp</span><span class=p>)</span> <span class=o>==</span> <span class=mi>0</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=k>return</span> <span class=n>consumeCQEntries</span><span class=p>(</span><span class=n>uring</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>  <span class=p>}</span>
+</span></span><span class=line><span class=cl>  <span class=k>return</span> <span class=mi>0</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><p>使用 <code>io_uring_peek_cqe()</code> 来查看 CQ 中是否已经有 CQE，如果为空的话则会退出。</p><p>我们继续等待所有协程完成。因为 <code>allDone</code> 是线性检查，所以我们给一个短路的选项避免一直调用它、如果在线程池中有未完成的任务，那么显然我们还没有完成。</p><h2 id=p3-结束语>P3 结束语</h2><p>大功告成！希望你能感受到协程的 cool 了，一旦你已经有了一个协程，那么添加其他的 <code>co_awaits</code> 易如反掌。</p><p>你可以在 <a class=link href=https://github.com/pabloariasal/couring target=_blank rel=noopener>这里</a> 找到所有的代码。</p></section><footer class=article-footer><section class=article-copyright><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-copyright" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="12" r="9"/><path d="M14.5 9a3.5 4 0 100 6"/></svg>
+<span>Licensed under CC BY-NC-SA 4.0</span></section><section class=article-lastmod><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/></svg>
+<span>最后更新于 Mar 09, 2024 00:00 UTC</span></section></footer></article><footer class=site-footer><section class=copyright>&copy;
+2023 -
+2024 Roses</section><section class=powerby>使用 <a href=https://gohugo.io/ target=_blank rel=noopener>Hugo</a> 构建<br>主题 <b><a href=https://github.com/CaiJimmy/hugo-theme-stack target=_blank rel=noopener data-version=3.26.0>Stack</a></b> 由 <a href=https://jimmycai.com target=_blank rel=noopener>Jimmy</a> 设计</section></footer><div class=pswp tabindex=-1 role=dialog aria-hidden=true><div class=pswp__bg></div><div class=pswp__scroll-wrap><div class=pswp__container><div class=pswp__item></div><div class=pswp__item></div><div class=pswp__item></div></div><div class="pswp__ui pswp__ui--hidden"><div class=pswp__top-bar><div class=pswp__counter></div><button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
+<button class="pswp__button pswp__button--share" title=Share></button>
+<button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
+<button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button><div class=pswp__preloader><div class=pswp__preloader__icn><div class=pswp__preloader__cut><div class=pswp__preloader__donut></div></div></div></div></div><div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap"><div class=pswp__share-tooltip></div></div><button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
+</button>
+<button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)"></button><div class=pswp__caption><div class=pswp__caption__center></div></div></div></div></div><script src=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo=" crossorigin=anonymous defer></script><script src=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU=" crossorigin=anonymous defer></script><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css crossorigin=anonymous><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css crossorigin=anonymous></main></div><script src=https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z+KMkF24hUW8WePSA9HM=" crossorigin=anonymous></script><script type=text/javascript src=/ts/main.js defer></script><script>(function(){const e=document.createElement("link");e.href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap",e.type="text/css",e.rel="stylesheet",document.head.appendChild(e)})()</script></body></html>

@@ -1,0 +1,284 @@
+<!doctype html><html lang=zh-cn dir=ltr><head><meta charset=utf-8><meta name=viewport content='width=device-width,initial-scale=1'><meta name=description content="一起来阅读文章，接触 linux 最新的异步I/O机制，io_uring。"><title>你为什么应该使用 io_uring</title>
+<link rel=canonical href=https://rossqaq.github.io/article/io_uring-intro/><link rel=stylesheet href=/scss/style.min.0304c6baf04e01a8fe70693791cb744d56a3578a3120a8796cefc66825aa39c7.css><meta property='og:title' content="你为什么应该使用 io_uring"><meta property='og:description' content="一起来阅读文章，接触 linux 最新的异步I/O机制，io_uring。"><meta property='og:url' content='https://rossqaq.github.io/article/io_uring-intro/'><meta property='og:site_name' content='Roses'><meta property='og:type' content='article'><meta property='article:section' content='Post'><meta property='article:published_time' content='2024-02-12T00:00:00+00:00'><meta property='article:modified_time' content='2024-02-12T00:00:00+00:00'><meta name=twitter:title content="你为什么应该使用 io_uring"><meta name=twitter:description content="一起来阅读文章，接触 linux 最新的异步I/O机制，io_uring。"><link rel="shortcut icon" href=/favicon.png></head><body class=article-page><script>(function(){const e="StackColorScheme";localStorage.getItem(e)||localStorage.setItem(e,"auto")})()</script><script>(function(){const t="StackColorScheme",e=localStorage.getItem(t),n=window.matchMedia("(prefers-color-scheme: dark)").matches===!0;e=="dark"||e==="auto"&&n?document.documentElement.dataset.scheme="dark":document.documentElement.dataset.scheme="light"})()</script><div class="container main-container flex on-phone--column extended"><aside class="sidebar left-sidebar sticky"><button class="hamburger hamburger--spin" type=button id=toggle-menu aria-label=切换菜单>
+<span class=hamburger-box><span class=hamburger-inner></span></span></button><header><figure class=site-avatar><a href=/><img src=/img/avatar_hu57fe4ea25b3b752b8c24bca0d657f08c_427356_300x0_resize_box_3.png width=300 height=300 class=site-logo loading=lazy alt=Avatar>
+</a><span class=emoji>♉</span></figure><div class=site-meta><h1 class=site-name><a href=/>Roses</a></h1><h2 class=site-description>有限的时间，无尽的痛苦。</h2></div></header><ol class=menu-social><li><a href=https://space.bilibili.com/3078464 target=_blank title=Bilibili rel=me><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-brand-bilibili" width="44" height="44" viewBox="0 0 24 24" stroke-width="1.5" stroke="#2c3e50" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M3 10a4 4 0 014-4h10a4 4 0 014 4v6a4 4 0 01-4 4H7a4 4 0 01-4-4v-6z"/><path d="M8 3l2 3"/><path d="M16 3l-2 3"/><path d="M9 13v-2"/><path d="M15 11v2"/></svg></a></li><li><a href=https://github.com/RossQAQ target=_blank title=Github rel=me><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-brand-github" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M9 19c-4.3 1.4-4.3-2.5-6-3m12 5v-3.5c0-1 .1-1.4-.5-2 2.8-.3 5.5-1.4 5.5-6a4.6 4.6.0 00-1.3-3.2 4.2 4.2.0 00-.1-3.2s-1.1-.3-3.5 1.3a12.3 12.3.0 00-6.2.0C6.5 2.8 5.4 3.1 5.4 3.1a4.2 4.2.0 00-.1 3.2A4.6 4.6.0 004 9.5c0 4.6 2.7 5.7 5.5 6-.6.6-.6 1.2-.5 2V21"/></svg></a></li><li><a href='https://music.163.com/playlist?id=109571638&amp;userid=93740300' target=_blank title=网易云音乐 rel=me><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-brand-netease-music" width="44" height="44" viewBox="0 0 24 24" stroke-width="1.5" stroke="#2c3e50" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M9 4c-2.93 1.346-5 5.046-5 8.492C4 17 8 20 12 20s8-3 8-7c0-3.513-3.5-5.513-6-5.513S9 9 9 12c0 2 1.5 3 3 3s3-1 3-3c0-3.513-2-4.508-2-6.515.0-3.504 3.5-2.603 4-1.502"/></svg></a></li><li><a href=mailto:rossqaq@outlook.com target=_blank title=邮件 rel=me><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-mail" width="44" height="44" viewBox="0 0 24 24" stroke-width="1.5" stroke="#2c3e50" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M3 7a2 2 0 012-2h14a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2V7z"/><path d="M3 7l9 6 9-6"/></svg></a></li></ol><ol class=menu id=main-menu><li><a href=/><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-home" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><polyline points="5 12 3 12 12 3 21 12 19 12"/><path d="M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7"/><path d="M9 21v-6a2 2 0 012-2h2a2 2 0 012 2v6"/></svg>
+<span>主页</span></a></li><li><a href=/archives/><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-archive" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><rect x="3" y="4" width="18" height="4" rx="2"/><path d="M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
+<span>归档</span></a></li><li><a href=/search/><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-search" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="10" cy="10" r="7"/><line x1="21" y1="21" x2="15" y2="15"/></svg>
+<span>搜索</span></a></li><li><a href=/%E5%8F%8B%E6%83%85%E9%93%BE%E6%8E%A5/><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-link" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><path d="M10 14a3.5 3.5.0 005 0l4-4a3.5 3.5.0 00-5-5l-.5.5"/><path d="M14 10a3.5 3.5.0 00-5 0l-4 4a3.5 3.5.0 005 5l.5-.5"/></svg>
+<span>友情链接</span></a></li><li class=menu-bottom-section><ol class=menu><li id=dark-mode-toggle><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="8" cy="12" r="2"/><rect x="2" y="6" width="20" height="12" rx="6"/></svg>
+<svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="16" cy="12" r="2"/><rect x="2" y="6" width="20" height="12" rx="6"/></svg>
+<span>暗色模式</span></li></ol></li></ol></aside><aside class="sidebar right-sidebar sticky"><section class="widget archives"><div class=widget-icon><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-hash" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><line x1="5" y1="9" x2="19" y2="9"/><line x1="5" y1="15" x2="19" y2="15"/><line x1="11" y1="4" x2="7" y2="20"/><line x1="17" y1="4" x2="13" y2="20"/></svg></div><h2 class="widget-title section-title">目录</h2><div class=widget--toc><nav id=TableOfContents><ol><li><a href=#io_uring-是什么>io_uring 是什么</a></li><li><a href=#系统调用-api>系统调用 API</a></li><li><a href=#liburing>liburing</a></li><li><a href=#使用-io_uring-进行网络-io>使用 io_uring 进行网络 I/O</a><ol><li><a href=#简单的-echo-server>简单的 echo server</a></li><li><a href=#组合提交>组合提交</a></li><li><a href=#draning-the-completion-queue>Draning the completion queue</a></li></ol></li><li><a href=#网络-io-的收益>网络 I/O 的收益</a></li><li><a href=#限制>限制</a></li><li><a href=#最新特性>最新特性</a></li><li><a href=#结论>结论</a></li><li><a href=#其他推荐资料>其他推荐资料</a></li></ol></nav></div></section></aside><main class="main full-width"><article class=main-article><header class=article-header><div class=article-details><header class=article-category><a href=/categories/io-uring/ style=background-color:#2a9d8f;color:#fff>io_uring
+</a><a href=/categories/finished/ style=background-color:#2a9d8f;color:#fff>施工完毕</a></header><div class=article-title-wrapper><h2 class=article-title><a href=/article/io_uring-intro/>你为什么应该使用 io_uring</a></h2><h3 class=article-subtitle>一起来阅读文章，接触 linux 最新的异步I/O机制，io_uring。</h3></div><footer class=article-time><div><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><path d="M11.795 21H5a2 2 0 01-2-2V7a2 2 0 012-2h12a2 2 0 012 2v4"/><circle cx="18" cy="18" r="4"/><path d="M15 3v4"/><path d="M7 3v4"/><path d="M3 11h16"/><path d="M18 16.496V18l1 1"/></svg>
+<time class=article-time--published>Feb 12, 2024</time></div><div><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/></svg>
+<time class=article-time--reading>阅读时长: 6 分钟</time></div></footer></div></header><section class=article-content><p>本文是文章 <a class=link href=https://developers.redhat.com/articles/2023/04/12/why-you-should-use-iouring-network-io target=_blank rel=noopener>Why you should use io_uring for network I/O</a> 的翻译。</p><p>一起来从头认识 linux 最新的 io_uring</p><p><code>io_uring</code> 是 linux 的异步 I/O 接口，对网络编程可能很有用。对于文件 IO 来说十分好用，但对于网络 IO 可能只能享受到一小部分收益，因为已经有非阻塞 I/O 的 API了。收益可能是因为：</p><ul><li>在上下文切换频繁的服务器中，减少系统调用次数</li><li>对文件和网络 I/O 提供统一 API</li></ul><p>io_uring 需要比较新的 linux 版本。</p><h2 id=io_uring-是什么>io_uring 是什么</h2><p><code>io_uring</code> 是 linux 内核的异步 IO 接口，io_uring 是位于共享内存中的一对环形缓冲区，其是一对环形的介于内核和用户之间的队列。</p><ul><li>Submission Queue (SQ): 用户进程使用 SQ 来向内核发送异步 I/O 请求。</li><li>Completion Queue (CQ): 内核会将异步 IO 的结果通过 CQ 来返回给用户。</li></ul><p><img src=/article/io_uring-intro/image-20240212155804023.png width=610 height=408 srcset="/article/io_uring-intro/image-20240212155804023_hudd6705a50152348dc5eeaefa7f95a8af_209839_480x0_resize_box_3.png 480w, /article/io_uring-intro/image-20240212155804023_hudd6705a50152348dc5eeaefa7f95a8af_209839_1024x0_resize_box_3.png 1024w" loading=lazy alt="io_uring 处于内核和用户之间" class=gallery-image data-flex-grow=149 data-flex-basis=358px></p><p>这个接口允许应用程序从传统的 readiness-based IO 模型变成新的 completion-based 模型，文件和网络IO共享统一的 API。</p><h2 id=系统调用-api>系统调用 API</h2><p>linux 内核为 io_uring 提供了 3 个 syscall api：</p><ul><li><p><code>io_uring_setup</code> : 准备一个 context 来执行异步 IO</p></li><li><p><code>io_uring_register</code> : 注册异步 IO 的文件或者用户 buffer</p></li><li><p><code>io_uring_enter</code>: 调用 and/or 完成异步 IO</p></li></ul><p>前两个 syscall 用于创建 io_uring 实例，并选择是否让 io_uring 使用提前准备好的 buffer 来执行操作。只有 <code>io_uring_enter</code> 需要在提交和消费队列时被调用。<code>io_uring_enter</code> 的开销可以通过许多 IO 操作摊销。对于很繁忙的服务器，你可以通过开启 SQ 的 busy-polling 来避免多次调用 <code>io_uring_enter</code> ，代价是内核线程消耗 CPU。</p><h2 id=liburing>liburing</h2><p>liburing 提供了一个方便的使用 io_uring 的方式，隐藏了复杂的细节并且提供了函数来准备所有类型 IO 操作的 submission。</p><p>用户进程创建 io_uring:</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=k>struct</span> <span class=nc>io_uring</span> <span class=n>ring</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=n>io_uring_queue_init</span><span class=p>(</span><span class=n>QUEUE_DEPTH</span><span class=p>,</span> <span class=o>&amp;</span><span class=n>ring</span><span class=p>,</span> <span class=mi>0</span><span class=p>);</span>
+</span></span></code></pre></td></tr></table></div></div><p>之后向 SQ 提交操作：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=k>struct</span> <span class=nc>io_uring_sqe</span> <span class=o>*</span><span class=n>sqe</span> <span class=o>=</span> <span class=n>io_uring_get_sqe</span><span class=p>(</span><span class=o>&amp;</span><span class=n>ring</span><span class=p>);</span>
+</span></span><span class=line><span class=cl><span class=n>io_uring_prep_readv</span><span class=p>(</span><span class=n>sqe</span><span class=p>,</span> <span class=n>client_socket</span><span class=p>,</span> <span class=n>iov</span><span class=p>,</span> <span class=mi>1</span><span class=p>,</span> <span class=mi>0</span><span class=p>);</span>
+</span></span><span class=line><span class=cl><span class=n>io_uring_sqe_set_data</span><span class=p>(</span><span class=n>sqe</span><span class=p>,</span> <span class=n>user_data</span><span class=p>);</span>
+</span></span><span class=line><span class=cl><span class=n>io_uring_submit</span><span class=p>(</span><span class=o>&amp;</span><span class=n>ring</span><span class=p>);</span>
+</span></span></code></pre></td></tr></table></div></div><p>进程等待 completion：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=k>struct</span> <span class=nc>io_uring_cqe</span> <span class=o>*</span><span class=n>cqe</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=kt>int</span> <span class=n>ret</span> <span class=o>=</span> <span class=n>io_uring_wait_cqe</span><span class=p>(</span><span class=o>&amp;</span><span class=n>ring</span><span class=p>,</span> <span class=o>&amp;</span><span class=n>cqe</span><span class=p>);</span>
+</span></span></code></pre></td></tr></table></div></div><p>使用返回内容：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span><span class=lnt>7
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=n>user_data</span> <span class=o>=</span> <span class=n>io_uring_cqe_get_data</span><span class=p>(</span><span class=n>cqe</span><span class=p>);</span>
+</span></span><span class=line><span class=cl><span class=k>if</span> <span class=p>(</span><span class=n>cqe</span><span class=o>-&gt;</span><span class=n>res</span> <span class=o>&lt;</span> <span class=mi>0</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=c1>// handle error;
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=p>}</span> <span class=k>else</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=c1>// response
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=p>}</span>
+</span></span><span class=line><span class=cl><span class=n>io_uring_cqe_seen</span><span class=p>(</span><span class=o>&amp;</span><span class=n>ring</span><span class=p>,</span> <span class=n>cqe</span><span class=p>);</span>
+</span></span></code></pre></td></tr></table></div></div><p>优先推荐通过使用 liburing API 来使用 io_uring，liburing 拥有 io_uring 最新版本的所有特性，并且兼容老版本的 kernel。</p><h2 id=使用-io_uring-进行网络-io>使用 io_uring 进行网络 I/O</h2><p>我们通过编写一个简单的 echo server 来尝试使用 io_uring。然后我们就可以看到如何最少化系统调用来完成高并发。</p><h3 id=简单的-echo-server>简单的 echo server</h3><p>经典的例子会像：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=n>client_fd</span> <span class=o>=</span> <span class=n>accept</span><span class=p>(</span><span class=n>listen_fd</span><span class=p>,</span> <span class=o>&amp;</span><span class=n>client_addr</span><span class=p>,</span> <span class=o>&amp;</span><span class=n>client_addr_len</span><span class=p>);</span>
+</span></span><span class=line><span class=cl><span class=k>for</span> <span class=p>(;;)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=n>numRead</span> <span class=o>=</span> <span class=n>read</span><span class=p>(</span><span class=n>client_fd</span><span class=p>,</span> <span class=n>buf</span><span class=p>,</span> <span class=n>BUF_SIZE</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=k>if</span> <span class=p>(</span><span class=n>numRead</span> <span class=o>&lt;=</span> <span class=mi>0</span><span class=p>)</span> 
+</span></span><span class=line><span class=cl>        <span class=k>break</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=k>if</span> <span class=p>(</span><span class=n>write</span><span class=p>(</span><span class=n>client_fd</span><span class=p>,</span> <span class=n>buf</span><span class=p>,</span> <span class=n>numRead</span><span class=p>)</span> <span class=o>!=</span> <span class=n>numRead</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=c1>// handle error
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=p>}</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span><span class=line><span class=cl><span class=n>close</span><span class=p>(</span><span class=n>client_fd</span><span class=p>);</span>
+</span></span></code></pre></td></tr></table></div></div><p>服务器必须使用多线程或者使用非阻塞 I/O 来支持并发请求，不管他什么形式，每有一个客户端服务器都必须至少 5 个系统调用，accept, read, write, read 检测 EOF，close</p><p>使用 io_uring 的版本的异步服务器一次提交一个操作请求并且在下次提交时等待 completion。io_uring 版本的服务器伪代码大概如下（省略样板和错误处理）：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span><span class=lnt>20
+</span><span class=lnt>21
+</span><span class=lnt>22
+</span><span class=lnt>23
+</span><span class=lnt>24
+</span><span class=lnt>25
+</span><span class=lnt>26
+</span><span class=lnt>27
+</span><span class=lnt>28
+</span><span class=lnt>29
+</span><span class=lnt>30
+</span><span class=lnt>31
+</span><span class=lnt>32
+</span><span class=lnt>33
+</span><span class=lnt>34
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=n>add_accept_request</span><span class=p>(</span><span class=n>listen_socket</span><span class=p>,</span> <span class=o>&amp;</span><span class=n>client_addr</span><span class=p>,</span> <span class=o>&amp;</span><span class=n>client_addr_len</span><span class=p>);</span>
+</span></span><span class=line><span class=cl><span class=n>io_uring_submit</span><span class=p>(</span><span class=o>&amp;</span><span class=n>ring</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=k>while</span> <span class=p>(</span><span class=mi>1</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=kt>int</span> <span class=n>ret</span> <span class=o>=</span> <span class=n>io_uring_wait_cqe</span><span class=p>(</span><span class=o>&amp;</span><span class=n>ring</span><span class=p>,</span> <span class=o>&amp;</span><span class=n>cqe</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=k>struct</span> <span class=nc>reqeust</span> <span class=o>*</span><span class=n>req</span> <span class=o>=</span> <span class=p>(</span><span class=k>struct</span> <span class=nc>reqeust</span><span class=o>*</span><span class=p>)</span> <span class=n>cqe</span><span class=o>-&gt;</span><span class=n>user_data</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=k>switch</span><span class=p>(</span><span class=n>req</span><span class=o>-&gt;</span><span class=n>type</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=k>case</span> <span class=nl>ACCEPT</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>            <span class=n>add_accept_request</span><span class=p>(</span><span class=n>listen_socket</span><span class=p>,</span> <span class=o>&amp;</span><span class=n>client_addr</span><span class=p>,</span> <span class=o>&amp;</span><span class=n>client_addr_len</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>            <span class=n>add_read_request</span><span class=p>(</span><span class=n>cqe</span><span class=o>-&gt;</span><span class=n>res</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>            <span class=n>io_uring_submit</span><span class=p>(</span><span class=o>&amp;</span><span class=n>ring</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>            <span class=k>break</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>        <span class=k>case</span> <span class=nl>READ</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>            <span class=k>if</span> <span class=p>(</span><span class=n>cqe</span><span class=o>-&gt;</span><span class=n>res</span> <span class=o>&lt;=</span> <span class=mi>0</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>                <span class=n>add_close_request</span><span class=p>(</span><span class=n>req</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>            <span class=p>}</span> <span class=k>else</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>                <span class=n>add_write_request</span><span class=p>(</span><span class=n>req</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>            <span class=p>}</span>
+</span></span><span class=line><span class=cl>            <span class=n>io_uring_submit</span><span class=p>(</span><span class=o>&amp;</span><span class=n>ring</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>            <span class=k>break</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>        <span class=k>case</span> <span class=nl>WRITE</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>            <span class=n>add_read_request</span><span class=p>(</span><span class=n>req</span><span class=o>-&gt;</span><span class=n>socket</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>            <span class=n>io_uring_submit</span><span class=p>(</span><span class=o>&amp;</span><span class=n>ring</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>            <span class=k>break</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>        <span class=k>case</span> <span class=nl>CLOSE</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>            <span class=n>free_request</span><span class=p>(</span><span class=n>req</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>            <span class=k>break</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    	<span class=nl>DEFAULT</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>            <span class=n>fprintf</span><span class=p>(</span><span class=n>stderr</span><span class=p>,</span> <span class=s>&#34;Unexpected req type %d</span><span class=se>\n</span><span class=s>&#34;</span><span class=p>,</span> <span class=n>req</span><span class=o>-&gt;</span><span class=n>type</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>            <span class=k>break</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>    
+</span></span><span class=line><span class=cl>    <span class=n>io_uring_cqe_seen</span><span class=p>(</span><span class=o>&amp;</span><span class=n>ring</span><span class=p>,</span> <span class=n>cqe</span><span class=p>);</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><p>在这个 io_uring 的示例中，服务器需要至少 4 个系统调用。唯一省略的是通过一次性提交 read 和新 accept 请求。可以通过以下的 strace 输出来查看服务器收到 1000 个客户端请求：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=o>%</span> <span class=n>time</span>     <span class=n>seconds</span>  <span class=n>usecs</span><span class=o>/</span><span class=n>call</span>     <span class=n>calls</span>    <span class=n>errors</span> <span class=n>syscall</span>
+</span></span><span class=line><span class=cl><span class=o>------</span> <span class=o>-----------</span> <span class=o>-----------</span> <span class=o>---------</span> <span class=o>---------</span> <span class=o>----------------</span>
+</span></span><span class=line><span class=cl> <span class=mf>99.99</span>    <span class=mf>0.445109</span>         <span class=mi>111</span>      <span class=mi>4001</span>           <span class=n>io_uring_enter</span>
+</span></span><span class=line><span class=cl>  <span class=mf>0.01</span>    <span class=mf>0.000063</span>          <span class=mi>63</span>         <span class=mi>1</span>           <span class=n>brk</span>
+</span></span><span class=line><span class=cl><span class=o>------</span> <span class=o>-----------</span> <span class=o>-----------</span> <span class=o>---------</span> <span class=o>---------</span> <span class=o>----------------</span>
+</span></span><span class=line><span class=cl><span class=mf>100.00</span>    <span class=mf>0.445172</span>         <span class=mi>111</span>      <span class=mi>4002</span>           <span class=n>total</span>
+</span></span></code></pre></td></tr></table></div></div><h3 id=组合提交>组合提交</h3><p>在 echo 服务器中，因为我们必须在写之前完成读所以限制了我们串联 IO 操作的机会。我们可以链接 accept 和 read，通过使用 io_uring 的 fixed file 特性，但我们已经一次性一起提交了 read 请求和 new accept 请求，所以可能不会有多少收益。</p><p>我们可以在同一时间提交互相不依赖的操作，所以我们可以 <em>combine</em> 写之后读的提交。这会将 syscall 减少到 3次。</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=o>%</span> <span class=n>time</span>     <span class=n>seconds</span>  <span class=n>usecs</span><span class=o>/</span><span class=n>call</span>     <span class=n>calls</span>    <span class=n>errors</span> <span class=n>syscall</span>
+</span></span><span class=line><span class=cl><span class=o>------</span> <span class=o>-----------</span> <span class=o>-----------</span> <span class=o>---------</span> <span class=o>---------</span> <span class=o>----------------</span>
+</span></span><span class=line><span class=cl> <span class=mf>99.93</span>    <span class=mf>0.438697</span>         <span class=mi>146</span>      <span class=mi>3001</span>           <span class=n>io_uring_enter</span>
+</span></span><span class=line><span class=cl>  <span class=mf>0.07</span>    <span class=mf>0.000325</span>         <span class=mi>325</span>         <span class=mi>1</span>           <span class=n>brk</span>
+</span></span><span class=line><span class=cl><span class=o>------</span> <span class=o>-----------</span> <span class=o>-----------</span> <span class=o>---------</span> <span class=o>---------</span> <span class=o>----------------</span>
+</span></span><span class=line><span class=cl><span class=mf>100.00</span>    <span class=mf>0.439022</span>         <span class=mi>146</span>      <span class=mi>3002</span>           <span class=n>total</span>
+</span></span></code></pre></td></tr></table></div></div><h3 id=draning-the-completion-queue>Draning the completion queue</h3><p>如果我们在调用 io_uring_submit 前解决了所有已经进入队列的 completions，那么就可以一次性一起提交更多的操作。我们可以通过使用 <code>io_uring_wait_cqe</code> 来等待 work，之后调用 <code>io_uring_peek_cqe</code> 来检查是否 completion queue 还有空间容纳未被处理的操作。这避免了忙循环中 completion queue 为空时的自旋等待，并且会尽快消耗 completion queue。</p><p>主循环的伪代码类似于：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span><span class=lnt>20
+</span><span class=lnt>21
+</span><span class=lnt>22
+</span><span class=lnt>23
+</span><span class=lnt>24
+</span><span class=lnt>25
+</span><span class=lnt>26
+</span><span class=lnt>27
+</span><span class=lnt>28
+</span><span class=lnt>29
+</span><span class=lnt>30
+</span><span class=lnt>31
+</span><span class=lnt>32
+</span><span class=lnt>33
+</span><span class=lnt>34
+</span><span class=lnt>35
+</span><span class=lnt>36
+</span><span class=lnt>37
+</span><span class=lnt>38
+</span><span class=lnt>39
+</span><span class=lnt>40
+</span><span class=lnt>41
+</span><span class=lnt>42
+</span><span class=lnt>43
+</span><span class=lnt>44
+</span><span class=lnt>45
+</span><span class=lnt>46
+</span><span class=lnt>47
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=k>while</span> <span class=p>(</span><span class=mi>1</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=kt>int</span> <span class=n>submissions</span> <span class=o>=</span> <span class=mi>0</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=kt>int</span> <span class=n>ret</span> <span class=o>=</span> <span class=n>io_uring_wait_cqe</span><span class=p>(</span><span class=o>&amp;</span><span class=n>ring</span><span class=p>,</span> <span class=o>&amp;</span><span class=n>cqe</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=k>while</span> <span class=p>(</span><span class=mi>1</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=k>struct</span> <span class=nc>request</span> <span class=o>*</span><span class=n>req</span> <span class=o>=</span> <span class=p>(</span><span class=k>struct</span> <span class=nc>request</span> <span class=o>*</span><span class=p>)</span> <span class=n>cqe</span><span class=o>-&gt;</span><span class=n>user_data</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>        <span class=k>switch</span> <span class=p>(</span><span class=n>req</span><span class=o>-&gt;</span><span class=n>type</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=k>case</span> <span class=nl>ACCEPT</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>            <span class=n>add_accept_request</span><span class=p>(</span><span class=n>listen_socket</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>                              <span class=o>&amp;</span><span class=n>client_addr</span><span class=p>,</span> <span class=o>&amp;</span><span class=n>client_addr_len</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>            <span class=n>add_read_request</span><span class=p>(</span><span class=n>cqe</span><span class=o>-&gt;</span><span class=n>res</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>            <span class=n>submissions</span> <span class=o>+=</span> <span class=mi>2</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>            <span class=k>break</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>        <span class=k>case</span> <span class=nl>READ</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>            <span class=k>if</span> <span class=p>(</span><span class=n>cqe</span><span class=o>-&gt;</span><span class=n>res</span> <span class=o>&lt;=</span> <span class=mi>0</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>                <span class=n>add_close_request</span><span class=p>(</span><span class=n>req</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>                <span class=n>submissions</span> <span class=o>+=</span> <span class=mi>1</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>            <span class=p>}</span> <span class=k>else</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>                <span class=n>add_write_request</span><span class=p>(</span><span class=n>req</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>                <span class=n>add_read_request</span><span class=p>(</span><span class=n>req</span><span class=o>-&gt;</span><span class=n>socket</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>                <span class=n>submissions</span> <span class=o>+=</span> <span class=mi>2</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>            <span class=p>}</span>
+</span></span><span class=line><span class=cl>            <span class=k>break</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>        <span class=k>case</span> <span class=nl>WRITE</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>          <span class=k>break</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>        <span class=k>case</span> <span class=nl>CLOSE</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>            <span class=n>free_request</span><span class=p>(</span><span class=n>req</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>            <span class=k>break</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>        <span class=k>default</span><span class=o>:</span>
+</span></span><span class=line><span class=cl>            <span class=n>fprintf</span><span class=p>(</span><span class=n>stderr</span><span class=p>,</span> <span class=s>&#34;Unexpected req type %d</span><span class=se>\n</span><span class=s>&#34;</span><span class=p>,</span> <span class=n>req</span><span class=o>-&gt;</span><span class=n>type</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>            <span class=k>break</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>        <span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>        <span class=n>io_uring_cqe_seen</span><span class=p>(</span><span class=o>&amp;</span><span class=n>ring</span><span class=p>,</span> <span class=n>cqe</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>        <span class=k>if</span> <span class=p>(</span><span class=n>io_uring_sq_space_left</span><span class=p>(</span><span class=o>&amp;</span><span class=n>ring</span><span class=p>)</span> <span class=o>&lt;</span> <span class=n>MAX_SQE_PER_LOOP</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>            <span class=k>break</span><span class=p>;</span>     <span class=c1>// the submission queue is full
+</span></span></span><span class=line><span class=cl><span class=c1></span>        <span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>        <span class=n>ret</span> <span class=o>=</span> <span class=n>io_uring_peek_cqe</span><span class=p>(</span><span class=o>&amp;</span><span class=n>ring</span><span class=p>,</span> <span class=o>&amp;</span><span class=n>cqe</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>        <span class=k>if</span> <span class=p>(</span><span class=n>ret</span> <span class=o>==</span> <span class=o>-</span><span class=n>EAGAIN</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>            <span class=k>break</span><span class=p>;</span>     <span class=c1>// no remaining work in completion queue
+</span></span></span><span class=line><span class=cl><span class=c1></span>        <span class=p>}</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>    <span class=k>if</span> <span class=p>(</span><span class=n>submissions</span> <span class=o>&gt;</span> <span class=mi>0</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=n>io_uring_submit</span><span class=p>(</span><span class=o>&amp;</span><span class=n>ring</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><p>这样即可有极大的提升：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=o>%</span> <span class=n>time</span>     <span class=n>seconds</span>  <span class=n>usecs</span><span class=o>/</span><span class=n>call</span>     <span class=n>calls</span>    <span class=n>errors</span> <span class=n>syscall</span>
+</span></span><span class=line><span class=cl><span class=o>------</span> <span class=o>-----------</span> <span class=o>-----------</span> <span class=o>---------</span> <span class=o>---------</span> <span class=o>----------------</span>
+</span></span><span class=line><span class=cl> <span class=mf>99.91</span>    <span class=mf>0.324226</span>        <span class=mi>4104</span>        <span class=mi>79</span>           <span class=n>io_uring_enter</span>
+</span></span><span class=line><span class=cl>  <span class=mf>0.09</span>    <span class=mf>0.000286</span>         <span class=mi>286</span>         <span class=mi>1</span>           <span class=n>brk</span>
+</span></span><span class=line><span class=cl><span class=o>------</span> <span class=o>-----------</span> <span class=o>-----------</span> <span class=o>---------</span> <span class=o>---------</span> <span class=o>----------------</span>
+</span></span><span class=line><span class=cl><span class=mf>100.00</span>    <span class=mf>0.324512</span>        <span class=mi>4056</span>        <span class=mi>80</span>           <span class=n>total</span>
+</span></span></code></pre></td></tr></table></div></div><p>提升显著，一次 syscall 可以处理多于 12 个的客户端请求，或者每次 syscall 平均多余 60次 IO ops。随着服务器越来越忙，比率也会提高，可以通过日志证明：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span><span class=lnt>7
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=o>%</span> <span class=n>time</span>     <span class=n>seconds</span>  <span class=n>usecs</span><span class=o>/</span><span class=n>call</span>     <span class=n>calls</span>    <span class=n>errors</span> <span class=n>syscall</span>
+</span></span><span class=line><span class=cl><span class=o>------</span> <span class=o>-----------</span> <span class=o>-----------</span> <span class=o>---------</span> <span class=o>---------</span> <span class=o>----------------</span>
+</span></span><span class=line><span class=cl> <span class=mf>68.86</span>    <span class=mf>0.225228</span>          <span class=mi>42</span>      <span class=mi>5308</span>       <span class=mi>286</span> <span class=n>write</span>
+</span></span><span class=line><span class=cl> <span class=mf>31.13</span>    <span class=mf>0.101831</span>        <span class=mi>4427</span>        <span class=mi>23</span>           <span class=n>io_uring_enter</span>
+</span></span><span class=line><span class=cl>  <span class=mf>0.00</span>    <span class=mf>0.000009</span>           <span class=mi>9</span>         <span class=mi>1</span>           <span class=n>brk</span>
+</span></span><span class=line><span class=cl><span class=o>------</span> <span class=o>-----------</span> <span class=o>-----------</span> <span class=o>---------</span> <span class=o>---------</span> <span class=o>----------------</span>
+</span></span><span class=line><span class=cl><span class=mf>100.00</span>    <span class=mf>0.327068</span>          <span class=mi>61</span>      <span class=mi>5332</span>       <span class=mi>286</span> <span class=n>total</span>
+</span></span></code></pre></td></tr></table></div></div><p>这表明当服务器有更多工作要做时， io_uring 操作有更多时间完成，所以一次 syscall 可以提交的 work 更多。echo server 可以通过仅仅 23 个 syscall 就完成 1000个 echo 请求或者 5000 个 socket I/O.</p><p>需要注意的是，随着提交 work 数量的增加，io_uring_enter 的调用时间消耗也会增加，到某个节点时可能需要限制提交的批处理大小或者开启内核的 submission queue polling。</p><h2 id=网络-io-的收益>网络 I/O 的收益</h2><p>io_uring 对于网络 IO 的效果则是更现代更容易使用的异步 API 以及统一的文件与网络 IO 语义。</p><p>潜在的收益是减少 syscall 次数，这可以在小的syscall操作占比高以及频繁切换上下文的场景下获得比较高的收益。</p><p>可以通过在发送 io_uring 请求前向内核预先注册资源来避免在服务器上基类昂贵的操作。可以注册 file slots 和 buffers 来避免每次 IO 操作的查找和引用计数成本。</p><p>注册 file slots，称为 <strong>fixed files</strong>，也可以实现在 read 和 write 中链接 accept，而不用再在用户态绕一圈。submission queue entry（SQE）需要指定 fixed file slot 来存储之后 SQE 需要在 IO 中引用的 accept 的返回值。</p><h2 id=限制>限制</h2><p>理论上，操作可以通过使用 <code>IOSQE_IO_LINK</code> 标记来链在一起。然而对于读写，没有机制可以强制读操作的返回值作为参数输入到写操作中。这限制了某些语义顺序，例如：写后读，写后关闭，以及 accept 后的读或写。</p><p>另外一个需要考虑的是 io_uring 是仍在开发中的 linux kernel 特性，某些特性可能以后会优化。</p><p>io_uring 现在是 Linux 限定 API，所以将他移植进例如 libuv 这种库中很难。</p><h2 id=最新特性>最新特性</h2><p>io_uring 的最新特性是 multi-shot accept, 5.19 后的内核支持，以及 multi-shot receive，6.0后的内核支持。multi-shot accept 允许一个应用程序发出单个 accept SQE，当内核收到新的请求时会一直post CQE。Multi-shot 也会在每次新数据可用时post CQE。</p><h2 id=结论>结论</h2><p>io_uring API 是一个函数式异步 IO API，为文件和网络 IO 提供统一的接口。他有潜力成为更好的网络 IO 的基础，并为混合网络和文件 IO 的应用程序提供更大优势。</p><p>著名的异步 IO 库，例如 libuv 是多平台的，适配 Linux 特供 API 比较困难，当一个库中加入 io_uring，不管是文件 IO 还是网络 IO ，都会从 io_uring 的异步 completion 模型中获得收益。</p><p>网络相关 IO 开发和优化会持续进行。现在是时候使用 io_uring 了。</p><h2 id=其他推荐资料>其他推荐资料</h2><p><a class=link href=https://segmentfault.com/a/1190000019300089 target=_blank rel=noopener>原生的 Linux 异步文件操作，io_uring 尝鲜体验</a></p><p><a class=link href=https://unixism.net/loti/index.html target=_blank rel=noopener>Welcome to Lord of the io_uring — Lord of the io_uring documentation (unixism.net)</a></p></section><footer class=article-footer><section class=article-copyright><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-copyright" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="12" r="9"/><path d="M14.5 9a3.5 4 0 100 6"/></svg>
+<span>Licensed under CC BY-NC-SA 4.0</span></section><section class=article-lastmod><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/></svg>
+<span>最后更新于 Feb 12, 2024 00:00 UTC</span></section></footer></article><footer class=site-footer><section class=copyright>&copy;
+2023 -
+2024 Roses</section><section class=powerby>使用 <a href=https://gohugo.io/ target=_blank rel=noopener>Hugo</a> 构建<br>主题 <b><a href=https://github.com/CaiJimmy/hugo-theme-stack target=_blank rel=noopener data-version=3.26.0>Stack</a></b> 由 <a href=https://jimmycai.com target=_blank rel=noopener>Jimmy</a> 设计</section></footer><div class=pswp tabindex=-1 role=dialog aria-hidden=true><div class=pswp__bg></div><div class=pswp__scroll-wrap><div class=pswp__container><div class=pswp__item></div><div class=pswp__item></div><div class=pswp__item></div></div><div class="pswp__ui pswp__ui--hidden"><div class=pswp__top-bar><div class=pswp__counter></div><button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
+<button class="pswp__button pswp__button--share" title=Share></button>
+<button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
+<button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button><div class=pswp__preloader><div class=pswp__preloader__icn><div class=pswp__preloader__cut><div class=pswp__preloader__donut></div></div></div></div></div><div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap"><div class=pswp__share-tooltip></div></div><button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
+</button>
+<button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)"></button><div class=pswp__caption><div class=pswp__caption__center></div></div></div></div></div><script src=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo=" crossorigin=anonymous defer></script><script src=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU=" crossorigin=anonymous defer></script><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css crossorigin=anonymous><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css crossorigin=anonymous></main></div><script src=https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z+KMkF24hUW8WePSA9HM=" crossorigin=anonymous></script><script type=text/javascript src=/ts/main.js defer></script><script>(function(){const e=document.createElement("link");e.href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap",e.type="text/css",e.rel="stylesheet",document.head.appendChild(e)})()</script></body></html>

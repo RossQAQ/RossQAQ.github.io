@@ -1,0 +1,264 @@
+<!doctype html><html lang=zh-cn dir=ltr><head><meta charset=utf-8><meta name=viewport content='width=device-width,initial-scale=1'><meta name=description content="对 CppCon 2021,  Nicolai Josuttis 演讲的翻译与总结。"><title>移动语义</title>
+<link rel=canonical href=https://rossqaq.github.io/article/cppcon-2021-move-semantics/><link rel=stylesheet href=/scss/style.min.0304c6baf04e01a8fe70693791cb744d56a3578a3120a8796cefc66825aa39c7.css><meta property='og:title' content="移动语义"><meta property='og:description' content="对 CppCon 2021,  Nicolai Josuttis 演讲的翻译与总结。"><meta property='og:url' content='https://rossqaq.github.io/article/cppcon-2021-move-semantics/'><meta property='og:site_name' content='Roses'><meta property='og:type' content='article'><meta property='article:section' content='Post'><meta property='article:published_time' content='2023-12-27T00:00:00+00:00'><meta property='article:modified_time' content='2023-12-27T00:00:00+00:00'><meta property='og:image' content='https://rossqaq.github.io/article/cppcon-2021-move-semantics/cppcon2021-cover.png'><meta name=twitter:title content="移动语义"><meta name=twitter:description content="对 CppCon 2021,  Nicolai Josuttis 演讲的翻译与总结。"><meta name=twitter:card content="summary_large_image"><meta name=twitter:image content='https://rossqaq.github.io/article/cppcon-2021-move-semantics/cppcon2021-cover.png'><link rel="shortcut icon" href=/favicon.png></head><body class=article-page><script>(function(){const e="StackColorScheme";localStorage.getItem(e)||localStorage.setItem(e,"auto")})()</script><script>(function(){const t="StackColorScheme",e=localStorage.getItem(t),n=window.matchMedia("(prefers-color-scheme: dark)").matches===!0;e=="dark"||e==="auto"&&n?document.documentElement.dataset.scheme="dark":document.documentElement.dataset.scheme="light"})()</script><div class="container main-container flex on-phone--column extended"><aside class="sidebar left-sidebar sticky"><button class="hamburger hamburger--spin" type=button id=toggle-menu aria-label=切换菜单>
+<span class=hamburger-box><span class=hamburger-inner></span></span></button><header><figure class=site-avatar><a href=/><img src=/img/avatar_hu57fe4ea25b3b752b8c24bca0d657f08c_427356_300x0_resize_box_3.png width=300 height=300 class=site-logo loading=lazy alt=Avatar>
+</a><span class=emoji>♉</span></figure><div class=site-meta><h1 class=site-name><a href=/>Roses</a></h1><h2 class=site-description>有限的时间，无尽的痛苦。</h2></div></header><ol class=menu-social><li><a href=https://space.bilibili.com/3078464 target=_blank title=Bilibili rel=me><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-brand-bilibili" width="44" height="44" viewBox="0 0 24 24" stroke-width="1.5" stroke="#2c3e50" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M3 10a4 4 0 014-4h10a4 4 0 014 4v6a4 4 0 01-4 4H7a4 4 0 01-4-4v-6z"/><path d="M8 3l2 3"/><path d="M16 3l-2 3"/><path d="M9 13v-2"/><path d="M15 11v2"/></svg></a></li><li><a href=https://github.com/RossQAQ target=_blank title=Github rel=me><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-brand-github" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M9 19c-4.3 1.4-4.3-2.5-6-3m12 5v-3.5c0-1 .1-1.4-.5-2 2.8-.3 5.5-1.4 5.5-6a4.6 4.6.0 00-1.3-3.2 4.2 4.2.0 00-.1-3.2s-1.1-.3-3.5 1.3a12.3 12.3.0 00-6.2.0C6.5 2.8 5.4 3.1 5.4 3.1a4.2 4.2.0 00-.1 3.2A4.6 4.6.0 004 9.5c0 4.6 2.7 5.7 5.5 6-.6.6-.6 1.2-.5 2V21"/></svg></a></li><li><a href='https://music.163.com/playlist?id=109571638&amp;userid=93740300' target=_blank title=网易云音乐 rel=me><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-brand-netease-music" width="44" height="44" viewBox="0 0 24 24" stroke-width="1.5" stroke="#2c3e50" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M9 4c-2.93 1.346-5 5.046-5 8.492C4 17 8 20 12 20s8-3 8-7c0-3.513-3.5-5.513-6-5.513S9 9 9 12c0 2 1.5 3 3 3s3-1 3-3c0-3.513-2-4.508-2-6.515.0-3.504 3.5-2.603 4-1.502"/></svg></a></li><li><a href=mailto:rossqaq@outlook.com target=_blank title=邮件 rel=me><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-mail" width="44" height="44" viewBox="0 0 24 24" stroke-width="1.5" stroke="#2c3e50" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M3 7a2 2 0 012-2h14a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2V7z"/><path d="M3 7l9 6 9-6"/></svg></a></li></ol><ol class=menu id=main-menu><li><a href=/><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-home" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><polyline points="5 12 3 12 12 3 21 12 19 12"/><path d="M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7"/><path d="M9 21v-6a2 2 0 012-2h2a2 2 0 012 2v6"/></svg>
+<span>主页</span></a></li><li><a href=/archives/><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-archive" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><rect x="3" y="4" width="18" height="4" rx="2"/><path d="M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
+<span>归档</span></a></li><li><a href=/search/><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-search" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="10" cy="10" r="7"/><line x1="21" y1="21" x2="15" y2="15"/></svg>
+<span>搜索</span></a></li><li><a href=/%E5%8F%8B%E6%83%85%E9%93%BE%E6%8E%A5/><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-link" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><path d="M10 14a3.5 3.5.0 005 0l4-4a3.5 3.5.0 00-5-5l-.5.5"/><path d="M14 10a3.5 3.5.0 00-5 0l-4 4a3.5 3.5.0 005 5l.5-.5"/></svg>
+<span>友情链接</span></a></li><li class=menu-bottom-section><ol class=menu><li id=dark-mode-toggle><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="8" cy="12" r="2"/><rect x="2" y="6" width="20" height="12" rx="6"/></svg>
+<svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="16" cy="12" r="2"/><rect x="2" y="6" width="20" height="12" rx="6"/></svg>
+<span>暗色模式</span></li></ol></li></ol></aside><aside class="sidebar right-sidebar sticky"><section class="widget archives"><div class=widget-icon><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-hash" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><line x1="5" y1="9" x2="19" y2="9"/><line x1="5" y1="15" x2="19" y2="15"/><line x1="11" y1="4" x2="7" y2="20"/><line x1="17" y1="4" x2="13" y2="20"/></svg></div><h2 class="widget-title section-title">目录</h2><div class=widget--toc><nav id=TableOfContents><ol><li><a href=#动机>动机</a></li><li><a href=#stdmove>std::move</a></li><li><a href=#右值引用>右值引用</a></li><li><a href=#引用的重载>引用的重载</a></li><li><a href=#类的移动语义>类的移动语义</a><ol><li><a href=#基本的移动支持>基本的移动支持</a></li><li><a href=#多态类型中的移动>多态类型中的移动</a></li></ol></li><li><a href=#完美转发>完美转发</a></li><li><a href=#emplace-中的完美转发>emplace 中的完美转发</a></li><li><a href=#完美转发返回值>完美转发返回值</a></li><li><a href=#ranges-和完美转发>ranges 和完美转发</a></li></ol></nav></div></section></aside><main class="main full-width"><article class="has-image main-article"><header class=article-header><div class=article-image><a href=/article/cppcon-2021-move-semantics/><img src=/article/cppcon-2021-move-semantics/cppcon2021-cover_hu12c72e74cc107b1dec0a72d3e09dd6fc_58474_800x0_resize_box_3.png srcset="/article/cppcon-2021-move-semantics/cppcon2021-cover_hu12c72e74cc107b1dec0a72d3e09dd6fc_58474_800x0_resize_box_3.png 800w, /article/cppcon-2021-move-semantics/cppcon2021-cover_hu12c72e74cc107b1dec0a72d3e09dd6fc_58474_1600x0_resize_box_3.png 1600w" width=800 height=339 loading=lazy alt="Featured image of post 移动语义"></a></div><div class=article-details><header class=article-category><a href=/categories/cppcon/ style=background-color:#2a9d8f;color:#fff>CppCon
+</a><a href=/categories/finished/ style=background-color:#2a9d8f;color:#fff>施工完毕</a></header><div class=article-title-wrapper><h2 class=article-title><a href=/article/cppcon-2021-move-semantics/>移动语义</a></h2><h3 class=article-subtitle>对 CppCon 2021, Nicolai Josuttis 演讲的翻译与总结。</h3></div><footer class=article-time><div><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><path d="M11.795 21H5a2 2 0 01-2-2V7a2 2 0 012-2h12a2 2 0 012 2v4"/><circle cx="18" cy="18" r="4"/><path d="M15 3v4"/><path d="M7 3v4"/><path d="M3 11h16"/><path d="M18 16.496V18l1 1"/></svg>
+<time class=article-time--published>Dec 27, 2023</time></div><div><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/></svg>
+<time class=article-time--reading>阅读时长: 4 分钟</time></div></footer></div></header><section class=article-content><p><a class=link href="https://www.youtube.com/watch?v=Bt3zcJZIalk" target=_blank rel=noopener>Back to Basics: Move Semantics - Nicolai Josuttis - CppCon 2021</a></p><p>C++11 圣经之二 —— 移动语义。</p><blockquote><p>我感觉大多数人不懂移动语义。</p></blockquote><h2 id=动机>动机</h2><p>首先来看当年的拷贝语义（C++98/03 年代）</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span><span class=lnt>7
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=n>std</span><span class=o>::</span><span class=n>vector</span><span class=o>&lt;</span><span class=n>std</span><span class=o>::</span><span class=n>string</span><span class=o>&gt;</span> <span class=n>coll</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=n>coll</span><span class=p>.</span><span class=n>reserve</span><span class=p>(</span><span class=mi>3</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1>// 假设返回的是一个很长的 string
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=n>std</span><span class=o>::</span><span class=n>string</span> <span class=n>s</span><span class=p>{</span><span class=n>getData</span><span class=p>()};</span>
+</span></span><span class=line><span class=cl><span class=n>coll</span><span class=p>.</span><span class=n>push_back</span><span class=p>(</span><span class=n>s</span><span class=p>);</span>
+</span></span><span class=line><span class=cl><span class=n>coll</span><span class=p>.</span><span class=n>push_back</span><span class=p>(</span><span class=n>getData</span><span class=p>());</span>
+</span></span></code></pre></td></tr></table></div></div><img src=image-20240307114927071.png alt="copy semantics" style=zoom:50%><p>在以前的 C++，getData() 会返回一个临时对象，然后再被拷贝过去，然后再自己销毁。这显然没有什么意义，</p><p>在 C++ 11 之后，支持移动语义，那么编译器就不会再拷贝这个临时对象了，它只会 move 这个对象，类似于某些语言的浅拷贝。</p><p>很正常，因为我们也不会使用这个临时对象。</p><p><strong>之后调用析构函数，不过它并不会释放任何内存，因为已经被移动走了，只是单纯的销毁临时对象</strong>。</p><img src=image-20240307115515127.png alt="C++11 Move" style=zoom:50%><p>这里告诉我们，可以<strong>尽量使用不具有名字的对象</strong>。（亡值）</p><h2 id=stdmove>std::move</h2><p>但显然，大部分时候对象都是具有名字的，不然会非常不方便管理。</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=n>std</span><span class=o>::</span><span class=n>string</span> <span class=n>str</span><span class=p>{</span><span class=n>getData</span><span class=p>()};</span>
+</span></span><span class=line><span class=cl><span class=n>coll1</span><span class=p>.</span><span class=n>push_back</span><span class=p>(</span><span class=n>str</span><span class=p>);</span>	<span class=c1>// copy, 之后仍然需要 str
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=n>coll2</span><span class=p>.</span><span class=n>push_back</span><span class=p>(</span><span class=n>str</span><span class=p>);</span>	<span class=c1>// copy, 之后不需要 str
+</span></span></span></code></pre></td></tr></table></div></div><p>如果对象有名字（左值），那么会默认拷贝。</p><p>当你需要处理参数时：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=kt>void</span> <span class=nf>reinit</span><span class=p>(</span><span class=n>std</span><span class=o>::</span><span class=n>string</span><span class=o>&amp;</span> <span class=n>s</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=n>history</span><span class=p>.</span><span class=n>push_back</span><span class=p>(</span><span class=n>s</span><span class=p>);</span>	<span class=c1>// copy, 但你不需要 str 了
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=n>s</span> <span class=o>=</span> <span class=n>getDefaultValue</span><span class=p>();</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><p>为了处理这些情况，我们有了函数 std::move</p><p>**std::move：我不再会需要这些值了。**move，并不 move，move 在语义上表示的是，你不再需要某些变量存在了。</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=n>std</span><span class=o>::</span><span class=n>string</span> <span class=n>str</span><span class=p>{</span><span class=n>getData</span><span class=p>()};</span>
+</span></span><span class=line><span class=cl><span class=n>coll1</span><span class=p>.</span><span class=n>push_back</span><span class=p>(</span><span class=n>str</span><span class=p>);</span>				<span class=c1>// copy, 之后仍然需要 str
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=n>coll2</span><span class=p>.</span><span class=n>push_back</span><span class=p>(</span><span class=n>std</span><span class=o>::</span><span class=n>move</span><span class=p>(</span><span class=n>str</span><span class=p>));</span>	<span class=c1>// move, 之后不需要 str
+</span></span></span></code></pre></td></tr></table></div></div><hr><p>那么回到之前的例子，有一个有趣的问题。</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span><span class=lnt>7
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=n>std</span><span class=o>::</span><span class=n>vector</span><span class=o>&lt;</span><span class=n>std</span><span class=o>::</span><span class=n>string</span><span class=o>&gt;</span> <span class=n>coll</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=n>coll</span><span class=p>.</span><span class=n>reserve</span><span class=p>(</span><span class=mi>3</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1>// 假设返回的是一个很长的 string
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=n>std</span><span class=o>::</span><span class=n>string</span> <span class=n>s</span><span class=p>{</span><span class=n>getData</span><span class=p>()};</span>
+</span></span><span class=line><span class=cl><span class=n>coll</span><span class=p>.</span><span class=n>push_back</span><span class=p>(</span><span class=n>s</span><span class=p>);</span>
+</span></span><span class=line><span class=cl><span class=n>coll</span><span class=p>.</span><span class=n>push_back</span><span class=p>(</span><span class=n>std</span><span class=o>::</span><span class=n>move</span><span class=p>(</span><span class=n>s</span><span class=p>));</span>	<span class=c1>// move
+</span></span></span></code></pre></td></tr></table></div></div><p>move 后 s 的状态是什么？</p><img src=image-20240307120631665.png alt="move str" style=zoom:50%><p><strong>C++ 标准保证，对于 <em>标准库</em> 组件，move 后其处于 valid but unspecified 状态</strong>。具体能否使用要依赖实现。</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=n>std</span><span class=o>::</span><span class=n>cout</span> <span class=o>&lt;&lt;</span> <span class=n>s</span><span class=p>;</span> 	<span class=c1>// ok, some value
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=kt>int</span> <span class=n>i</span> <span class=o>=</span> <span class=n>s</span><span class=p>.</span><span class=n>size</span><span class=p>()</span>	<span class=c1>// ok, 但你不知道 i 是什么
+</span></span></span></code></pre></td></tr></table></div></div><p>你可以 reuse move 后的对象</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=n>std</span><span class=o>::</span><span class=n>vector</span><span class=o>&lt;</span><span class=n>std</span><span class=o>::</span><span class=n>string</span><span class=o>&gt;</span> <span class=n>allRows</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=n>std</span><span class=o>::</span><span class=n>string</span> <span class=n>row</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=k>while</span> <span class=p>(</span><span class=n>std</span><span class=o>::</span><span class=n>getline</span><span class=p>(</span><span class=n>myStream</span><span class=p>,</span> <span class=n>row</span><span class=p>))</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=n>allRows</span><span class=p>.</span><span class=n>push_back</span><span class=p>(</span><span class=n>std</span><span class=o>::</span><span class=n>move</span><span class=p>(</span><span class=n>row</span><span class=p>));</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><h2 id=右值引用>右值引用</h2><p>在 C++03：</p><p>容器全部都是<strong>值语义</strong></p><ul><li>新的元素会被拷贝进入容器</li><li>不会修改传递的参数</li></ul><p>在 C++11 后：</p><p>使用右值引用你可以选择<strong>移动语义</strong></p><p>右值引用绑定给右值：</p><ul><li>caller 不再需要 value</li><li>可能会 <em><strong>steal</strong></em> （代表 no const）但仍 valid</li></ul><p>移动语义通常使用以下实现：</p><ul><li><p>移动构造（优化拷贝）</p></li><li><p>移动赋值运算符（优化拷贝）</p></li><li><p>steal 原来的对象，但仍然保持其 valid</p></li></ul><h2 id=引用的重载>引用的重载</h2><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=kt>void</span> <span class=nf>foo</span><span class=p>(</span><span class=k>const</span> <span class=n>T</span><span class=o>&amp;</span><span class=p>);</span>	<span class=c1>// 只读
+</span></span></span></code></pre></td></tr></table></div></div><ul><li>可以绑定所有变量</li><li>不会拷贝</li></ul><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=kt>void</span> <span class=nf>foo</span><span class=p>(</span><span class=n>T</span><span class=o>&amp;</span><span class=p>);</span>		<span class=c1>// 写
+</span></span></span></code></pre></td></tr></table></div></div><ul><li>只能绑定 non-const 左值引用对象</li><li>可以更改对象</li></ul><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=kt>void</span> <span class=nf>foo</span><span class=p>(</span><span class=n>T</span><span class=o>&amp;&amp;</span><span class=p>);</span>		<span class=c1>// move
+</span></span></span></code></pre></td></tr></table></div></div><ul><li>传入一个你不再会使用的值</li><li>使用 std::move() 或者 临时对象</li></ul><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=kt>void</span> <span class=n>foo</span><span class=p>(</span><span class=k>const</span> <span class=n>T</span><span class=o>&amp;&amp;</span><span class=p>)</span>	<span class=c1>// 语义冲突，不明觉厉
+</span></span></span></code></pre></td></tr></table></div></div><ul><li>已经有 const T& 了为啥用这个？</li></ul><h2 id=类的移动语义>类的移动语义</h2><h3 id=基本的移动支持>基本的移动支持</h3><ul><li><p>标准库保证：除非有其他的指明，否则默认的 moved-from 对象之后应该是 valid but unspecified 状态。</p></li><li><p>如果没有提供移动支持，那么会使用 copy 作为 fallback，当然你也可以选择 disable 这个。通常 move-only 类型是这么干的，比如 std::thread, std::unique_ptr</p></li><li><p>默认的移动语义支持：自动生成移动构造、移动赋值运算符，除非</p><ul><li>没有<strong>用户声明</strong>的复制构造函数</li><li>没有<strong>用户声明</strong>的复制赋值运算符</li><li>没有<strong>用户声明</strong>的析构函数</li></ul><p><img src=/article/cppcon-2021-move-semantics/image-20240307195817665.png width=790 height=486 srcset="/article/cppcon-2021-move-semantics/image-20240307195817665_hu6143dfa0a17cf5e363a43ac32512c649_157346_480x0_resize_box_3.png 480w, /article/cppcon-2021-move-semantics/image-20240307195817665_hu6143dfa0a17cf5e363a43ac32512c649_157346_1024x0_resize_box_3.png 1024w" loading=lazy alt=成员函数生成规则 class=gallery-image data-flex-grow=162 data-flex-basis=390px></p></li></ul><blockquote><p>注意，用户声明包括 =default 这种，用户提供不包括。此外，=default =delete 都是函数定义。</p><p>此外，注意写 noexcept，vector 这样的容器在 resize 扩容时会使用 std::move_if_noexcept，来决定是调用移动还是拷贝构造。</p></blockquote><h3 id=多态类型中的移动>多态类型中的移动</h3><p><strong>声明虚析构函数</strong>会抑制移动的生成。</p><h2 id=完美转发>完美转发</h2><p>考虑以下情况，</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=k>class</span> <span class=nc>C</span> <span class=p>{...};</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=kt>void</span> <span class=nf>foo</span><span class=p>(</span><span class=k>const</span> <span class=n>C</span><span class=o>&amp;</span><span class=p>);</span>
+</span></span><span class=line><span class=cl><span class=kt>void</span> <span class=nf>foo</span><span class=p>(</span><span class=n>C</span><span class=o>&amp;</span><span class=p>);</span>
+</span></span><span class=line><span class=cl><span class=kt>void</span> <span class=nf>foo</span><span class=p>(</span><span class=n>C</span><span class=o>&amp;&amp;</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=n>C</span> <span class=n>v</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=k>const</span> <span class=n>C</span> <span class=n>c</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=n>foo</span><span class=p>(</span><span class=n>v</span><span class=p>);</span>		<span class=c1>//-&gt; foo(C&amp;)
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=n>foo</span><span class=p>(</span><span class=n>c</span><span class=p>);</span>		<span class=c1>//-&gt; foo(const C&amp;)
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=n>foo</span><span class=p>(</span><span class=n>C</span><span class=p>{});</span>	<span class=c1>//-&gt; foo(C&amp;&amp;)
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=n>foo</span><span class=p>(</span><span class=n>std</span><span class=o>::</span><span class=n>move</span><span class=p>(</span><span class=n>v</span><span class=p>))</span>	<span class=c1>//-&gt; foo(C&amp;&amp;)
+</span></span></span></code></pre></td></tr></table></div></div><p>完美，没有问题。</p><p>那么假设我们需要一个中间层来调用 foo，</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span><span class=lnt>20
+</span><span class=lnt>21
+</span><span class=lnt>22
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=k>class</span> <span class=nc>C</span> <span class=p>{...};</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=kt>void</span> <span class=nf>foo</span><span class=p>(</span><span class=k>const</span> <span class=n>C</span><span class=o>&amp;</span><span class=p>);</span>
+</span></span><span class=line><span class=cl><span class=kt>void</span> <span class=nf>foo</span><span class=p>(</span><span class=n>C</span><span class=o>&amp;</span><span class=p>);</span>
+</span></span><span class=line><span class=cl><span class=kt>void</span> <span class=nf>foo</span><span class=p>(</span><span class=n>C</span><span class=o>&amp;&amp;</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=kt>void</span> <span class=nf>callFoo</span><span class=p>(</span><span class=k>const</span> <span class=n>C</span><span class=o>&amp;</span> <span class=n>x</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=n>foo</span><span class=p>(</span><span class=n>x</span><span class=p>);</span>			<span class=c1>//-&gt; foo(const C&amp;)
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=p>}</span>
+</span></span><span class=line><span class=cl><span class=kt>void</span> <span class=nf>callFoo</span><span class=p>(</span><span class=n>C</span><span class=o>&amp;</span> <span class=n>x</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=n>foo</span><span class=p>(</span><span class=n>x</span><span class=p>);</span>			<span class=c1>//-&gt; foo(C&amp;)
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=p>}</span>
+</span></span><span class=line><span class=cl><span class=kt>void</span> <span class=nf>callFoo</span><span class=p>(</span><span class=n>C</span><span class=o>&amp;&amp;</span> <span class=n>x</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=n>foo</span><span class=p>(</span><span class=n>std</span><span class=o>::</span><span class=n>move</span><span class=p>(</span><span class=n>x</span><span class=p>));</span>	<span class=c1>//-&gt; foo(C&amp;&amp;)
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=n>C</span> <span class=n>v</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=k>const</span> <span class=n>C</span> <span class=n>c</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=n>callFoo</span><span class=p>(</span><span class=n>v</span><span class=p>);</span>		<span class=c1>//-&gt;foo(C&amp;)
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=n>callFoo</span><span class=p>(</span><span class=n>c</span><span class=p>);</span>		<span class=c1>//-&gt;foo(const C&amp;)
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=n>callFoo</span><span class=p>(</span><span class=n>C</span><span class=p>{});</span>	<span class=c1>//-&gt;foo(C&amp;&amp;)
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=n>callFoo</span><span class=p>(</span><span class=n>std</span><span class=o>::</span><span class=n>move</span><span class=p>(</span><span class=n>v</span><span class=p>))</span> <span class=c1>//foo(C&amp;&amp;)
+</span></span></span></code></pre></td></tr></table></div></div><p>我们自然不想写三个重载，可以使用模板，那样就需要使用完美转发。</p><p>想使用模板转发，那么你需要：</p><ol><li><strong>模板参数</strong></li><li>模板形参声明为 &&</li></ol><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=k>template</span><span class=o>&lt;</span><span class=k>typename</span> <span class=n>T</span><span class=o>&gt;</span>
+</span></span><span class=line><span class=cl><span class=kt>void</span> <span class=n>callFoo</span><span class=p>(</span><span class=n>T</span><span class=o>&amp;&amp;</span> <span class=n>arg</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=n>foo</span><span class=p>(</span><span class=n>std</span><span class=o>::</span><span class=n>forward</span><span class=o>&lt;</span><span class=n>T</span><span class=o>&gt;</span><span class=p>(</span><span class=n>arg</span><span class=p>));</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><p>arg 称为 universal (or forwarding) reference</p><h2 id=emplace-中的完美转发>emplace 中的完美转发</h2><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span><span class=lnt>20
+</span><span class=lnt>21
+</span><span class=lnt>22
+</span><span class=lnt>23
+</span><span class=lnt>24
+</span><span class=lnt>25
+</span><span class=lnt>26
+</span><span class=lnt>27
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=k>template</span><span class=o>&lt;</span><span class=k>typename</span> <span class=n>T</span><span class=p>,</span> <span class=p>...</span><span class=o>&gt;</span>
+</span></span><span class=line><span class=cl><span class=k>class</span> <span class=nc>vector</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl><span class=k>public</span><span class=o>:</span>
+</span></span><span class=line><span class=cl>    <span class=p>...</span>
+</span></span><span class=line><span class=cl>	<span class=k>template</span><span class=o>&lt;</span><span class=k>typename</span><span class=p>...</span> <span class=n>Args</span><span class=o>&gt;</span>
+</span></span><span class=line><span class=cl>    <span class=kt>void</span> <span class=n>emplace_back</span><span class=p>(</span><span class=n>Args</span><span class=o>&amp;&amp;</span><span class=p>...</span> <span class=n>args</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    	<span class=n>place_element_in_memory</span><span class=p>(</span> <span class=n>T</span><span class=p>(</span><span class=n>std</span><span class=o>::</span><span class=n>forward</span><span class=o>&lt;</span><span class=n>Args</span><span class=o>&gt;</span><span class=p>(</span><span class=n>args</span><span class=p>)...)</span> <span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl><span class=p>};</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=k>class</span> <span class=nc>Cust</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl><span class=k>private</span><span class=o>:</span>
+</span></span><span class=line><span class=cl>    <span class=n>std</span><span class=o>::</span><span class=n>string</span> <span class=n>first</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=n>std</span><span class=o>::</span><span class=n>string</span> <span class=n>last</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=kt>int</span> <span class=n>val</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=k>public</span><span class=o>:</span>
+</span></span><span class=line><span class=cl>    <span class=n>Cust</span><span class=p>(...)...{}</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=n>std</span><span class=o>::</span><span class=n>string</span> <span class=n>first</span><span class=p>{</span><span class=s>&#34;Jil&#34;</span><span class=p>};</span>
+</span></span><span class=line><span class=cl><span class=n>std</span><span class=o>::</span><span class=n>string</span> <span class=n>last</span><span class=p>{</span><span class=s>&#34;Cook&#34;</span><span class=p>};</span>
+</span></span><span class=line><span class=cl><span class=n>std</span><span class=o>::</span><span class=n>vector</span><span class=o>&lt;</span><span class=n>Cust</span><span class=o>&gt;</span> <span class=n>cv</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=n>cv</span><span class=p>.</span><span class=n>emplace_back</span><span class=p>(</span><span class=n>std</span><span class=o>::</span><span class=n>move</span><span class=p>(</span><span class=n>first</span><span class=p>),</span> <span class=n>last</span><span class=p>,</span> <span class=mi>39</span><span class=p>);</span>
+</span></span><span class=line><span class=cl><span class=c1>// 不需要 first，直接移动
+</span></span></span><span class=line><span class=cl><span class=c1>// last 拷贝
+</span></span></span><span class=line><span class=cl><span class=c1>// 39 拷贝
+</span></span></span></code></pre></td></tr></table></div></div><h2 id=完美转发返回值>完美转发返回值</h2><p>如果你想对返回值使用完美转发，那么</p><ul><li>声明返回值为 auto&&<ul><li>也是万能引用</li></ul></li><li>forward</li></ul><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span><span class=lnt>7
+</span><span class=lnt>8
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=c1>// 直接使用
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=n>process</span><span class=p>(</span><span class=n>compute</span><span class=p>(</span><span class=n>t</span><span class=p>));</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1>// 或者如果你需要使用参数的话:
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=k>auto</span><span class=o>&amp;&amp;</span> <span class=n>val</span> <span class=o>=</span> <span class=n>compute</span><span class=p>(</span><span class=n>t</span><span class=p>);</span>
+</span></span><span class=line><span class=cl><span class=p>...;</span>
+</span></span><span class=line><span class=cl><span class=n>process</span><span class=p>(</span><span class=n>std</span><span class=o>::</span><span class=n>forward</span><span class=o>&lt;</span><span class=k>decltype</span><span class=p>(</span><span class=n>val</span><span class=p>)</span><span class=o>&gt;</span><span class=p>(</span><span class=n>val</span><span class=p>));</span>
+</span></span></code></pre></td></tr></table></div></div><p>万能引用可以存储一切，包括引用性和常量性。</p><h2 id=ranges-和完美转发>ranges 和完美转发</h2><ul><li><code>const views</code> 可能不支持迭代，因为迭代中他们可能修改自身的状态。这时你需要万能引用</li></ul><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=k>template</span><span class=o>&lt;</span><span class=k>typename</span> <span class=n>T</span><span class=o>&gt;</span>
+</span></span><span class=line><span class=cl><span class=kt>void</span> <span class=n>print</span><span class=p>(</span><span class=k>const</span> <span class=n>T</span><span class=o>&amp;</span> <span class=n>coll</span><span class=p>)</span> <span class=p>{</span>				<span class=c1>// 将其改为 T&amp;&amp; 即可
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=k>for</span> <span class=p>(</span><span class=k>const</span> <span class=k>auto</span><span class=o>&amp;</span> <span class=nl>elem</span> <span class=p>:</span> <span class=n>coll</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=n>std</span><span class=o>::</span><span class=n>cout</span> <span class=o>&lt;&lt;</span> <span class=n>elem</span> <span class=o>&lt;&lt;</span> <span class=sc>&#39;\n&#39;</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=n>std</span><span class=o>::</span><span class=n>vector</span> <span class=n>vec</span><span class=p>{</span><span class=mi>1</span><span class=p>,</span> <span class=mi>2</span><span class=p>,</span> <span class=mi>3</span><span class=p>,</span> <span class=mi>4</span><span class=p>,</span> <span class=mi>5</span><span class=p>};</span>
+</span></span><span class=line><span class=cl><span class=n>print</span><span class=p>(</span><span class=n>vec</span><span class=p>);</span>								<span class=c1>// ok
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=n>print</span><span class=p>(</span><span class=n>vec</span> <span class=o>|</span> <span class=n>std</span><span class=o>::</span><span class=n>views</span><span class=o>::</span><span class=n>drop</span><span class=p>(</span><span class=mi>3</span><span class=p>));</span>		<span class=c1>// ok
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=n>print</span><span class=p>(</span><span class=n>vec</span> <span class=o>|</span> <span class=n>std</span><span class=o>::</span><span class=n>views</span><span class=o>::</span><span class=n>filter</span><span class=p>(...));</span>	<span class=c1>// bad
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=n>std</span><span class=o>::</span><span class=n>list</span> <span class=n>lst</span><span class=p>{</span><span class=mi>1</span><span class=p>,</span> <span class=mi>2</span><span class=p>,</span> <span class=mi>3</span><span class=p>,</span> <span class=mi>4</span><span class=p>,</span> <span class=mi>5</span><span class=p>};</span>
+</span></span><span class=line><span class=cl><span class=n>print</span><span class=p>(</span><span class=n>lst</span> <span class=o>|</span> <span class=n>std</span><span class=o>::</span><span class=n>views</span><span class=o>::</span><span class=n>drop</span><span class=p>(</span><span class=mi>3</span><span class=p>));</span>		<span class=c1>// bad
+</span></span></span></code></pre></td></tr></table></div></div></section><footer class=article-footer><section class=article-copyright><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-copyright" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="12" r="9"/><path d="M14.5 9a3.5 4 0 100 6"/></svg>
+<span>Licensed under CC BY-NC-SA 4.0</span></section><section class=article-lastmod><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/></svg>
+<span>最后更新于 Dec 27, 2023 00:00 UTC</span></section></footer></article><footer class=site-footer><section class=copyright>&copy;
+2023 -
+2024 Roses</section><section class=powerby>使用 <a href=https://gohugo.io/ target=_blank rel=noopener>Hugo</a> 构建<br>主题 <b><a href=https://github.com/CaiJimmy/hugo-theme-stack target=_blank rel=noopener data-version=3.26.0>Stack</a></b> 由 <a href=https://jimmycai.com target=_blank rel=noopener>Jimmy</a> 设计</section></footer><div class=pswp tabindex=-1 role=dialog aria-hidden=true><div class=pswp__bg></div><div class=pswp__scroll-wrap><div class=pswp__container><div class=pswp__item></div><div class=pswp__item></div><div class=pswp__item></div></div><div class="pswp__ui pswp__ui--hidden"><div class=pswp__top-bar><div class=pswp__counter></div><button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
+<button class="pswp__button pswp__button--share" title=Share></button>
+<button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
+<button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button><div class=pswp__preloader><div class=pswp__preloader__icn><div class=pswp__preloader__cut><div class=pswp__preloader__donut></div></div></div></div></div><div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap"><div class=pswp__share-tooltip></div></div><button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
+</button>
+<button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)"></button><div class=pswp__caption><div class=pswp__caption__center></div></div></div></div></div><script src=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo=" crossorigin=anonymous defer></script><script src=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU=" crossorigin=anonymous defer></script><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css crossorigin=anonymous><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css crossorigin=anonymous></main></div><script src=https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z+KMkF24hUW8WePSA9HM=" crossorigin=anonymous></script><script type=text/javascript src=/ts/main.js defer></script><script>(function(){const e=document.createElement("link");e.href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap",e.type="text/css",e.rel="stylesheet",document.head.appendChild(e)})()</script></body></html>

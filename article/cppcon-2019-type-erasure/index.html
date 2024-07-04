@@ -1,0 +1,564 @@
+<!doctype html><html lang=zh-cn dir=ltr><head><meta charset=utf-8><meta name=viewport content='width=device-width,initial-scale=1'><meta name=description content="对 CppCon 2019, Arthur O'Dwyer 演讲的翻译与总结。"><title>C++ 类型擦除是什么？</title>
+<link rel=canonical href=https://rossqaq.github.io/article/cppcon-2019-type-erasure/><link rel=stylesheet href=/scss/style.min.0304c6baf04e01a8fe70693791cb744d56a3578a3120a8796cefc66825aa39c7.css><meta property='og:title' content="C++ 类型擦除是什么？"><meta property='og:description' content="对 CppCon 2019, Arthur O'Dwyer 演讲的翻译与总结。"><meta property='og:url' content='https://rossqaq.github.io/article/cppcon-2019-type-erasure/'><meta property='og:site_name' content='Roses'><meta property='og:type' content='article'><meta property='article:section' content='Post'><meta property='article:published_time' content='2024-02-23T00:00:00+00:00'><meta property='article:modified_time' content='2024-02-23T00:00:00+00:00'><meta property='og:image' content='https://rossqaq.github.io/article/cppcon-2019-type-erasure/cppcon2019-cover.png'><meta name=twitter:title content="C++ 类型擦除是什么？"><meta name=twitter:description content="对 CppCon 2019, Arthur O'Dwyer 演讲的翻译与总结。"><meta name=twitter:card content="summary_large_image"><meta name=twitter:image content='https://rossqaq.github.io/article/cppcon-2019-type-erasure/cppcon2019-cover.png'><link rel="shortcut icon" href=/favicon.png></head><body class=article-page><script>(function(){const e="StackColorScheme";localStorage.getItem(e)||localStorage.setItem(e,"auto")})()</script><script>(function(){const t="StackColorScheme",e=localStorage.getItem(t),n=window.matchMedia("(prefers-color-scheme: dark)").matches===!0;e=="dark"||e==="auto"&&n?document.documentElement.dataset.scheme="dark":document.documentElement.dataset.scheme="light"})()</script><div class="container main-container flex on-phone--column extended"><aside class="sidebar left-sidebar sticky"><button class="hamburger hamburger--spin" type=button id=toggle-menu aria-label=切换菜单>
+<span class=hamburger-box><span class=hamburger-inner></span></span></button><header><figure class=site-avatar><a href=/><img src=/img/avatar_hu57fe4ea25b3b752b8c24bca0d657f08c_427356_300x0_resize_box_3.png width=300 height=300 class=site-logo loading=lazy alt=Avatar>
+</a><span class=emoji>♉</span></figure><div class=site-meta><h1 class=site-name><a href=/>Roses</a></h1><h2 class=site-description>有限的时间，无尽的痛苦。</h2></div></header><ol class=menu-social><li><a href=https://space.bilibili.com/3078464 target=_blank title=Bilibili rel=me><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-brand-bilibili" width="44" height="44" viewBox="0 0 24 24" stroke-width="1.5" stroke="#2c3e50" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M3 10a4 4 0 014-4h10a4 4 0 014 4v6a4 4 0 01-4 4H7a4 4 0 01-4-4v-6z"/><path d="M8 3l2 3"/><path d="M16 3l-2 3"/><path d="M9 13v-2"/><path d="M15 11v2"/></svg></a></li><li><a href=https://github.com/RossQAQ target=_blank title=Github rel=me><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-brand-github" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M9 19c-4.3 1.4-4.3-2.5-6-3m12 5v-3.5c0-1 .1-1.4-.5-2 2.8-.3 5.5-1.4 5.5-6a4.6 4.6.0 00-1.3-3.2 4.2 4.2.0 00-.1-3.2s-1.1-.3-3.5 1.3a12.3 12.3.0 00-6.2.0C6.5 2.8 5.4 3.1 5.4 3.1a4.2 4.2.0 00-.1 3.2A4.6 4.6.0 004 9.5c0 4.6 2.7 5.7 5.5 6-.6.6-.6 1.2-.5 2V21"/></svg></a></li><li><a href='https://music.163.com/playlist?id=109571638&amp;userid=93740300' target=_blank title=网易云音乐 rel=me><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-brand-netease-music" width="44" height="44" viewBox="0 0 24 24" stroke-width="1.5" stroke="#2c3e50" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M9 4c-2.93 1.346-5 5.046-5 8.492C4 17 8 20 12 20s8-3 8-7c0-3.513-3.5-5.513-6-5.513S9 9 9 12c0 2 1.5 3 3 3s3-1 3-3c0-3.513-2-4.508-2-6.515.0-3.504 3.5-2.603 4-1.502"/></svg></a></li><li><a href=mailto:rossqaq@outlook.com target=_blank title=邮件 rel=me><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-mail" width="44" height="44" viewBox="0 0 24 24" stroke-width="1.5" stroke="#2c3e50" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M3 7a2 2 0 012-2h14a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2V7z"/><path d="M3 7l9 6 9-6"/></svg></a></li></ol><ol class=menu id=main-menu><li><a href=/><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-home" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><polyline points="5 12 3 12 12 3 21 12 19 12"/><path d="M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7"/><path d="M9 21v-6a2 2 0 012-2h2a2 2 0 012 2v6"/></svg>
+<span>主页</span></a></li><li><a href=/archives/><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-archive" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><rect x="3" y="4" width="18" height="4" rx="2"/><path d="M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
+<span>归档</span></a></li><li><a href=/search/><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-search" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="10" cy="10" r="7"/><line x1="21" y1="21" x2="15" y2="15"/></svg>
+<span>搜索</span></a></li><li><a href=/%E5%8F%8B%E6%83%85%E9%93%BE%E6%8E%A5/><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-link" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><path d="M10 14a3.5 3.5.0 005 0l4-4a3.5 3.5.0 00-5-5l-.5.5"/><path d="M14 10a3.5 3.5.0 00-5 0l-4 4a3.5 3.5.0 005 5l.5-.5"/></svg>
+<span>友情链接</span></a></li><li class=menu-bottom-section><ol class=menu><li id=dark-mode-toggle><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="8" cy="12" r="2"/><rect x="2" y="6" width="20" height="12" rx="6"/></svg>
+<svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="16" cy="12" r="2"/><rect x="2" y="6" width="20" height="12" rx="6"/></svg>
+<span>暗色模式</span></li></ol></li></ol></aside><aside class="sidebar right-sidebar sticky"><section class="widget archives"><div class=widget-icon><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-hash" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><line x1="5" y1="9" x2="19" y2="9"/><line x1="5" y1="15" x2="19" y2="15"/><line x1="11" y1="4" x2="7" y2="20"/><line x1="17" y1="4" x2="13" y2="20"/></svg></div><h2 class="widget-title section-title">目录</h2><div class=widget--toc><nav id=TableOfContents><ol><li><a href=#简介>简介</a></li><li><a href=#类型擦除-concretifies-模板>类型擦除 concretifies 模板</a></li><li><a href=#callable-可以被这样切分>Callable 可以被这样切分</a></li><li><a href=#将表示和行为包装>将表示和行为包装</a></li><li><a href=#所有权>所有权</a><ol><li><a href=#destructibility-是一种能力>&ldquo;Destructibility&rdquo; 是一种能力</a></li><li><a href=#手动销毁>手动销毁</a></li><li><a href=#复制>复制</a></li></ol></li><li><a href=#指导affordances>指导：Affordances</a></li><li><a href=#类型安全的类型擦除>类型安全的类型擦除</a></li><li><a href=#类型擦除可以干什么>类型擦除可以干什么</a><ol><li><a href=#stdany>std::any</a></li></ol></li><li><a href=#类型擦除可以实现什么>类型擦除可以实现什么</a></li><li><a href=#结论>结论</a></li></ol></nav></div></section></aside><main class="main full-width"><article class="has-image main-article"><header class=article-header><div class=article-image><a href=/article/cppcon-2019-type-erasure/><img src=/article/cppcon-2019-type-erasure/cppcon2019-cover_hu93d2f8befaf9243db44dc194e94262d5_58262_800x0_resize_box_3.png srcset="/article/cppcon-2019-type-erasure/cppcon2019-cover_hu93d2f8befaf9243db44dc194e94262d5_58262_800x0_resize_box_3.png 800w, /article/cppcon-2019-type-erasure/cppcon2019-cover_hu93d2f8befaf9243db44dc194e94262d5_58262_1600x0_resize_box_3.png 1600w" width=800 height=339 loading=lazy alt="Featured image of post C++ 类型擦除是什么？"></a></div><div class=article-details><header class=article-category><a href=/categories/cppcon/ style=background-color:#2a9d8f;color:#fff>CppCon
+</a><a href=/categories/finished/ style=background-color:#2a9d8f;color:#fff>施工完毕</a></header><div class=article-title-wrapper><h2 class=article-title><a href=/article/cppcon-2019-type-erasure/>C++ 类型擦除是什么？</a></h2><h3 class=article-subtitle>对 CppCon 2019, Arthur O'Dwyer 演讲的翻译与总结。</h3></div><footer class=article-time><div><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><path d="M11.795 21H5a2 2 0 01-2-2V7a2 2 0 012-2h12a2 2 0 012 2v4"/><circle cx="18" cy="18" r="4"/><path d="M15 3v4"/><path d="M7 3v4"/><path d="M3 11h16"/><path d="M18 16.496V18l1 1"/></svg>
+<time class=article-time--published>Feb 23, 2024</time></div><div><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/></svg>
+<time class=article-time--reading>阅读时长: 7 分钟</time></div></footer></div></header><section class=article-content><p><a class=link href="https://www.youtube.com/watch?v=tbUCHifyT24" target=_blank rel=noopener>Back to Basics: Type Erasure - Arthur O&rsquo;Dwyer - CppCon 2019</a></p><p>又是 Arthur O&rsquo;Dwyer，这期演讲是 back to basics，类型擦除的具体细节。</p><h2 id=简介>简介</h2><p>你可能从 C# 或者 Java 中听说过 type erasure，但其他语言的类型擦除和 C++ 的完全不是一回事。</p><p>我们讨论的最初问题是：如何写一个函数，可以接受 lambda 作为参数</p><p>普通的做法可能是：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=k>class</span> <span class=nc>Shelf</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=k>template</span><span class=o>&lt;</span><span class=k>typename</span> <span class=n>Func</span><span class=o>&gt;</span>
+</span></span><span class=line><span class=cl>    <span class=kt>void</span> <span class=n>for_each_book</span><span class=p>(</span><span class=n>Func</span> <span class=n>f</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=k>for</span> <span class=p>(</span><span class=k>const</span> <span class=n>Book</span><span class=o>&amp;</span> <span class=nl>b</span> <span class=p>:</span> <span class=n>books_</span><span class=p>)</span> <span class=n>f</span><span class=p>(</span><span class=n>b</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl><span class=p>};</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=n>Shelf</span> <span class=n>myshelf</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=n>myshelf</span><span class=p>.</span><span class=n>for_each_book</span><span class=p>([](</span><span class=k>auto</span><span class=o>&amp;&amp;</span> <span class=n>book</span><span class=p>)</span> <span class=p>{</span> <span class=n>book</span><span class=p>.</span><span class=n>print</span><span class=p>();</span> <span class=p>});</span>
+</span></span><span class=line><span class=cl><span class=c1>// 这要求每个翻译单元中都有这个成员函数模板，我们可以将其改为回调形式
+</span></span></span><span class=line><span class=cl><span class=c1></span>
+</span></span><span class=line><span class=cl><span class=k>class</span> <span class=nc>Shelf</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=kt>void</span> <span class=nf>for_each_book</span><span class=p>(</span><span class=n>CallBack</span> <span class=n>f</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=k>for</span> <span class=p>(</span><span class=k>const</span> <span class=n>Book</span><span class=o>&amp;</span> <span class=nl>b</span> <span class=p>:</span> <span class=n>books_</span><span class=p>)</span> <span class=n>f</span><span class=p>(</span><span class=n>b</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl><span class=p>};</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1>// CallBack 可能只是 std::funtion&lt;void(const Book&amp;)&gt;
+</span></span></span><span class=line><span class=cl><span class=c1>// 现在就可以分文件了
+</span></span></span></code></pre></td></tr></table></div></div><h2 id=类型擦除-concretifies-模板>类型擦除 concretifies 模板</h2><p>模板并不是一个函数，但 type erasure 后的函数是一个真正的函数，可以被编译。</p><p>举个例子，std::sort</p><p>std::sort 是一个函数模板</p><ul><li>可以接受任何 Copmarator</li><li>内联</li><li><strong>必须</strong> 定义为头文件：编译慢，代码膨胀</li></ul><p>作为对比，C-style 的 qsort 接收函数指针</p><ul><li>只能接受固定的 Comparator</li><li><strong>不能</strong>被内联</li><li><strong>可以</strong> 被定义在外部</li><li>并不是类型安全的</li></ul><p>我们可以同时拥有二者的优点吗？</p><h2 id=callable-可以被这样切分>Callable 可以被这样切分</h2><p>类似于 C 中的 qsort_r</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-c data-lang=c><span class=line><span class=cl><span class=kt>void</span> <span class=nf>qsort_r</span><span class=p>(</span><span class=kt>void</span> <span class=o>*</span><span class=n>base</span><span class=p>,</span> <span class=kt>size_t</span> <span class=n>nmemb</span><span class=p>,</span> <span class=kt>size_t</span> <span class=n>size</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>           <span class=kt>int</span> <span class=p>(</span><span class=o>*</span><span class=n>compar</span><span class=p>)(</span><span class=k>const</span> <span class=kt>void</span> <span class=o>*</span><span class=p>,</span> <span class=k>const</span> <span class=kt>void</span> <span class=o>*</span><span class=p>,</span> <span class=kt>void</span> <span class=o>*</span><span class=p>),</span>
+</span></span><span class=line><span class=cl>           <span class=kt>void</span> <span class=o>*</span><span class=n>cookie</span><span class=p>);</span>
+</span></span></code></pre></td></tr></table></div></div><p>其函数签名长这样，comparator 中可以多一个参数，通过最后那个 void* arg 传入。</p><p>我们这样想，</p><p><strong>不要</strong>把compar当做需要你支持 cookie 的行为，<strong>而是</strong>将他看成 cookie 本身提供的行为</p><p>qsort_r 能做什么？传一个 compar 仅此而已。cookie 只提供了一个行为</p><p>给出一个可调用对象</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=k>template</span><span class=o>&lt;</span><span class=n>typnemae</span> <span class=n>Callable</span><span class=o>&gt;</span>
+</span></span><span class=line><span class=cl><span class=kt>void</span> <span class=n>foo</span><span class=p>(</span><span class=n>Callable</span><span class=o>&amp;</span> <span class=n>func</span><span class=p>);</span>
+</span></span></code></pre></td></tr></table></div></div><p>可以将其分为 <em>它的表示</em> 以及 <em>它的行为</em></p><p>它的表示，也就是实际内存中的 bit，只是一个函数指针和地址</p><p>假设 foo 的参数 <code>func</code> 的要求是 不接受参数，return int</p><p>那么我们可以将其分开为：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=kt>void</span><span class=o>*</span> <span class=n>representation</span> <span class=o>=</span> <span class=o>&amp;</span><span class=n>callable</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=kt>int</span> <span class=p>(</span><span class=o>*</span><span class=n>behavior_when_called</span><span class=p>)(</span><span class=kt>void</span><span class=o>*</span><span class=p>)</span> <span class=o>=</span> <span class=o>+</span><span class=p>[](</span><span class=kt>void</span><span class=o>*</span> <span class=n>r</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=k>return</span> <span class=p>(</span><span class=o>*</span><span class=p>(</span><span class=n>Callable</span> <span class=o>*</span><span class=p>)</span><span class=n>r</span><span class=p>)();</span>		<span class=c1>// 将 r 转换为 Callable 的类型之后调用
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=p>}</span>
+</span></span><span class=line><span class=cl><span class=n>assert</span><span class=p>(</span><span class=n>behavior_when_called</span><span class=p>(</span><span class=n>representation</span><span class=p>)</span> <span class=o>==</span> <span class=n>func</span><span class=p>());</span>
+</span></span></code></pre></td></tr></table></div></div><p>这样当我们调用 <code>behavior_when_called(representation)</code> 的效果和调用 <code>func()</code> 一样。</p><blockquote><p>plus lambda，众所周知 lambda 是类类型，这里需要一个函数指针，所以一元+ （正符号）可以将 lambda 转换为算术类型。</p></blockquote><p>我们开头的 类型<code>Callable</code>，如果我们不知道它的具体类型就无法使用。</p><p>当我们将其分为其表示和行为时，我们擦除了他的所有关于类型的信息（size, alignment, copyability&mldr;）</p><p>考虑一个可以取反的对象，也可以使用这种方法：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=k>template</span><span class=o>&lt;</span><span class=k>typename</span> <span class=n>Negatable</span><span class=o>&gt;</span>
+</span></span><span class=line><span class=cl><span class=kt>void</span> <span class=n>foo</span><span class=p>(</span><span class=n>Negatable</span><span class=o>&amp;</span> <span class=n>number</span><span class=p>)</span>
+</span></span></code></pre></td></tr></table></div></div><p>假设 number 支持按位取反且返回 int，我们可以将其分开：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=kt>void</span><span class=o>*</span> <span class=n>representation</span> <span class=o>=</span> <span class=o>&amp;</span><span class=n>number</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=kt>int</span> <span class=p>(</span><span class=o>*</span><span class=n>behavior_when_negated</span><span class=p>)(</span><span class=kt>void</span><span class=o>*</span><span class=p>)</span> <span class=o>=</span> <span class=o>+</span><span class=p>[](</span><span class=kt>void</span><span class=o>*</span> <span class=n>r</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=k>return</span> <span class=o>~</span><span class=p>(</span><span class=o>*</span><span class=p>(</span><span class=n>Negatable</span><span class=o>*</span><span class=p>)</span><span class=n>r</span><span class=p>);</span>
+</span></span><span class=line><span class=cl><span class=p>};</span>
+</span></span><span class=line><span class=cl><span class=n>assert</span><span class=p>(</span><span class=n>behavior_when_negated</span><span class=p>(</span><span class=n>representation</span><span class=p>)</span> <span class=o>==</span> <span class=o>~</span><span class=n>number</span><span class=p>);</span>
+</span></span></code></pre></td></tr></table></div></div><p>嗯，number 也许还支持取非，</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span><span class=lnt>7
+</span><span class=lnt>8
+</span><span class=lnt>9
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=kt>void</span><span class=o>*</span> <span class=n>representation</span> <span class=o>=</span> <span class=o>&amp;</span><span class=n>number</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=kt>int</span> <span class=p>(</span><span class=o>*</span><span class=n>behavior_when_negated</span><span class=p>)(</span><span class=kt>void</span><span class=o>*</span><span class=p>)</span> <span class=o>=</span> <span class=o>+</span><span class=p>[](</span><span class=kt>void</span><span class=o>*</span> <span class=n>r</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=k>return</span> <span class=o>~</span><span class=p>(</span><span class=o>*</span><span class=p>(</span><span class=n>Negatable</span><span class=o>*</span><span class=p>)</span><span class=n>r</span><span class=p>);</span>
+</span></span><span class=line><span class=cl><span class=p>};</span>
+</span></span><span class=line><span class=cl><span class=kt>int</span> <span class=p>(</span><span class=o>*</span><span class=n>behavior_when_notted</span><span class=p>)(</span><span class=kt>void</span><span class=o>*</span><span class=p>)</span> <span class=o>=</span> <span class=o>+</span><span class=p>[](</span><span class=kt>void</span><span class=o>*</span> <span class=n>r</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=k>return</span> <span class=o>!</span><span class=p>(</span><span class=o>*</span><span class=p>(</span><span class=n>Negatable</span><span class=o>*</span><span class=p>)</span><span class=n>r</span><span class=p>);</span>
+</span></span><span class=line><span class=cl><span class=p>};</span>
+</span></span><span class=line><span class=cl><span class=n>assert</span><span class=p>(</span><span class=n>behavior_when_negated</span><span class=p>(</span><span class=n>representation</span><span class=p>)</span> <span class=o>==</span> <span class=o>~</span><span class=n>number</span><span class=p>);</span>
+</span></span><span class=line><span class=cl><span class=n>assert</span><span class=p>(</span><span class=n>behavior_when_notted</span><span class=p>(</span><span class=n>representation</span><span class=p>)</span> <span class=o>==</span> <span class=o>!</span><span class=n>number</span><span class=p>);</span>
+</span></span></code></pre></td></tr></table></div></div><h2 id=将表示和行为包装>将表示和行为包装</h2><p>C 中没有类，所以 qsort_r 中的 cookie 只能有一种 comparsion 行为，C++我们可以做的更好。</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span><span class=lnt>7
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=k>struct</span> <span class=nc>TypeErasedNumberRef</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>	<span class=kt>void</span><span class=o>*</span> <span class=n>representation_</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=kt>int</span> <span class=p>(</span><span class=o>*</span><span class=n>negated_</span><span class=p>)(</span><span class=kt>void</span><span class=o>*</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=kt>bool</span> <span class=p>(</span><span class=o>*</span><span class=n>not</span><span class=p>)(</span><span class=kt>void</span><span class=o>*</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=kt>int</span> <span class=k>operator</span><span class=o>~</span><span class=p>()</span> <span class=k>const</span> <span class=p>{</span> <span class=k>return</span> <span class=nf>negate_</span><span class=p>(</span><span class=n>representation_</span><span class=p>);</span> <span class=p>}</span>
+</span></span><span class=line><span class=cl>    <span class=kt>int</span> <span class=k>operator</span><span class=o>!</span><span class=p>()</span> <span class=k>const</span> <span class=p>{</span> <span class=k>return</span> <span class=nf>not_</span><span class=p>(</span><span class=n>representation_</span><span class=p>);</span> <span class=p>}</span>
+</span></span><span class=line><span class=cl><span class=p>};</span>
+</span></span></code></pre></td></tr></table></div></div><p>如何构造 TypeErasedNumberRef 支持任何数？</p><p>想到：要构造，肯定要构造函数、要支持任何数，可以模板 -> 可以使用构造函数模板来支持任何数</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=k>struct</span> <span class=nc>TypeErasedNumberRef</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=k>template</span><span class=o>&lt;</span><span class=k>typename</span> <span class=n>Number</span><span class=o>&gt;</span>
+</span></span><span class=line><span class=cl>    <span class=n>TypeErasedNumberRef</span><span class=p>(</span><span class=n>Number</span><span class=o>&amp;</span> <span class=n>n</span><span class=p>)</span> <span class=o>:</span>
+</span></span><span class=line><span class=cl>    	<span class=n>representation_</span><span class=p>(</span> <span class=p>(</span><span class=kt>void</span><span class=o>*</span><span class=p>)</span><span class=o>&amp;</span><span class=n>n</span> <span class=p>),</span>
+</span></span><span class=line><span class=cl>    	<span class=n>negate_</span> <span class=p>(</span> <span class=p>[](</span><span class=kt>void</span><span class=o>*</span> <span class=n>r</span><span class=p>)</span><span class=o>-&gt;</span><span class=kt>int</span> <span class=p>{</span><span class=k>return</span> <span class=o>-</span><span class=p>(</span><span class=o>*</span><span class=p>(</span><span class=n>Number</span><span class=o>*</span><span class=p>)</span><span class=n>r</span><span class=p>);</span> <span class=p>}</span> <span class=p>),</span>
+</span></span><span class=line><span class=cl>    	<span class=n>not_</span> <span class=p>(</span> <span class=p>[](</span><span class=kt>void</span><span class=o>*</span> <span class=n>r</span><span class=p>)</span><span class=o>-&gt;</span><span class=kt>int</span> <span class=p>{</span><span class=k>return</span> <span class=o>!</span><span class=p>(</span><span class=o>*</span><span class=p>(</span><span class=n>Number</span><span class=o>*</span><span class=p>)</span><span class=n>r</span><span class=p>);</span> <span class=p>}</span> <span class=p>)</span> <span class=p>{}</span>
+</span></span><span class=line><span class=cl>	<span class=kt>void</span><span class=o>*</span> <span class=n>representation_</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=kt>int</span> <span class=p>(</span><span class=o>*</span><span class=n>negated_</span><span class=p>)(</span><span class=kt>void</span><span class=o>*</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=kt>bool</span> <span class=p>(</span><span class=o>*</span><span class=n>not</span><span class=p>)(</span><span class=kt>void</span><span class=o>*</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=kt>int</span> <span class=k>operator</span><span class=o>~</span><span class=p>()</span> <span class=k>const</span> <span class=p>{</span> <span class=k>return</span> <span class=nf>negate_</span><span class=p>(</span><span class=n>representation_</span><span class=p>);</span> <span class=p>}</span>
+</span></span><span class=line><span class=cl>    <span class=kt>bool</span> <span class=k>operator</span><span class=o>!</span><span class=p>()</span> <span class=k>const</span> <span class=p>{</span> <span class=k>return</span> <span class=nf>not_</span><span class=p>(</span><span class=n>representation_</span><span class=p>);</span> <span class=p>}</span>
+</span></span><span class=line><span class=cl><span class=p>};</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=kt>int</span> <span class=n>x</span> <span class=o>=</span> <span class=mi>42</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=n>TypeErasedNumberRef</span> <span class=nf>ref</span><span class=p>(</span><span class=n>x</span><span class=p>);</span>
+</span></span></code></pre></td></tr></table></div></div><p>这些函数有不同的类型，可能也有不同行为，但是调用方法是一样的，通过 operator~, operator! 等等，是不是很神奇</p><p>跟 C++26 的 std::function_ref 长得很像。</p><h2 id=所有权>所有权</h2><p>那 TypeErasedNumberRef 的所有权怎么办？</p><ul><li>其保存源对象的地址</li><li>源对象生命期结束，引用也失效</li></ul><p>传个右值这种明显会悬垂引用。</p><p>可以参考 std::function_ref</p><h3 id=destructibility-是一种能力>&ldquo;Destructibility&rdquo; 是一种能力</h3><p>一些对象可以销毁，一些对象不能，这是一种行为。我们使用值语义来实现一个 TypeErasedNumber(不要引用语义)</p><p>也就是说他要实际捕获值然后让类自己管理生命期。</p><p>~TypeErasedNumber 用来销毁捕获的对象。</p><p>捕获的对象可能很大，我们必须有足够空间。那么size到底是多少？</p><ul><li>UserType 可能很大</li><li>所以我们使用堆内存</li><li>还有其他方法，但是不在本讲座范围内</li></ul><h3 id=手动销毁>手动销毁</h3><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=k>struct</span> <span class=nc>TE</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=kt>void</span><span class=o>*</span> <span class=n>repr_</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=kt>void</span> <span class=p>(</span><span class=o>*</span><span class=n>delete_</span><span class=p>)(</span><span class=kt>void</span><span class=o>*</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    
+</span></span><span class=line><span class=cl>    <span class=k>template</span><span class=o>&lt;</span><span class=k>class</span> <span class=nc>Number</span><span class=o>&gt;</span>
+</span></span><span class=line><span class=cl>        <span class=n>TE</span><span class=p>(</span><span class=n>Number</span> <span class=n>n</span><span class=p>)</span> <span class=o>:</span>
+</span></span><span class=line><span class=cl>    <span class=n>repr_</span><span class=p>(</span><span class=k>new</span> <span class=n>Number</span><span class=p>(</span><span class=n>std</span><span class=o>::</span><span class=n>move</span><span class=p>(</span><span class=n>n</span><span class=p>))),</span> <span class=n>delete_</span><span class=p>([](</span><span class=kt>void</span><span class=o>*</span> <span class=n>r</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        	<span class=k>delete</span> <span class=p>(</span><span class=n>Number</span><span class=o>*</span><span class=p>)</span><span class=n>r</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=p>})</span> <span class=p>{}</span>
+</span></span><span class=line><span class=cl>    
+</span></span><span class=line><span class=cl>    <span class=o>~</span><span class=n>TE</span><span class=p>()</span> <span class=p>{</span> <span class=n>delete_</span><span class=p>(</span><span class=n>repr_</span><span class=p>);</span> <span class=p>}</span>
+</span></span><span class=line><span class=cl><span class=p>};</span>
+</span></span></code></pre></td></tr></table></div></div><h3 id=复制>复制</h3><p>有很多种方法，这是其一</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=k>struct</span> <span class=nc>TE</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=kt>void</span><span class=o>*</span> <span class=n>repr_</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=kt>void</span> <span class=p>(</span><span class=o>*</span><span class=n>clone_</span><span class=p>)(</span><span class=kt>void</span><span class=o>*</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    
+</span></span><span class=line><span class=cl>    <span class=k>template</span><span class=o>&lt;</span><span class=k>class</span> <span class=nc>Number</span><span class=o>&gt;</span>
+</span></span><span class=line><span class=cl>        <span class=n>TE</span><span class=p>(</span><span class=n>Number</span> <span class=n>n</span><span class=p>)</span> <span class=o>:</span>
+</span></span><span class=line><span class=cl>    <span class=n>repr_</span><span class=p>(</span><span class=k>new</span> <span class=n>Number</span><span class=p>(</span><span class=n>std</span><span class=o>::</span><span class=n>move</span><span class=p>(</span><span class=n>n</span><span class=p>))),</span> <span class=n>clone_</span><span class=p>([](</span><span class=kt>void</span><span class=o>*</span> <span class=n>r</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        	<span class=k>return</span> <span class=k>new</span> <span class=nf>Number</span><span class=p>(</span><span class=o>*</span><span class=p>(</span><span class=n>Number</span><span class=o>*</span><span class=p>)</span><span class=n>r</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=p>})</span> <span class=p>{}</span>
+</span></span><span class=line><span class=cl>    
+</span></span><span class=line><span class=cl>    <span class=n>TE</span><span class=p>(</span><span class=k>const</span> <span class=n>TE</span><span class=o>&amp;</span> <span class=n>rhs</span><span class=p>)</span> <span class=o>:</span>
+</span></span><span class=line><span class=cl>        <span class=n>repr_</span><span class=p>(</span><span class=n>rhs</span><span class=p>.</span><span class=n>clone_</span><span class=p>(</span><span class=n>rhs</span><span class=p>.</span><span class=n>repr_</span><span class=p>)),</span>
+</span></span><span class=line><span class=cl>        <span class=n>clone_</span><span class=p>(</span><span class=n>rhs</span><span class=p>.</span><span class=n>clone_</span><span class=p>)</span> <span class=p>{}</span>
+</span></span><span class=line><span class=cl><span class=p>};</span>
+</span></span></code></pre></td></tr></table></div></div><h2 id=指导affordances>指导：Affordances</h2><p>我们的宗旨是：</p><ul><li><strong>列出</strong> Number 为了类型擦除究竟要提供什么操作<ul><li><strong>特殊成员</strong>必须要考虑到</li></ul></li><li>对于每个操作，将其用 lambda 分开表示，使用<strong>固定函数签名</strong><ul><li>构造模板会通过 lambda 初始化函数指针</li><li>每个 lambda 的行为都取决于 Number，但是其签名要固定</li></ul></li></ul><p>但这样很可能导致函数指针太多，那咋办？</p><p>举个例子</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=k>struct</span> <span class=nc>TE</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=kt>void</span><span class=o>*</span> <span class=n>repr_</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=kt>void</span> <span class=p>(</span><span class=o>*</span><span class=n>doA_</span><span class=p>)(</span><span class=kt>void</span><span class=o>*</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=kt>void</span> <span class=p>(</span><span class=o>*</span><span class=n>doB_</span><span class=p>)(</span><span class=kt>void</span><span class=o>*</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=kt>void</span> <span class=p>(</span><span class=o>*</span><span class=n>doC_</span><span class=p>)(</span><span class=kt>void</span><span class=o>*</span><span class=p>);</span>
+</span></span><span class=line><span class=cl><span class=p>};</span>
+</span></span></code></pre></td></tr></table></div></div><p>这光指针就40字节，我们可以把他结合为一个函数，给出其他参数，来决定要执行什么行为。</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=k>struct</span> <span class=nc>TE</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=kt>void</span><span class=o>*</span> <span class=n>repr_</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=kt>void</span> <span class=p>(</span><span class=o>*</span><span class=n>doABC_</span><span class=p>)(</span><span class=kt>int</span><span class=p>,</span> <span class=kt>void</span><span class=o>*</span><span class=p>);</span>
+</span></span><span class=line><span class=cl><span class=p>};</span>
+</span></span></code></pre></td></tr></table></div></div><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span><span class=lnt>20
+</span><span class=lnt>21
+</span><span class=lnt>22
+</span><span class=lnt>23
+</span><span class=lnt>24
+</span><span class=lnt>25
+</span><span class=lnt>26
+</span><span class=lnt>27
+</span><span class=lnt>28
+</span><span class=lnt>29
+</span><span class=lnt>30
+</span><span class=lnt>31
+</span><span class=lnt>32
+</span><span class=lnt>33
+</span><span class=lnt>34
+</span><span class=lnt>35
+</span><span class=lnt>36
+</span><span class=lnt>37
+</span><span class=lnt>38
+</span><span class=lnt>39
+</span><span class=lnt>40
+</span><span class=lnt>41
+</span><span class=lnt>42
+</span><span class=lnt>43
+</span><span class=lnt>44
+</span><span class=lnt>45
+</span><span class=lnt>46
+</span><span class=lnt>47
+</span><span class=lnt>48
+</span><span class=lnt>49
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=cp>#include</span> <span class=cpf>&lt;cassert&gt;</span><span class=cp>
+</span></span></span><span class=line><span class=cl><span class=cp>#include</span> <span class=cpf>&lt;utility&gt;</span><span class=cp>
+</span></span></span><span class=line><span class=cl><span class=cp></span>
+</span></span><span class=line><span class=cl><span class=k>template</span><span class=o>&lt;</span><span class=k>class</span> <span class=nc>Number</span><span class=o>&gt;</span>
+</span></span><span class=line><span class=cl><span class=kt>void</span> <span class=o>*</span><span class=n>ABC</span><span class=p>(</span><span class=kt>int</span> <span class=n>op</span><span class=p>,</span> <span class=kt>void</span> <span class=o>*</span><span class=n>r</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>                  <span class=kt>void</span> <span class=o>*</span><span class=n>out</span><span class=p>)</span>
+</span></span><span class=line><span class=cl><span class=p>{</span>
+</span></span><span class=line><span class=cl>  <span class=n>Number</span><span class=o>&amp;</span> <span class=n>num</span> <span class=o>=</span> <span class=o>*</span><span class=p>(</span><span class=n>Number</span> <span class=o>*</span><span class=p>)</span><span class=n>r</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>  <span class=k>switch</span> <span class=p>(</span><span class=n>op</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=k>case</span> <span class=mi>0</span><span class=o>:</span>
+</span></span><span class=line><span class=cl>      <span class=k>return</span> <span class=k>new</span> <span class=n>Number</span><span class=p>(</span><span class=n>num</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=k>case</span> <span class=mi>1</span><span class=o>:</span>
+</span></span><span class=line><span class=cl>      <span class=o>*</span><span class=p>(</span><span class=kt>int</span><span class=o>*</span><span class=p>)</span><span class=n>out</span> <span class=o>=</span> <span class=o>-</span><span class=n>num</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>      <span class=k>return</span> <span class=k>nullptr</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=k>case</span> <span class=mi>2</span><span class=o>:</span>
+</span></span><span class=line><span class=cl>      <span class=o>*</span><span class=p>(</span><span class=kt>bool</span><span class=o>*</span><span class=p>)</span><span class=n>out</span> <span class=o>=</span> <span class=o>!</span><span class=n>num</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>      <span class=k>return</span> <span class=k>nullptr</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=k>case</span> <span class=mi>3</span><span class=o>:</span>
+</span></span><span class=line><span class=cl>      <span class=k>delete</span> <span class=o>&amp;</span><span class=n>num</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>      <span class=k>return</span> <span class=k>nullptr</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>  <span class=p>}</span>
+</span></span><span class=line><span class=cl>  <span class=n>__builtin_unreachable</span><span class=p>();</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=k>struct</span> <span class=nc>TE</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=kt>void</span> <span class=o>*</span><span class=n>repr_</span> <span class=o>=</span> <span class=k>nullptr</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=kt>void</span> <span class=o>*</span><span class=p>(</span><span class=o>*</span><span class=n>abc_</span><span class=p>)(</span><span class=kt>int</span><span class=p>,</span> <span class=kt>void</span><span class=o>*</span><span class=p>,</span> <span class=kt>void</span><span class=o>*</span><span class=p>)</span> <span class=o>=</span> <span class=k>nullptr</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=k>template</span><span class=o>&lt;</span><span class=k>class</span> <span class=nc>Number</span><span class=o>&gt;</span> <span class=n>TE</span><span class=p>(</span><span class=n>Number</span> <span class=n>n</span><span class=p>)</span> <span class=o>:</span>
+</span></span><span class=line><span class=cl>        <span class=n>repr_</span><span class=p>(</span><span class=k>new</span> <span class=n>Number</span><span class=p>(</span><span class=n>std</span><span class=o>::</span><span class=n>move</span><span class=p>(</span><span class=n>n</span><span class=p>))),</span>
+</span></span><span class=line><span class=cl>        <span class=n>abc_</span><span class=p>(</span><span class=n>ABC</span><span class=o>&lt;</span><span class=n>Number</span><span class=o>&gt;</span><span class=p>)</span> <span class=p>{}</span>
+</span></span><span class=line><span class=cl>    <span class=kt>void</span> <span class=o>*</span><span class=nf>clone</span><span class=p>()</span> <span class=k>const</span> <span class=p>{</span> <span class=k>return</span> <span class=n>abc_</span><span class=p>(</span><span class=mi>0</span><span class=p>,</span> <span class=n>repr_</span><span class=p>,</span> <span class=k>nullptr</span><span class=p>);</span> <span class=p>}</span>
+</span></span><span class=line><span class=cl>    <span class=n>TE</span><span class=p>(</span><span class=k>const</span> <span class=n>TE</span><span class=o>&amp;</span> <span class=n>rhs</span><span class=p>)</span> <span class=o>:</span> <span class=n>repr_</span><span class=p>(</span><span class=n>rhs</span><span class=p>.</span><span class=n>clone</span><span class=p>()),</span> <span class=n>abc_</span><span class=p>(</span><span class=n>rhs</span><span class=p>.</span><span class=n>abc_</span><span class=p>)</span> <span class=p>{}</span>
+</span></span><span class=line><span class=cl>    <span class=kt>int</span> <span class=k>operator</span><span class=o>-</span><span class=p>()</span> <span class=k>const</span> <span class=p>{</span> <span class=kt>int</span> <span class=n>v</span><span class=p>;</span> <span class=n>abc_</span><span class=p>(</span><span class=mi>1</span><span class=p>,</span> <span class=n>repr_</span><span class=p>,</span> <span class=o>&amp;</span><span class=n>v</span><span class=p>);</span> <span class=k>return</span> <span class=n>v</span><span class=p>;</span> <span class=p>}</span>
+</span></span><span class=line><span class=cl>    <span class=kt>bool</span> <span class=k>operator</span><span class=o>!</span><span class=p>()</span> <span class=k>const</span> <span class=p>{</span> <span class=kt>bool</span> <span class=n>v</span><span class=p>;</span> <span class=n>abc_</span><span class=p>(</span><span class=mi>2</span><span class=p>,</span> <span class=n>repr_</span><span class=p>,</span> <span class=o>&amp;</span><span class=n>v</span><span class=p>);</span> <span class=k>return</span> <span class=n>v</span><span class=p>;</span> <span class=p>}</span>
+</span></span><span class=line><span class=cl>    <span class=o>~</span><span class=n>TE</span><span class=p>()</span> <span class=p>{</span> <span class=n>abc_</span><span class=p>(</span><span class=mi>3</span><span class=p>,</span> <span class=n>repr_</span><span class=p>,</span> <span class=k>nullptr</span><span class=p>);</span> <span class=p>}</span>
+</span></span><span class=line><span class=cl>    <span class=kt>void</span> <span class=nf>swap</span><span class=p>(</span><span class=n>TE</span><span class=o>&amp;</span> <span class=n>rhs</span><span class=p>)</span> <span class=k>noexcept</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=n>std</span><span class=o>::</span><span class=n>swap</span><span class=p>(</span><span class=n>repr_</span><span class=p>,</span> <span class=n>rhs</span><span class=p>.</span><span class=n>repr_</span><span class=p>);</span> <span class=n>std</span><span class=o>::</span><span class=n>swap</span><span class=p>(</span><span class=n>abc_</span><span class=p>,</span> <span class=n>rhs</span><span class=p>.</span><span class=n>abc_</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>    <span class=n>TE</span><span class=p>(</span><span class=n>TE</span><span class=o>&amp;&amp;</span> <span class=n>rhs</span><span class=p>)</span> <span class=k>noexcept</span> <span class=p>{</span> <span class=k>this</span><span class=o>-&gt;</span><span class=n>swap</span><span class=p>(</span><span class=n>rhs</span><span class=p>);</span> <span class=p>}</span>
+</span></span><span class=line><span class=cl>    <span class=n>TE</span><span class=o>&amp;</span> <span class=k>operator</span><span class=o>=</span><span class=p>(</span><span class=n>TE</span> <span class=n>rhs</span><span class=p>)</span> <span class=k>noexcept</span> <span class=p>{</span> <span class=k>this</span><span class=o>-&gt;</span><span class=n>swap</span><span class=p>(</span><span class=n>rhs</span><span class=p>);</span> <span class=k>return</span> <span class=o>*</span><span class=k>this</span><span class=p>;</span> <span class=p>}</span>
+</span></span><span class=line><span class=cl><span class=p>};</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=kt>int</span> <span class=nf>main</span><span class=p>()</span>
+</span></span><span class=line><span class=cl><span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=n>TE</span> <span class=n>one</span><span class=p>(</span><span class=mi>1</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=n>TE</span> <span class=n>two</span><span class=p>(</span><span class=mf>2.0</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=n>assert</span><span class=p>(</span> <span class=o>-</span><span class=n>one</span> <span class=o>==</span> <span class=o>-</span><span class=mi>1</span> <span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=n>assert</span><span class=p>(</span> <span class=o>!</span><span class=n>two</span> <span class=o>==</span> <span class=nb>false</span> <span class=p>);</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><p>我们还可以把行为也分开</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=k>struct</span> <span class=nc>TE</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>	<span class=kt>void</span><span class=o>*</span> <span class=n>repr_</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=n>TE_Behaviors</span> <span class=o>*</span><span class=n>behave_</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=p>};</span>
+</span></span></code></pre></td></tr></table></div></div><p>这样的话如果其行为类似，<strong>那么就可以把行为汇集到一起，然后让所有内部类型一样的 TE 的行为指向那个全局结构。</strong></p><p>如果想让 TE 更小的话，这样就可以把行为也放到堆里，这样像什么呢？像是 vptr 和 vtable</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=k>struct</span> <span class=nc>TE</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=o>????</span> <span class=n>repr_</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><p><img src=/article/cppcon-2019-type-erasure/image-20240224153810526.png width=957 height=413 srcset="/article/cppcon-2019-type-erasure/image-20240224153810526_hu7150dc2cb267756befd0887c6e8f0dc7_216440_480x0_resize_box_3.png 480w, /article/cppcon-2019-type-erasure/image-20240224153810526_hu7150dc2cb267756befd0887c6e8f0dc7_216440_1024x0_resize_box_3.png 1024w" loading=lazy alt=diagram class=gallery-image data-flex-grow=231 data-flex-basis=556px></p><h2 id=类型安全的类型擦除>类型安全的类型擦除</h2><p>C++ 中我们可以实现类型安全的类型擦除。</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span><span class=lnt>20
+</span><span class=lnt>21
+</span><span class=lnt>22
+</span><span class=lnt>23
+</span><span class=lnt>24
+</span><span class=lnt>25
+</span><span class=lnt>26
+</span><span class=lnt>27
+</span><span class=lnt>28
+</span><span class=lnt>29
+</span><span class=lnt>30
+</span><span class=lnt>31
+</span><span class=lnt>32
+</span><span class=lnt>33
+</span><span class=lnt>34
+</span><span class=lnt>35
+</span><span class=lnt>36
+</span><span class=lnt>37
+</span><span class=lnt>38
+</span><span class=lnt>39
+</span><span class=lnt>40
+</span><span class=lnt>41
+</span><span class=lnt>42
+</span><span class=lnt>43
+</span><span class=lnt>44
+</span><span class=lnt>45
+</span><span class=lnt>46
+</span><span class=lnt>47
+</span><span class=lnt>48
+</span><span class=lnt>49
+</span><span class=lnt>50
+</span><span class=lnt>51
+</span><span class=lnt>52
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=cp>#include</span> <span class=cpf>&lt;cassert&gt;</span><span class=cp>
+</span></span></span><span class=line><span class=cl><span class=cp>#include</span> <span class=cpf>&lt;memory&gt;</span><span class=cp>
+</span></span></span><span class=line><span class=cl><span class=cp>#include</span> <span class=cpf>&lt;utility&gt;</span><span class=cp>
+</span></span></span><span class=line><span class=cl><span class=cp></span><span class=k>using</span> <span class=n>std</span><span class=o>::</span><span class=n>unique_ptr</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=k>using</span> <span class=n>std</span><span class=o>::</span><span class=n>make_unique</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=k>struct</span> <span class=nc>TEBase</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=k>virtual</span> <span class=n>unique_ptr</span><span class=o>&lt;</span><span class=n>TEBase</span><span class=o>&gt;</span> <span class=n>clone</span><span class=p>()</span> <span class=k>const</span> <span class=o>=</span> <span class=mi>0</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=k>virtual</span> <span class=kt>int</span> <span class=nf>negate</span><span class=p>()</span> <span class=k>const</span> <span class=o>=</span> <span class=mi>0</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=k>virtual</span> <span class=kt>bool</span> <span class=nf>not_</span><span class=p>()</span> <span class=k>const</span> <span class=o>=</span> <span class=mi>0</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=k>virtual</span> <span class=o>~</span><span class=n>TEBase</span><span class=p>()</span> <span class=o>=</span> <span class=k>default</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=p>};</span>
+</span></span><span class=line><span class=cl><span class=k>template</span><span class=o>&lt;</span><span class=k>class</span> <span class=nc>Number</span><span class=o>&gt;</span>
+</span></span><span class=line><span class=cl><span class=k>struct</span> <span class=nc>TED</span> <span class=o>:</span> <span class=k>public</span> <span class=n>TEBase</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=n>Number</span> <span class=n>num_</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=k>explicit</span> <span class=nf>TED</span><span class=p>(</span><span class=n>Number</span> <span class=n>n</span><span class=p>)</span> <span class=o>:</span> <span class=n>num_</span><span class=p>(</span><span class=n>std</span><span class=o>::</span><span class=n>move</span><span class=p>(</span><span class=n>n</span><span class=p>))</span> <span class=p>{}</span>
+</span></span><span class=line><span class=cl>    <span class=n>unique_ptr</span><span class=o>&lt;</span><span class=n>TEBase</span><span class=o>&gt;</span> <span class=n>clone</span><span class=p>()</span> <span class=k>const</span> <span class=k>override</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=k>return</span> <span class=n>std</span><span class=o>::</span><span class=n>make_unique</span><span class=o>&lt;</span><span class=n>TED</span><span class=o>&gt;</span><span class=p>(</span><span class=n>num_</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>    <span class=kt>int</span> <span class=nf>negate</span><span class=p>()</span> <span class=k>const</span> <span class=k>override</span> <span class=p>{</span> <span class=k>return</span> <span class=o>-</span><span class=n>num_</span><span class=p>;</span> <span class=p>}</span>
+</span></span><span class=line><span class=cl>    <span class=kt>bool</span> <span class=nf>not_</span><span class=p>()</span> <span class=k>const</span> <span class=k>override</span> <span class=p>{</span> <span class=k>return</span> <span class=o>!</span><span class=n>num_</span><span class=p>;</span> <span class=p>}</span>
+</span></span><span class=line><span class=cl><span class=p>};</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=k>struct</span> <span class=nc>TE</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=n>unique_ptr</span><span class=o>&lt;</span><span class=n>TEBase</span><span class=o>&gt;</span> <span class=n>p_</span> <span class=o>=</span> <span class=k>nullptr</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=k>template</span><span class=o>&lt;</span><span class=k>class</span> <span class=nc>Number</span><span class=o>&gt;</span>
+</span></span><span class=line><span class=cl>    <span class=n>TE</span><span class=p>(</span><span class=n>Number</span> <span class=n>n</span><span class=p>)</span> <span class=o>:</span> <span class=n>p_</span><span class=p>(</span>
+</span></span><span class=line><span class=cl>        <span class=n>make_unique</span><span class=o>&lt;</span><span class=n>TED</span><span class=o>&lt;</span><span class=n>Number</span><span class=o>&gt;&gt;</span><span class=p>(</span><span class=n>std</span><span class=o>::</span><span class=n>move</span><span class=p>(</span><span class=n>n</span><span class=p>))</span>
+</span></span><span class=line><span class=cl>    <span class=p>)</span> <span class=p>{}</span>
+</span></span><span class=line><span class=cl>    <span class=n>TE</span><span class=p>(</span><span class=k>const</span> <span class=n>TE</span><span class=o>&amp;</span> <span class=n>rhs</span><span class=p>)</span> <span class=o>:</span> <span class=n>p_</span><span class=p>(</span><span class=n>rhs</span><span class=p>.</span><span class=n>p_</span><span class=o>-&gt;</span><span class=n>clone</span><span class=p>())</span> <span class=p>{}</span>
+</span></span><span class=line><span class=cl>    <span class=n>TE</span><span class=p>(</span><span class=n>TE</span><span class=o>&amp;&amp;</span><span class=p>)</span> <span class=k>noexcept</span> <span class=o>=</span> <span class=k>default</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=n>TE</span><span class=o>&amp;</span> <span class=k>operator</span><span class=o>=</span><span class=p>(</span><span class=n>TE</span> <span class=n>rhs</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=n>std</span><span class=o>::</span><span class=n>swap</span><span class=p>(</span><span class=n>p_</span><span class=p>,</span> <span class=n>rhs</span><span class=p>.</span><span class=n>p_</span><span class=p>);</span> <span class=k>return</span> <span class=o>*</span><span class=k>this</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>    <span class=o>~</span><span class=n>TE</span><span class=p>()</span> <span class=o>=</span> <span class=k>default</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=kt>int</span> <span class=k>operator</span><span class=o>-</span><span class=p>()</span> <span class=k>const</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=k>return</span> <span class=n>p_</span><span class=o>-&gt;</span><span class=n>negate</span><span class=p>();</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>    <span class=kt>bool</span> <span class=k>operator</span><span class=o>!</span><span class=p>()</span> <span class=k>const</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=k>return</span> <span class=n>p_</span><span class=o>-&gt;</span><span class=n>not_</span><span class=p>();</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl><span class=p>};</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=kt>int</span> <span class=nf>main</span><span class=p>()</span>
+</span></span><span class=line><span class=cl><span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=n>TE</span> <span class=n>one</span><span class=p>(</span><span class=mi>1</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=n>TE</span> <span class=n>two</span><span class=p>(</span><span class=mf>2.0</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=n>assert</span><span class=p>(</span> <span class=o>-</span><span class=n>one</span> <span class=o>==</span> <span class=o>-</span><span class=mi>1</span> <span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=n>assert</span><span class=p>(</span> <span class=o>!</span><span class=n>two</span> <span class=o>==</span> <span class=nb>false</span> <span class=p>);</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><h2 id=类型擦除可以干什么>类型擦除可以干什么</h2><ul><li>std::function&lt;S><ul><li>将函数签名为 S 的函数包装为提供 copying, destorying, calling 三个行为</li></ul></li><li>std::any<ul><li>包装所有类型并提供 copying 和 destroying</li></ul></li><li>function_ref&lt;S><ul><li>C++26, 函数签名为 S 的函数包装，提供 calling 行为</li></ul></li><li>unique_function&lt;S><ul><li>（不知道什么时候）函数签名为 S 的函数包装，提供 destroying， calling 行为</li></ul></li></ul><h3 id=stdany>std::any</h3><p>std::any</p><ul><li>提供复制、销毁行为</li><li>如何获取其内容？</li></ul><p>std::any 比较有意思，不提供什么操作，那怎么访问他的值呢？std::any 还提供了一个行为，std::any_cast&lt;> 实现了 Go Fish</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=n>std</span><span class=o>::</span><span class=n>any</span> <span class=n>mya</span> <span class=o>=</span> <span class=mi>42</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=kt>int</span> <span class=n>i</span> <span class=o>=</span> <span class=n>std</span><span class=o>::</span><span class=n>any_cast</span><span class=o>&lt;</span><span class=kt>int</span><span class=o>&gt;</span><span class=p>(</span><span class=n>mya</span><span class=p>);</span>
+</span></span><span class=line><span class=cl><span class=n>mya</span> <span class=o>=</span> <span class=mf>3.14</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=kt>double</span> <span class=n>d</span> <span class=o>=</span> <span class=n>std</span><span class=o>::</span><span class=n>any_cast</span><span class=o>&lt;</span><span class=kt>double</span><span class=o>&gt;</span><span class=p>(</span><span class=n>mya</span><span class=p>);</span>
+</span></span><span class=line><span class=cl><span class=kt>int</span> <span class=n>j</span> <span class=o>=</span> <span class=n>std</span><span class=o>::</span><span class=n>any_cast</span><span class=o>&lt;</span><span class=kt>int</span><span class=o>&gt;</span><span class=p>(</span><span class=n>mya</span><span class=p>);</span>	<span class=c1>// 类型不安全，抛出异常 std::bad_any_cast
+</span></span></span></code></pre></td></tr></table></div></div><p>可以简单实现一个</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span><span class=lnt>20
+</span><span class=lnt>21
+</span><span class=lnt>22
+</span><span class=lnt>23
+</span><span class=lnt>24
+</span><span class=lnt>25
+</span><span class=lnt>26
+</span><span class=lnt>27
+</span><span class=lnt>28
+</span><span class=lnt>29
+</span><span class=lnt>30
+</span><span class=lnt>31
+</span><span class=lnt>32
+</span><span class=lnt>33
+</span><span class=lnt>34
+</span><span class=lnt>35
+</span><span class=lnt>36
+</span><span class=lnt>37
+</span><span class=lnt>38
+</span><span class=lnt>39
+</span><span class=lnt>40
+</span><span class=lnt>41
+</span><span class=lnt>42
+</span><span class=lnt>43
+</span><span class=lnt>44
+</span><span class=lnt>45
+</span><span class=lnt>46
+</span><span class=lnt>47
+</span><span class=lnt>48
+</span><span class=lnt>49
+</span><span class=lnt>50
+</span><span class=lnt>51
+</span><span class=lnt>52
+</span><span class=lnt>53
+</span><span class=lnt>54
+</span><span class=lnt>55
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=cp>#include</span> <span class=cpf>&lt;any&gt;</span><span class=cp>
+</span></span></span><span class=line><span class=cl><span class=cp>#include</span> <span class=cpf>&lt;cassert&gt;</span><span class=cp>
+</span></span></span><span class=line><span class=cl><span class=cp>#include</span> <span class=cpf>&lt;memory&gt;</span><span class=cp>
+</span></span></span><span class=line><span class=cl><span class=cp></span><span class=k>using</span> <span class=n>std</span><span class=o>::</span><span class=n>unique_ptr</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=k>struct</span> <span class=nc>AnyBase</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=k>virtual</span> <span class=n>unique_ptr</span><span class=o>&lt;</span><span class=n>AnyBase</span><span class=o>&gt;</span> <span class=n>clone</span><span class=p>()</span> <span class=k>const</span> <span class=o>=</span> <span class=mi>0</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=k>virtual</span> <span class=kt>void</span> <span class=o>*</span><span class=nf>addr</span><span class=p>()</span> <span class=o>=</span> <span class=mi>0</span><span class=p>;</span>	<span class=c1>// 返回真实数据
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=k>virtual</span> <span class=o>~</span><span class=n>AnyBase</span><span class=p>()</span> <span class=o>=</span> <span class=k>default</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=p>};</span>
+</span></span><span class=line><span class=cl><span class=k>template</span><span class=o>&lt;</span><span class=k>class</span> <span class=nc>T</span><span class=o>&gt;</span>
+</span></span><span class=line><span class=cl><span class=k>struct</span> <span class=nc>AnyD</span> <span class=o>:</span> <span class=k>public</span> <span class=n>AnyBase</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=n>T</span> <span class=n>value_</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=k>explicit</span> <span class=nf>AnyD</span><span class=p>(</span><span class=k>const</span> <span class=n>T</span><span class=o>&amp;</span> <span class=n>t</span><span class=p>)</span> <span class=o>:</span> <span class=n>value_</span><span class=p>(</span><span class=n>t</span><span class=p>)</span> <span class=p>{}</span>
+</span></span><span class=line><span class=cl>    <span class=n>unique_ptr</span><span class=o>&lt;</span><span class=n>AnyBase</span><span class=o>&gt;</span> <span class=n>clone</span><span class=p>()</span> <span class=k>const</span> <span class=k>override</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=k>return</span> <span class=n>std</span><span class=o>::</span><span class=n>make_unique</span><span class=o>&lt;</span><span class=n>AnyD</span><span class=o>&gt;</span><span class=p>(</span><span class=n>value_</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>    <span class=kt>void</span> <span class=o>*</span><span class=nf>addr</span><span class=p>()</span> <span class=k>override</span> <span class=p>{</span> <span class=k>return</span> <span class=o>&amp;</span><span class=n>value_</span><span class=p>;</span> <span class=p>}</span>
+</span></span><span class=line><span class=cl><span class=p>};</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=k>struct</span> <span class=nc>any</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=n>unique_ptr</span><span class=o>&lt;</span><span class=n>AnyBase</span><span class=o>&gt;</span> <span class=n>p_</span> <span class=o>=</span> <span class=k>nullptr</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=k>template</span><span class=o>&lt;</span><span class=k>class</span> <span class=nc>T</span><span class=o>&gt;</span>
+</span></span><span class=line><span class=cl>    <span class=k>explicit</span> <span class=n>any</span><span class=p>(</span><span class=k>const</span> <span class=n>T</span><span class=o>&amp;</span> <span class=n>t</span><span class=p>)</span> <span class=o>:</span> <span class=n>p_</span><span class=p>(</span>
+</span></span><span class=line><span class=cl>        <span class=n>std</span><span class=o>::</span><span class=n>make_unique</span><span class=o>&lt;</span><span class=n>AnyD</span><span class=o>&lt;</span><span class=n>T</span><span class=o>&gt;&gt;</span><span class=p>(</span><span class=n>t</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>    <span class=p>)</span> <span class=p>{}</span>
+</span></span><span class=line><span class=cl>    <span class=n>any</span><span class=p>(</span><span class=k>const</span> <span class=n>any</span><span class=o>&amp;</span> <span class=n>rhs</span><span class=p>)</span><span class=o>:</span> <span class=n>p_</span><span class=p>(</span><span class=n>rhs</span><span class=p>.</span><span class=n>p_</span><span class=o>-&gt;</span><span class=n>clone</span><span class=p>())</span> <span class=p>{}</span>
+</span></span><span class=line><span class=cl>    <span class=n>any</span><span class=p>(</span><span class=n>any</span><span class=o>&amp;&amp;</span><span class=p>)</span> <span class=k>noexcept</span> <span class=o>=</span> <span class=k>default</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=n>any</span><span class=o>&amp;</span> <span class=k>operator</span><span class=o>=</span><span class=p>(</span><span class=n>any</span> <span class=n>rhs</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=n>std</span><span class=o>::</span><span class=n>swap</span><span class=p>(</span><span class=n>p_</span><span class=p>,</span> <span class=n>rhs</span><span class=p>.</span><span class=n>p_</span><span class=p>);</span> <span class=k>return</span> <span class=o>*</span><span class=k>this</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>    <span class=o>~</span><span class=n>any</span><span class=p>()</span> <span class=o>=</span> <span class=k>default</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=p>};</span>
+</span></span><span class=line><span class=cl><span class=k>template</span><span class=o>&lt;</span><span class=k>class</span> <span class=nc>T</span><span class=o>&gt;</span>
+</span></span><span class=line><span class=cl><span class=n>T</span> <span class=n>any_cast</span><span class=p>(</span><span class=n>any</span><span class=o>&amp;</span> <span class=n>a</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=n>AnyBase</span> <span class=o>*</span><span class=n>b</span> <span class=o>=</span> <span class=n>a</span><span class=p>.</span><span class=n>p_</span><span class=p>.</span><span class=n>get</span><span class=p>();</span>
+</span></span><span class=line><span class=cl>    <span class=c1>// dynamic_cast 询问现在的类型是否是用户给我的类型
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=c1>// 只是你可以这么实现，并不是说标准库就是这么做的
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=k>if</span> <span class=p>(</span><span class=k>auto</span> <span class=o>*</span><span class=n>d</span> <span class=o>=</span> <span class=k>dynamic_cast</span><span class=o>&lt;</span><span class=n>AnyD</span><span class=o>&lt;</span><span class=n>T</span><span class=o>&gt;*&gt;</span><span class=p>(</span><span class=n>b</span><span class=p>))</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=k>return</span> <span class=o>*</span><span class=p>(</span><span class=n>T</span><span class=o>*</span><span class=p>)</span><span class=n>a</span><span class=p>.</span><span class=n>p_</span><span class=o>-&gt;</span><span class=n>addr</span><span class=p>();</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>    <span class=k>throw</span> <span class=n>std</span><span class=o>::</span><span class=n>bad_any_cast</span><span class=p>();</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=kt>int</span> <span class=nf>main</span><span class=p>()</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=n>any</span> <span class=n>mya</span><span class=p>(</span><span class=mi>42</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=kt>int</span> <span class=n>i</span> <span class=o>=</span> <span class=n>any_cast</span><span class=o>&lt;</span><span class=kt>int</span><span class=o>&gt;</span><span class=p>(</span><span class=n>mya</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=n>assert</span><span class=p>(</span><span class=n>i</span> <span class=o>==</span> <span class=mi>42</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=k>try</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=n>any_cast</span><span class=o>&lt;</span><span class=kt>double</span><span class=o>&gt;</span><span class=p>(</span><span class=n>mya</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span> <span class=k>catch</span> <span class=p>(</span><span class=k>const</span> <span class=n>std</span><span class=o>::</span><span class=n>bad_any_cast</span><span class=o>&amp;</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=k>return</span> <span class=mi>0</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>    <span class=n>assert</span><span class=p>(</span><span class=nb>false</span><span class=p>);</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><p>还有一种方法，使用 <a class=link href=https://godbolt.org/z/yMhk1X target=_blank rel=noopener>typeid</a>，但并不一定好用</p><h2 id=类型擦除可以实现什么>类型擦除可以实现什么</h2><p>例如 sg14::inplace_function&lt;S, Capacity> ,跟 std::function 不同，这个东西自己保存参数，不会在堆上分配。</p><p>shared_ptr，的deleter 存于堆上（control blocks里），deleter 就跟 function&lt;void(void*)> 非常类似。</p><p>如果实现一个二元运算符呢？这个是 multiple dispatch 问题，C++基本不行。</p><h2 id=结论>结论</h2><ul><li>啥是类型擦除？std::function, std::any 都是利用了类型擦除.</li><li>类型擦除可以让我们 <em>跨 ABI 边界</em> 传递不同类型</li><li>类型擦除自己实现不是很难<ul><li>列出你要提供的操作</li><li>实现一个 vtable（手动，或者使用虚函数）</li><li>初始化每个行为（在构造模板里使用 lambda，或者继承一个类模板）</li></ul></li><li>复制、销毁的提供</li></ul></section><footer class=article-footer><section class=article-copyright><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-copyright" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="12" r="9"/><path d="M14.5 9a3.5 4 0 100 6"/></svg>
+<span>Licensed under CC BY-NC-SA 4.0</span></section><section class=article-lastmod><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/></svg>
+<span>最后更新于 Feb 23, 2024 00:00 UTC</span></section></footer></article><footer class=site-footer><section class=copyright>&copy;
+2023 -
+2024 Roses</section><section class=powerby>使用 <a href=https://gohugo.io/ target=_blank rel=noopener>Hugo</a> 构建<br>主题 <b><a href=https://github.com/CaiJimmy/hugo-theme-stack target=_blank rel=noopener data-version=3.26.0>Stack</a></b> 由 <a href=https://jimmycai.com target=_blank rel=noopener>Jimmy</a> 设计</section></footer><div class=pswp tabindex=-1 role=dialog aria-hidden=true><div class=pswp__bg></div><div class=pswp__scroll-wrap><div class=pswp__container><div class=pswp__item></div><div class=pswp__item></div><div class=pswp__item></div></div><div class="pswp__ui pswp__ui--hidden"><div class=pswp__top-bar><div class=pswp__counter></div><button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
+<button class="pswp__button pswp__button--share" title=Share></button>
+<button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
+<button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button><div class=pswp__preloader><div class=pswp__preloader__icn><div class=pswp__preloader__cut><div class=pswp__preloader__donut></div></div></div></div></div><div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap"><div class=pswp__share-tooltip></div></div><button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
+</button>
+<button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)"></button><div class=pswp__caption><div class=pswp__caption__center></div></div></div></div></div><script src=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo=" crossorigin=anonymous defer></script><script src=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU=" crossorigin=anonymous defer></script><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css crossorigin=anonymous><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css crossorigin=anonymous></main></div><script src=https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z+KMkF24hUW8WePSA9HM=" crossorigin=anonymous></script><script type=text/javascript src=/ts/main.js defer></script><script>(function(){const e=document.createElement("link");e.href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap",e.type="text/css",e.rel="stylesheet",document.head.appendChild(e)})()</script></body></html>

@@ -1,0 +1,575 @@
+<!doctype html><html lang=zh-cn dir=ltr><head><meta charset=utf-8><meta name=viewport content='width=device-width,initial-scale=1'><meta name=description content="老三样的使用方法"><title>select/poll/epoll 老三样</title>
+<link rel=canonical href=https://rossqaq.github.io/article/io_multiplxer/><link rel=stylesheet href=/scss/style.min.0304c6baf04e01a8fe70693791cb744d56a3578a3120a8796cefc66825aa39c7.css><meta property='og:title' content="select/poll/epoll 老三样"><meta property='og:description' content="老三样的使用方法"><meta property='og:url' content='https://rossqaq.github.io/article/io_multiplxer/'><meta property='og:site_name' content='Roses'><meta property='og:type' content='article'><meta property='article:section' content='Post'><meta property='article:published_time' content='2023-12-27T00:00:00+00:00'><meta property='article:modified_time' content='2023-12-27T00:00:00+00:00'><meta name=twitter:title content="select/poll/epoll 老三样"><meta name=twitter:description content="老三样的使用方法"><link rel="shortcut icon" href=/favicon.png></head><body class=article-page><script>(function(){const e="StackColorScheme";localStorage.getItem(e)||localStorage.setItem(e,"auto")})()</script><script>(function(){const t="StackColorScheme",e=localStorage.getItem(t),n=window.matchMedia("(prefers-color-scheme: dark)").matches===!0;e=="dark"||e==="auto"&&n?document.documentElement.dataset.scheme="dark":document.documentElement.dataset.scheme="light"})()</script><div class="container main-container flex on-phone--column extended"><aside class="sidebar left-sidebar sticky"><button class="hamburger hamburger--spin" type=button id=toggle-menu aria-label=切换菜单>
+<span class=hamburger-box><span class=hamburger-inner></span></span></button><header><figure class=site-avatar><a href=/><img src=/img/avatar_hu57fe4ea25b3b752b8c24bca0d657f08c_427356_300x0_resize_box_3.png width=300 height=300 class=site-logo loading=lazy alt=Avatar>
+</a><span class=emoji>♉</span></figure><div class=site-meta><h1 class=site-name><a href=/>Roses</a></h1><h2 class=site-description>有限的时间，无尽的痛苦。</h2></div></header><ol class=menu-social><li><a href=https://space.bilibili.com/3078464 target=_blank title=Bilibili rel=me><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-brand-bilibili" width="44" height="44" viewBox="0 0 24 24" stroke-width="1.5" stroke="#2c3e50" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M3 10a4 4 0 014-4h10a4 4 0 014 4v6a4 4 0 01-4 4H7a4 4 0 01-4-4v-6z"/><path d="M8 3l2 3"/><path d="M16 3l-2 3"/><path d="M9 13v-2"/><path d="M15 11v2"/></svg></a></li><li><a href=https://github.com/RossQAQ target=_blank title=Github rel=me><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-brand-github" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M9 19c-4.3 1.4-4.3-2.5-6-3m12 5v-3.5c0-1 .1-1.4-.5-2 2.8-.3 5.5-1.4 5.5-6a4.6 4.6.0 00-1.3-3.2 4.2 4.2.0 00-.1-3.2s-1.1-.3-3.5 1.3a12.3 12.3.0 00-6.2.0C6.5 2.8 5.4 3.1 5.4 3.1a4.2 4.2.0 00-.1 3.2A4.6 4.6.0 004 9.5c0 4.6 2.7 5.7 5.5 6-.6.6-.6 1.2-.5 2V21"/></svg></a></li><li><a href='https://music.163.com/playlist?id=109571638&amp;userid=93740300' target=_blank title=网易云音乐 rel=me><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-brand-netease-music" width="44" height="44" viewBox="0 0 24 24" stroke-width="1.5" stroke="#2c3e50" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M9 4c-2.93 1.346-5 5.046-5 8.492C4 17 8 20 12 20s8-3 8-7c0-3.513-3.5-5.513-6-5.513S9 9 9 12c0 2 1.5 3 3 3s3-1 3-3c0-3.513-2-4.508-2-6.515.0-3.504 3.5-2.603 4-1.502"/></svg></a></li><li><a href=mailto:rossqaq@outlook.com target=_blank title=邮件 rel=me><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-mail" width="44" height="44" viewBox="0 0 24 24" stroke-width="1.5" stroke="#2c3e50" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M3 7a2 2 0 012-2h14a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2V7z"/><path d="M3 7l9 6 9-6"/></svg></a></li></ol><ol class=menu id=main-menu><li><a href=/><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-home" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><polyline points="5 12 3 12 12 3 21 12 19 12"/><path d="M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7"/><path d="M9 21v-6a2 2 0 012-2h2a2 2 0 012 2v6"/></svg>
+<span>主页</span></a></li><li><a href=/archives/><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-archive" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><rect x="3" y="4" width="18" height="4" rx="2"/><path d="M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
+<span>归档</span></a></li><li><a href=/search/><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-search" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="10" cy="10" r="7"/><line x1="21" y1="21" x2="15" y2="15"/></svg>
+<span>搜索</span></a></li><li><a href=/%E5%8F%8B%E6%83%85%E9%93%BE%E6%8E%A5/><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-link" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><path d="M10 14a3.5 3.5.0 005 0l4-4a3.5 3.5.0 00-5-5l-.5.5"/><path d="M14 10a3.5 3.5.0 00-5 0l-4 4a3.5 3.5.0 005 5l.5-.5"/></svg>
+<span>友情链接</span></a></li><li class=menu-bottom-section><ol class=menu><li id=dark-mode-toggle><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="8" cy="12" r="2"/><rect x="2" y="6" width="20" height="12" rx="6"/></svg>
+<svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="16" cy="12" r="2"/><rect x="2" y="6" width="20" height="12" rx="6"/></svg>
+<span>暗色模式</span></li></ol></li></ol></aside><aside class="sidebar right-sidebar sticky"><section class="widget archives"><div class=widget-icon><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-hash" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><line x1="5" y1="9" x2="19" y2="9"/><line x1="5" y1="15" x2="19" y2="15"/><line x1="11" y1="4" x2="7" y2="20"/><line x1="17" y1="4" x2="13" y2="20"/></svg></div><h2 class="widget-title section-title">目录</h2><div class=widget--toc><nav id=TableOfContents><ol><li><a href=#前言>前言</a></li><li><a href=#协议以及基础介绍>协议以及基础介绍</a><ol><li><a href=#主要协议>主要协议</a></li><li><a href=#udp-用户数据报协议>UDP 用户数据报协议</a></li><li><a href=#tcp-传输控制协议>TCP 传输控制协议</a></li><li><a href=#tcp-连接建立与终止>TCP 连接建立与终止</a></li><li><a href=#三次握手>三次握手</a></li><li><a href=#tcp-连接终止>TCP 连接终止</a></li><li><a href=#tcp-状态图>TCP 状态图</a></li><li><a href=#输出缓冲区>输出缓冲区</a></li></ol></li><li><a href=#阻塞与非阻塞-io>阻塞与非阻塞 IO</a><ol><li><a href=#不同的-io-概念图>不同的 IO 概念图</a></li><li><a href=#网络编程>网络编程</a></li></ol></li><li><a href=#套接字选项>套接字选项</a><ol><li><a href=#so_keepalive>SO_KEEPALIVE</a></li><li><a href=#so_linger>SO_LINGER</a></li><li><a href=#so_reuseaddr-和-so_reuseport>SO_REUSEADDR 和 SO_REUSEPORT</a></li><li><a href=#so_revtimeo>SO_REVTIMEO</a></li><li><a href=#so_sndtimeo>SO_SNDTIMEO</a></li></ol></li><li><a href=#closeshutdown>close()/shutdown()</a></li><li><a href=#select>select</a></li><li><a href=#poll>poll</a></li><li><a href=#epoll>epoll</a><ol><li><a href=#lt>LT</a></li><li><a href=#et>ET</a></li></ol></li><li><a href=#udp-编程>UDP 编程</a></li></ol></nav></div></section></aside><main class="main full-width"><article class=main-article><header class=article-header><div class=article-details><header class=article-category><a href=/categories/techs/ style=background-color:#2a9d8f;color:#fff>技术
+</a><a href=/categories/finished/ style=background-color:#2a9d8f;color:#fff>施工完毕</a></header><div class=article-title-wrapper><h2 class=article-title><a href=/article/io_multiplxer/>select/poll/epoll 老三样</a></h2><h3 class=article-subtitle>老三样的使用方法</h3></div><footer class=article-time><div><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><path d="M11.795 21H5a2 2 0 01-2-2V7a2 2 0 012-2h12a2 2 0 012 2v4"/><circle cx="18" cy="18" r="4"/><path d="M15 3v4"/><path d="M7 3v4"/><path d="M3 11h16"/><path d="M18 16.496V18l1 1"/></svg>
+<time class=article-time--published>Dec 27, 2023</time></div><div><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/></svg>
+<time class=article-time--reading>阅读时长: 11 分钟</time></div></footer></div></header><section class=article-content><h2 id=前言>前言</h2><p>记录一下老三样的使用方法，以及网络编程的疑难杂症。主要来自于 UNP。</p><p>顺便，初始化 socket 就不重复写了。</p><p>再者，文章中 EWOULDBLOCK 和 EAGAIN 在一般的实现中值是相同的。</p><h2 id=协议以及基础介绍>协议以及基础介绍</h2><h3 id=主要协议>主要协议</h3><ul><li>IPv4: 32位 ip 地址，提供分组递送服务</li><li>IPv6: 128位 ip 地址</li><li>TCP：面向<strong>连接</strong>，提供全双工字节流，<strong>流套接字</strong>，关心确认、超时、重传等细节，支持IPv4, IPv6</li><li>UDP：<strong>无连接</strong>，<strong>数据包套接字</strong>，不保证到达目的地。支持IPv4, IPv6</li><li>ARP：<strong>地址解析协议</strong>。把 IPv4 地址映射成硬件地址，通常用于以太网。在 P2P 网络中不重要。</li><li>RARP：把硬件地址映射成 IPv4.</li></ul><h3 id=udp-用户数据报协议>UDP 用户数据报协议</h3><p>应用程序往 UDP socket 写入数据，封装为一个 UDP 数据报，又被封装为 IP 数据报，然后发送。<strong>不保证到达顺序，不保证是否到达，不保证数据报只到达一次。</strong></p><p><strong>UDP 数据报有一个长度，而 TCP 没有。</strong></p><p>说 UDP 无连接是说 UDP 客户和服务器不必存在任何长期关系。比如 UDP 客户端可以用同一个套接字给不同服务器发送消息。</p><h3 id=tcp-传输控制协议>TCP 传输控制协议</h3><p>TCP 提供客户与服务器的连接，<strong>TCP 客户先与某个给定服务器建立一个连接，再跨连接与那个服务器交换数据，然后终止连接</strong>。</p><p>TCP 比较可靠，要求对端确认数据，如果没有收到确认就会<strong>自动重传</strong>并等待。数次失败后 会放弃。</p><p>TCP 会估算客户和服务器之间的<strong>往返时间</strong>，以便知道需要等多久。</p><p>TCP 会给其中每个小节关联一个序列号对发送数据进行<strong>排序</strong>。如果收到重复数据，会丢弃。</p><p>TCP 提供<strong>流量控制</strong>，告知对方现在自己能接收多少数据。</p><p>最后，<strong>TCP 全双工</strong>，意味着在一个连接上的引用可以在两个方向上既接受又发送数据。当然可以把它转化为单工连接。</p><h3 id=tcp-连接建立与终止>TCP 连接建立与终止</h3><h3 id=三次握手>三次握手</h3><p>TCP 连接过程：</p><ol><li>服务器通过 socket, bind, listen 三个函数准备好接受连接</li><li>客户端通过 connect 发起连接。此时客户 TCP 发送 SYN</li><li>服务器发送 ACK，SYN</li><li>客户端确认服务器的 SYN，回复 ACK</li></ol><img src=image-20240314140845709.png alt="TCP 三次握手" style=zoom:33%><p>客户端 SYN 初始为 J，服务器端 SYN 初始为 K，期待的 ACK 都是对应的 SYN + 1.</p><h3 id=tcp-连接终止>TCP 连接终止</h3><ol><li>某个应用调用 <code>close()</code> ，<strong>主动关闭</strong>，发送 FIN</li><li>收到 FIN 的一方执行<strong>被动关闭</strong>，需要确认，然后把他的接收作为一个 EOF 传递给接收端应用</li><li>一段时间后，接收 EOF 的进程调用 <code>close()</code> 关闭 socket，也发送一个 FIn</li><li>接收这个最终 FIn 的原发送端（主动关闭那一方）确认这个 FIN</li></ol><p>某些情况下，步骤1 的 FIN 跟数据一起发送；步骤 2，3 都是出自被动关闭那一方，可能一起发送；</p><img src=image-20240314151041077.png alt="TCP 连接关闭" style=zoom:33%><h3 id=tcp-状态图>TCP 状态图</h3><img src=image-20240314151618865.png alt=image-20240314151618865 style=zoom:50%><p>实现箭头：客户的正常状态转换</p><p>虚线箭头：服务器的正常状态转换</p><p>应用：状态转换在应用进程发起操作时发生</p><p>接收：表示接收分节时发生</p><p>发送：表示转换发送什么</p><h3 id=输出缓冲区>输出缓冲区</h3><p><strong>每个 TCP socket 都有一个发送缓冲区，调用 <code>write</code> 内核会从应用程序的缓冲区中复制数据到套接字的发送缓冲区</strong>。如果 socket 为阻塞使用，且缓冲区已经满或者有其他数据或者进程缓冲区更大，那么程序都会挂起。</p><p><strong><code>write</code> 返回时是内核已经把数据复制到发送缓冲区，仅代表可以使用教程的缓冲区了。</strong></p><p>UDP 套接字没有缓冲区，内核没必要保存数据，因为 UDP 不可靠。但是有一个发送缓冲区大小，如果发送数据太大会返回 EMSGSIZE 错误。应用进程的数据在传递时，通常会保存到某种格式的内核缓冲区，发送完就会被丢弃。而 TCP 因为要确认，所以会暂时保留。</p><p><code>write</code> 返回就表示数据报或者其所有片段都加入了数据链路层的输出队列，如果队列没有足够的空间，通常会返回 ENOBUFS（也许有的实现并不返回）</p><h2 id=阻塞与非阻塞-io>阻塞与非阻塞 IO</h2><h3 id=不同的-io-概念图>不同的 IO 概念图</h3><img src=image-20240314154124021.png alt="阻塞 IO" style=zoom:50%>
+<img src=image-20240314154145500.png alt="非阻塞 IO" style=zoom:50%>
+<img src=image-20240314154211118.png alt="异步 IO" style=zoom:50%>
+<img src=image-20240314154253297.png alt="多个 IO 模型" style=zoom:50%><p>异步是让内核帮我们完成收取数据，复制到应用，完成后通知我们，而 IO 多路复用则是阻塞在 select 和 poll 这两个函数上。</p><h3 id=网络编程>网络编程</h3><p>网络编程无非就几个事件，</p><ul><li>连接：服务器为 accept，客户端 connect</li><li>读： read/readv/recv/recvfrom/recvmsg</li><li>写： write,</li><li>断开连接</li></ul><p>对于输入（读）操作，</p><ol><li>在<strong>阻塞</strong>情况下，TCP 若 socket 的接收缓冲区中没有数据，则休眠；如果有数据，就立马读；</li><li>在<strong>非阻塞</strong>情况下，TCP 若没有至少一个字节可以读，则会立马返回 EWOULDBLOCK</li></ol><p>对于输出（写）操作，</p><ol><li>在<strong>阻塞</strong>情况下，若发送缓冲区没有空间，将阻塞，直到有空间为止</li><li>在<strong>非阻塞</strong>情况下，如果缓冲区没有空间，会立即返回 EWOULDBLOCK；如果<strong>有一些空间，会返回的是能够复制到该缓冲区中的字节数。</strong></li></ol><p>接受连接，即 accept：</p><ol><li>在<strong>阻塞</strong>情况下，会阻塞到直到有新的连接到达。</li><li>在<strong>非阻塞</strong>情况下，会立即返回 EWOULDBLOCK</li></ol><p>发起连接，connect：</p><ol><li>在<strong>阻塞</strong>情况下，会等待三次握手后连接建立</li><li>在<strong>非阻塞</strong>情况下，会发起三次握手，然后直接返回 EINPROGRESS（在服务器和主机是同一个服务器的情况，可能会成功返回，所以非阻塞也得考虑成功的情况）</li></ol><h2 id=套接字选项>套接字选项</h2><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=kt>int</span> <span class=nf>setsockopt</span><span class=p>(</span><span class=kt>int</span> <span class=n>fd</span><span class=p>,</span> <span class=kt>int</span> <span class=n>level</span><span class=p>,</span> <span class=kt>int</span> <span class=n>optname</span><span class=p>,</span> <span class=k>const</span> <span class=kt>void</span><span class=o>*</span> <span class=n>optval</span><span class=p>,</span> <span class=n>socklen_t</span> <span class=n>optlen</span><span class=p>);</span>
+</span></span></code></pre></td></tr></table></div></div><ul><li>level 是指定系统重解释选项的代码 或者为 通用套接字代码 或者为某个特定协议</li><li>optval 用于读取待设置的新值（一般是1代表启用）</li></ul><h3 id=so_keepalive>SO_KEEPALIVE</h3><p>2个小时没有数据流动，就会自动发送一个<strong>保持存活探测分节</strong>：</p><ol><li>对端以期望的 ACK 响应。一切正常。</li><li>对端以 RST 响应，告知本端 TCP：对端崩溃且已经重启，该套接字本身会被关闭</li><li>对端没有响应，会继续探测，持续一段时间后如果还没有响应就会放弃。</li></ol><p>当然，你也可以在应用层手动设置心跳（heartbeat）机制来确认。</p><h3 id=so_linger>SO_LINGER</h3><p>指定 close 函数面对面向连接协议的操作。默认 close 会立刻返回，<strong>但如果有数据残留在发送缓冲区，那么会试着把数据发出去</strong>。</p><p>这时需要处理 close 的返回值。</p><img src=image-20240314160812921.png alt=情况 style=zoom:50%><h3 id=so_reuseaddr-和-so_reuseport>SO_REUSEADDR 和 SO_REUSEPORT</h3><p>必须开启，防止因为服务器重启而不能绑定。</p><h3 id=so_revtimeo>SO_REVTIMEO</h3><p>本选项一旦设置到某个描述符，超时设置会应用于该描述符上的所有<strong>读</strong>操作。</p><h3 id=so_sndtimeo>SO_SNDTIMEO</h3><p>本选项一旦设置到某个描述符，超时设置会应用于该描述符上的所有<strong>写</strong>操作。</p><h2 id=closeshutdown>close()/shutdown()</h2><ol><li><code>close</code> 会把 fd 的引用计数 -1，仅在计数为 0 才关闭 socket，此外，会直接关闭读写两个方向的数据传输。</li><li>使用 shutdown 可以不管引用计数直接激发 TCP 的正常连接终止，可以选择半关闭套接字。</li></ol><p><strong>我们需要考虑到，关闭 socket 时可能还会有数据在路上，没收到。</strong></p><h2 id=select>select</h2><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>  1
+</span><span class=lnt>  2
+</span><span class=lnt>  3
+</span><span class=lnt>  4
+</span><span class=lnt>  5
+</span><span class=lnt>  6
+</span><span class=lnt>  7
+</span><span class=lnt>  8
+</span><span class=lnt>  9
+</span><span class=lnt> 10
+</span><span class=lnt> 11
+</span><span class=lnt> 12
+</span><span class=lnt> 13
+</span><span class=lnt> 14
+</span><span class=lnt> 15
+</span><span class=lnt> 16
+</span><span class=lnt> 17
+</span><span class=lnt> 18
+</span><span class=lnt> 19
+</span><span class=lnt> 20
+</span><span class=lnt> 21
+</span><span class=lnt> 22
+</span><span class=lnt> 23
+</span><span class=lnt> 24
+</span><span class=lnt> 25
+</span><span class=lnt> 26
+</span><span class=lnt> 27
+</span><span class=lnt> 28
+</span><span class=lnt> 29
+</span><span class=lnt> 30
+</span><span class=lnt> 31
+</span><span class=lnt> 32
+</span><span class=lnt> 33
+</span><span class=lnt> 34
+</span><span class=lnt> 35
+</span><span class=lnt> 36
+</span><span class=lnt> 37
+</span><span class=lnt> 38
+</span><span class=lnt> 39
+</span><span class=lnt> 40
+</span><span class=lnt> 41
+</span><span class=lnt> 42
+</span><span class=lnt> 43
+</span><span class=lnt> 44
+</span><span class=lnt> 45
+</span><span class=lnt> 46
+</span><span class=lnt> 47
+</span><span class=lnt> 48
+</span><span class=lnt> 49
+</span><span class=lnt> 50
+</span><span class=lnt> 51
+</span><span class=lnt> 52
+</span><span class=lnt> 53
+</span><span class=lnt> 54
+</span><span class=lnt> 55
+</span><span class=lnt> 56
+</span><span class=lnt> 57
+</span><span class=lnt> 58
+</span><span class=lnt> 59
+</span><span class=lnt> 60
+</span><span class=lnt> 61
+</span><span class=lnt> 62
+</span><span class=lnt> 63
+</span><span class=lnt> 64
+</span><span class=lnt> 65
+</span><span class=lnt> 66
+</span><span class=lnt> 67
+</span><span class=lnt> 68
+</span><span class=lnt> 69
+</span><span class=lnt> 70
+</span><span class=lnt> 71
+</span><span class=lnt> 72
+</span><span class=lnt> 73
+</span><span class=lnt> 74
+</span><span class=lnt> 75
+</span><span class=lnt> 76
+</span><span class=lnt> 77
+</span><span class=lnt> 78
+</span><span class=lnt> 79
+</span><span class=lnt> 80
+</span><span class=lnt> 81
+</span><span class=lnt> 82
+</span><span class=lnt> 83
+</span><span class=lnt> 84
+</span><span class=lnt> 85
+</span><span class=lnt> 86
+</span><span class=lnt> 87
+</span><span class=lnt> 88
+</span><span class=lnt> 89
+</span><span class=lnt> 90
+</span><span class=lnt> 91
+</span><span class=lnt> 92
+</span><span class=lnt> 93
+</span><span class=lnt> 94
+</span><span class=lnt> 95
+</span><span class=lnt> 96
+</span><span class=lnt> 97
+</span><span class=lnt> 98
+</span><span class=lnt> 99
+</span><span class=lnt>100
+</span><span class=lnt>101
+</span><span class=lnt>102
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=cp>#include</span> <span class=cpf>&lt;sys/select.h&gt;</span><span class=cp>
+</span></span></span><span class=line><span class=cl><span class=cp>#include</span> <span class=cpf>&lt;unistd.h&gt;</span><span class=cp>
+</span></span></span><span class=line><span class=cl><span class=cp></span>
+</span></span><span class=line><span class=cl><span class=cp>#include</span> <span class=cpf>&lt;array&gt;</span><span class=cp>
+</span></span></span><span class=line><span class=cl><span class=cp>#include</span> <span class=cpf>&lt;iostream&gt;</span><span class=cp>
+</span></span></span><span class=line><span class=cl><span class=cp></span>
+</span></span><span class=line><span class=cl><span class=cp>#include</span> <span class=cpf>&#34;util.hpp&#34;</span><span class=cp>
+</span></span></span><span class=line><span class=cl><span class=cp></span>
+</span></span><span class=line><span class=cl><span class=kt>int</span> <span class=nf>main</span><span class=p>(</span><span class=kt>int</span> <span class=n>argc</span><span class=p>,</span> <span class=kt>char</span><span class=o>*</span> <span class=n>argv</span><span class=p>[])</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=k>if</span> <span class=p>(</span><span class=n>argc</span> <span class=o>!=</span> <span class=mi>2</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=n>std</span><span class=o>::</span><span class=n>cerr</span> <span class=o>&lt;&lt;</span> <span class=s>&#34;Usage: ./select port</span><span class=se>\n</span><span class=s>&#34;</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>        <span class=k>return</span> <span class=o>-</span><span class=mi>1</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=kt>int</span> <span class=n>sockfd</span> <span class=o>=</span> <span class=n>socket_init</span><span class=p>(</span><span class=n>atoi</span><span class=p>(</span><span class=n>argv</span><span class=p>[</span><span class=mi>1</span><span class=p>]));</span>
+</span></span><span class=line><span class=cl>    <span class=n>std</span><span class=o>::</span><span class=n>cout</span> <span class=o>&lt;&lt;</span> <span class=s>&#34;Listen: &#34;</span> <span class=o>&lt;&lt;</span> <span class=n>sockfd</span> <span class=o>&lt;&lt;</span> <span class=sc>&#39;\n&#39;</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=c1>// select 可以监视上述读事件和写事件
+</span></span></span><span class=line><span class=cl><span class=c1></span>
+</span></span><span class=line><span class=cl>    <span class=c1>// 监视的 socket 集合，1024 bit 的 bitmap (int[32])
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=c1>// 操作位图的宏：
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=c1>// void FD_CLR(int fd, fd_set* set)
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=c1>// int FD_ISSET(int fd, fd_set* set)
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=c1>// void FD_SET(int fd, fd_set* set)
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=c1>// void FD_ZERO(fd_set* set)
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=n>fd_set</span> <span class=n>fds</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=n>FD_ZERO</span><span class=p>(</span><span class=o>&amp;</span><span class=n>fds</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=n>FD_SET</span><span class=p>(</span><span class=n>sockfd</span><span class=p>,</span> <span class=o>&amp;</span><span class=n>fds</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=kt>int</span> <span class=n>max_fd</span> <span class=o>=</span> <span class=n>sockfd</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=k>for</span> <span class=p>(;;)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=n>timeval</span> <span class=n>timeout</span><span class=p>{</span> <span class=p>.</span><span class=n>tv_sec</span> <span class=o>=</span> <span class=mi>10</span><span class=p>,</span> <span class=p>.</span><span class=n>tv_usec</span> <span class=o>=</span> <span class=mi>0</span> <span class=p>};</span>
+</span></span><span class=line><span class=cl>        <span class=c1>// 先拷贝一份 bitmap，因为会被修改
+</span></span></span><span class=line><span class=cl><span class=c1></span>        <span class=n>fd_set</span> <span class=n>tmpfds</span> <span class=o>=</span> <span class=n>fds</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>        <span class=c1>// select
+</span></span></span><span class=line><span class=cl><span class=c1></span>        <span class=c1>// p1: bitmap size (max + 1)
+</span></span></span><span class=line><span class=cl><span class=c1></span>        <span class=c1>// p2: 监视读事件的 bitmap
+</span></span></span><span class=line><span class=cl><span class=c1></span>        <span class=c1>// p3: 监视写事件的 bitmap，如果监视写事件，那么发送缓冲区没满就会一直通知
+</span></span></span><span class=line><span class=cl><span class=c1></span>        <span class=c1>// p4: 监视异常事件的 bitmap
+</span></span></span><span class=line><span class=cl><span class=c1></span>        <span class=kt>int</span> <span class=n>nfds</span> <span class=o>=</span> <span class=n>select</span><span class=p>(</span><span class=n>max_fd</span> <span class=o>+</span> <span class=mi>1</span><span class=p>,</span> <span class=o>&amp;</span><span class=n>tmpfds</span><span class=p>,</span> <span class=k>nullptr</span><span class=p>,</span> <span class=k>nullptr</span><span class=p>,</span> <span class=k>nullptr</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>        <span class=k>if</span> <span class=p>(</span><span class=n>nfds</span> <span class=o>&lt;</span> <span class=mi>0</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>            <span class=n>std</span><span class=o>::</span><span class=n>cerr</span> <span class=o>&lt;&lt;</span> <span class=s>&#34;select() failed</span><span class=se>\n</span><span class=s>&#34;</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>        <span class=p>}</span>
+</span></span><span class=line><span class=cl>        <span class=k>if</span> <span class=p>(</span><span class=n>nfds</span> <span class=o>==</span> <span class=mi>0</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>            <span class=n>std</span><span class=o>::</span><span class=n>cerr</span> <span class=o>&lt;&lt;</span> <span class=s>&#34;select() timeout</span><span class=se>\n</span><span class=s>&#34;</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>        <span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>        <span class=c1>// if &gt; 0
+</span></span></span><span class=line><span class=cl><span class=c1></span>        <span class=k>for</span> <span class=p>(</span><span class=kt>int</span> <span class=n>eventfd</span><span class=p>{};</span> <span class=n>eventfd</span> <span class=o>&lt;=</span> <span class=n>max_fd</span><span class=p>;</span> <span class=o>++</span><span class=n>eventfd</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>            <span class=k>if</span> <span class=p>(</span><span class=n>FD_ISSET</span><span class=p>(</span><span class=n>eventfd</span><span class=p>,</span> <span class=o>&amp;</span><span class=n>tmpfds</span><span class=p>)</span> <span class=o>==</span> <span class=mi>0</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>                <span class=k>continue</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>            <span class=c1>//  发生事件的是 linsten socket，那么说明有新的客户端连接
+</span></span></span><span class=line><span class=cl><span class=c1></span>            <span class=k>if</span> <span class=p>(</span><span class=n>eventfd</span> <span class=o>==</span> <span class=n>sockfd</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>                <span class=n>sockaddr_in</span> <span class=n>client</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>                <span class=n>socklen_t</span> <span class=n>len</span> <span class=o>=</span> <span class=k>sizeof</span><span class=p>(</span><span class=n>sockaddr_in</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>                <span class=kt>int</span> <span class=n>client_sock</span> <span class=o>=</span> <span class=n>accept</span><span class=p>(</span><span class=n>sockfd</span><span class=p>,</span> <span class=p>(</span><span class=n>sockaddr</span><span class=o>*</span><span class=p>)</span><span class=o>&amp;</span><span class=n>client</span><span class=p>,</span> <span class=o>&amp;</span><span class=n>len</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>                <span class=k>if</span> <span class=p>(</span><span class=n>client_sock</span> <span class=o>&lt;</span> <span class=mi>0</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>                    <span class=n>std</span><span class=o>::</span><span class=n>cerr</span> <span class=o>&lt;&lt;</span> <span class=s>&#34;accept() failed</span><span class=se>\n</span><span class=s>&#34;</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>                    <span class=k>continue</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>                <span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>                <span class=n>std</span><span class=o>::</span><span class=n>cout</span> <span class=o>&lt;&lt;</span> <span class=s>&#34;accept client. socket = &#34;</span> <span class=o>&lt;&lt;</span> <span class=n>client_sock</span> <span class=o>&lt;&lt;</span> <span class=sc>&#39;\n&#39;</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>                <span class=c1>// 把新连接的 socket 也要进行监听
+</span></span></span><span class=line><span class=cl><span class=c1></span>                <span class=n>FD_SET</span><span class=p>(</span><span class=n>client_sock</span><span class=p>,</span> <span class=o>&amp;</span><span class=n>fds</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>                <span class=n>max_fd</span> <span class=o>=</span> <span class=n>std</span><span class=o>::</span><span class=n>max</span><span class=p>(</span><span class=n>max_fd</span><span class=p>,</span> <span class=n>client_sock</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>            <span class=p>}</span> <span class=k>else</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>                <span class=c1>// 如果是客户端的 socket 发生事件，
+</span></span></span><span class=line><span class=cl><span class=c1></span>                <span class=c1>// 那么 1. 说明是接收到了数据; 2. 客户端断开连接
+</span></span></span><span class=line><span class=cl><span class=c1></span>                <span class=n>std</span><span class=o>::</span><span class=n>array</span><span class=o>&lt;</span><span class=kt>char</span><span class=p>,</span> <span class=mi>1024</span><span class=o>&gt;</span> <span class=n>buf</span><span class=p>{};</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>                <span class=c1>// 客户端断开连接
+</span></span></span><span class=line><span class=cl><span class=c1></span>                <span class=k>if</span> <span class=p>(</span><span class=n>read</span><span class=p>(</span><span class=n>eventfd</span><span class=p>,</span> <span class=n>buf</span><span class=p>.</span><span class=n>data</span><span class=p>(),</span> <span class=n>buf</span><span class=p>.</span><span class=n>size</span><span class=p>())</span> <span class=o>&lt;=</span> <span class=mi>0</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>                    <span class=n>std</span><span class=o>::</span><span class=n>cout</span> <span class=o>&lt;&lt;</span> <span class=s>&#34;Disconnected. socket = &#34;</span> <span class=o>&lt;&lt;</span> <span class=n>eventfd</span> <span class=o>&lt;&lt;</span> <span class=sc>&#39;\n&#39;</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>                    <span class=n>close</span><span class=p>(</span><span class=n>eventfd</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>                    <span class=n>FD_CLR</span><span class=p>(</span><span class=n>eventfd</span><span class=p>,</span> <span class=o>&amp;</span><span class=n>fds</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>                    <span class=c1>// 恰好是最后一个客户端，那么就要重新计算 max_fd
+</span></span></span><span class=line><span class=cl><span class=c1></span>                    <span class=k>if</span> <span class=p>(</span><span class=n>eventfd</span> <span class=o>==</span> <span class=n>max_fd</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>                        <span class=k>for</span> <span class=p>(</span><span class=kt>int</span> <span class=n>i</span> <span class=o>=</span> <span class=n>max_fd</span><span class=p>;</span> <span class=n>i</span> <span class=o>&gt;</span> <span class=mi>0</span><span class=p>;</span> <span class=o>--</span><span class=n>i</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>                            <span class=k>if</span> <span class=p>(</span><span class=n>FD_ISSET</span><span class=p>(</span><span class=n>i</span><span class=p>,</span> <span class=o>&amp;</span><span class=n>fds</span><span class=p>))</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>                                <span class=n>max_fd</span> <span class=o>=</span> <span class=n>i</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>                                <span class=k>break</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>                            <span class=p>}</span>
+</span></span><span class=line><span class=cl>                        <span class=p>}</span>
+</span></span><span class=line><span class=cl>                    <span class=p>}</span>
+</span></span><span class=line><span class=cl>                <span class=p>}</span> <span class=k>else</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>                    <span class=c1>// 如果客户端有数据发送
+</span></span></span><span class=line><span class=cl><span class=c1></span>                    <span class=n>std</span><span class=o>::</span><span class=n>cout</span> <span class=o>&lt;&lt;</span> <span class=s>&#34;client: &#34;</span> <span class=o>&lt;&lt;</span> <span class=n>eventfd</span> <span class=o>&lt;&lt;</span> <span class=s>&#34;</span><span class=se>\n</span><span class=s>msg: &#34;</span> <span class=o>&lt;&lt;</span> <span class=n>buf</span><span class=p>.</span><span class=n>data</span><span class=p>();</span>
+</span></span><span class=line><span class=cl>                    <span class=n>write</span><span class=p>(</span><span class=n>eventfd</span><span class=p>,</span> <span class=n>buf</span><span class=p>.</span><span class=n>data</span><span class=p>(),</span> <span class=n>buf</span><span class=p>.</span><span class=n>size</span><span class=p>());</span>
+</span></span><span class=line><span class=cl>                <span class=p>}</span>
+</span></span><span class=line><span class=cl>            <span class=p>}</span>
+</span></span><span class=line><span class=cl>        <span class=p>}</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>    <span class=k>return</span> <span class=mi>0</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><p>select 遵循水平触发，fd 发生事件 select 就会返回通知；如果事件没有被处理，那么再次调用 select 也会返回。</p><p>问题：</p><ul><li>轮询方式扫描 bitmap，socket一多性能就拉胯</li><li><strong>每次都得拷贝 bitmap</strong></li><li>bitmap 数量有限制</li></ul><h2 id=poll>poll</h2><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span><span class=lnt>20
+</span><span class=lnt>21
+</span><span class=lnt>22
+</span><span class=lnt>23
+</span><span class=lnt>24
+</span><span class=lnt>25
+</span><span class=lnt>26
+</span><span class=lnt>27
+</span><span class=lnt>28
+</span><span class=lnt>29
+</span><span class=lnt>30
+</span><span class=lnt>31
+</span><span class=lnt>32
+</span><span class=lnt>33
+</span><span class=lnt>34
+</span><span class=lnt>35
+</span><span class=lnt>36
+</span><span class=lnt>37
+</span><span class=lnt>38
+</span><span class=lnt>39
+</span><span class=lnt>40
+</span><span class=lnt>41
+</span><span class=lnt>42
+</span><span class=lnt>43
+</span><span class=lnt>44
+</span><span class=lnt>45
+</span><span class=lnt>46
+</span><span class=lnt>47
+</span><span class=lnt>48
+</span><span class=lnt>49
+</span><span class=lnt>50
+</span><span class=lnt>51
+</span><span class=lnt>52
+</span><span class=lnt>53
+</span><span class=lnt>54
+</span><span class=lnt>55
+</span><span class=lnt>56
+</span><span class=lnt>57
+</span><span class=lnt>58
+</span><span class=lnt>59
+</span><span class=lnt>60
+</span><span class=lnt>61
+</span><span class=lnt>62
+</span><span class=lnt>63
+</span><span class=lnt>64
+</span><span class=lnt>65
+</span><span class=lnt>66
+</span><span class=lnt>67
+</span><span class=lnt>68
+</span><span class=lnt>69
+</span><span class=lnt>70
+</span><span class=lnt>71
+</span><span class=lnt>72
+</span><span class=lnt>73
+</span><span class=lnt>74
+</span><span class=lnt>75
+</span><span class=lnt>76
+</span><span class=lnt>77
+</span><span class=lnt>78
+</span><span class=lnt>79
+</span><span class=lnt>80
+</span><span class=lnt>81
+</span><span class=lnt>82
+</span><span class=lnt>83
+</span><span class=lnt>84
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=cp>#include</span> <span class=cpf>&lt;poll.h&gt;</span><span class=cp>
+</span></span></span><span class=line><span class=cl><span class=cp>#include</span> <span class=cpf>&lt;unistd.h&gt;</span><span class=cp>
+</span></span></span><span class=line><span class=cl><span class=cp></span>
+</span></span><span class=line><span class=cl><span class=cp>#include</span> <span class=cpf>&lt;array&gt;</span><span class=cp>
+</span></span></span><span class=line><span class=cl><span class=cp>#include</span> <span class=cpf>&lt;iostream&gt;</span><span class=cp>
+</span></span></span><span class=line><span class=cl><span class=cp></span>
+</span></span><span class=line><span class=cl><span class=cp>#include</span> <span class=cpf>&#34;util.hpp&#34;</span><span class=cp>
+</span></span></span><span class=line><span class=cl><span class=cp></span>
+</span></span><span class=line><span class=cl><span class=kt>int</span> <span class=nf>main</span><span class=p>(</span><span class=kt>int</span> <span class=n>argc</span><span class=p>,</span> <span class=kt>char</span><span class=o>*</span> <span class=n>argv</span><span class=p>[])</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=k>if</span> <span class=p>(</span><span class=n>argc</span> <span class=o>!=</span> <span class=mi>2</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=n>std</span><span class=o>::</span><span class=n>cerr</span> <span class=o>&lt;&lt;</span> <span class=s>&#34;Usage: ./select port</span><span class=se>\n</span><span class=s>&#34;</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>        <span class=k>return</span> <span class=o>-</span><span class=mi>1</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=kt>int</span> <span class=n>sockfd</span> <span class=o>=</span> <span class=n>socket_init</span><span class=p>(</span><span class=n>atoi</span><span class=p>(</span><span class=n>argv</span><span class=p>[</span><span class=mi>1</span><span class=p>]));</span>
+</span></span><span class=line><span class=cl>    <span class=n>std</span><span class=o>::</span><span class=n>cout</span> <span class=o>&lt;&lt;</span> <span class=s>&#34;Listen: &#34;</span> <span class=o>&lt;&lt;</span> <span class=n>sockfd</span> <span class=o>&lt;&lt;</span> <span class=sc>&#39;\n&#39;</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=c1>// fds 存放需要监视的 socket
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=n>pollfd</span> <span class=n>fds</span><span class=p>[</span><span class=mi>1024</span><span class=p>];</span>
+</span></span><span class=line><span class=cl>    <span class=c1>// poll 会忽略 -1 的 socket
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=k>for</span> <span class=p>(</span><span class=kt>int</span> <span class=n>i</span><span class=p>{};</span> <span class=n>i</span> <span class=o>&lt;</span> <span class=mi>1024</span><span class=p>;</span> <span class=o>++</span><span class=n>i</span><span class=p>)</span> <span class=p>{</span> <span class=n>fds</span><span class=p>[</span><span class=n>i</span><span class=p>].</span><span class=n>fd</span> <span class=o>=</span> <span class=o>-</span><span class=mi>1</span><span class=p>;</span> <span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=c1>// 监视 listen socket
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=n>fds</span><span class=p>[</span><span class=n>sockfd</span><span class=p>].</span><span class=n>fd</span> <span class=o>=</span> <span class=n>sockfd</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=n>fds</span><span class=p>[</span><span class=n>sockfd</span><span class=p>].</span><span class=n>events</span> <span class=o>=</span> <span class=n>POLLIN</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=c1>// POLLIN | POLLOUT
+</span></span></span><span class=line><span class=cl><span class=c1></span>
+</span></span><span class=line><span class=cl>    <span class=kt>int</span> <span class=n>max_fd</span> <span class=o>=</span> <span class=n>sockfd</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=k>for</span> <span class=p>(;;)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=kt>int</span> <span class=n>nfds</span> <span class=o>=</span> <span class=n>poll</span><span class=p>(</span><span class=n>fds</span><span class=p>,</span> <span class=mi>1024</span><span class=p>,</span> <span class=o>-</span><span class=mi>1</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>        <span class=k>if</span> <span class=p>(</span><span class=n>nfds</span> <span class=o>&lt;</span> <span class=mi>0</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>            <span class=n>std</span><span class=o>::</span><span class=n>cerr</span> <span class=o>&lt;&lt;</span> <span class=s>&#34;poll() failed.</span><span class=se>\n</span><span class=s>&#34;</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>        <span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>        <span class=k>for</span> <span class=p>(</span><span class=kt>int</span> <span class=n>eventfd</span><span class=p>{};</span> <span class=n>eventfd</span> <span class=o>&lt;=</span> <span class=n>max_fd</span><span class=p>;</span> <span class=o>++</span><span class=n>eventfd</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>            <span class=k>if</span> <span class=p>(</span><span class=n>fds</span><span class=p>[</span><span class=n>eventfd</span><span class=p>].</span><span class=n>revents</span> <span class=o>&amp;</span> <span class=n>POLLIN</span> <span class=o>==</span> <span class=mi>0</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>                <span class=k>continue</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>            <span class=c1>//  发生事件的是 linsten socket，那么说明有新的客户端连接
+</span></span></span><span class=line><span class=cl><span class=c1></span>            <span class=k>if</span> <span class=p>(</span><span class=n>eventfd</span> <span class=o>==</span> <span class=n>sockfd</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>                <span class=n>sockaddr_in</span> <span class=n>client</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>                <span class=n>socklen_t</span> <span class=n>len</span> <span class=o>=</span> <span class=k>sizeof</span><span class=p>(</span><span class=n>sockaddr_in</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>                <span class=kt>int</span> <span class=n>client_sock</span> <span class=o>=</span> <span class=n>accept</span><span class=p>(</span><span class=n>sockfd</span><span class=p>,</span> <span class=p>(</span><span class=n>sockaddr</span><span class=o>*</span><span class=p>)</span><span class=o>&amp;</span><span class=n>client</span><span class=p>,</span> <span class=o>&amp;</span><span class=n>len</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>                <span class=k>if</span> <span class=p>(</span><span class=n>client_sock</span> <span class=o>&lt;</span> <span class=mi>0</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>                    <span class=n>std</span><span class=o>::</span><span class=n>cerr</span> <span class=o>&lt;&lt;</span> <span class=s>&#34;accept() failed</span><span class=se>\n</span><span class=s>&#34;</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>                    <span class=k>continue</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>                <span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>                <span class=n>std</span><span class=o>::</span><span class=n>cout</span> <span class=o>&lt;&lt;</span> <span class=s>&#34;accept client. socket = &#34;</span> <span class=o>&lt;&lt;</span> <span class=n>client_sock</span> <span class=o>&lt;&lt;</span> <span class=sc>&#39;\n&#39;</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>                <span class=n>fds</span><span class=p>[</span><span class=n>client_sock</span><span class=p>].</span><span class=n>fd</span> <span class=o>=</span> <span class=n>client_sock</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>                <span class=n>fds</span><span class=p>[</span><span class=n>client_sock</span><span class=p>].</span><span class=n>events</span> <span class=o>=</span> <span class=n>POLLIN</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>                <span class=n>max_fd</span> <span class=o>=</span> <span class=n>std</span><span class=o>::</span><span class=n>max</span><span class=p>(</span><span class=n>max_fd</span><span class=p>,</span> <span class=n>client_sock</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>            <span class=p>}</span> <span class=k>else</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>                <span class=c1>// 如果是客户端的 socket 发生事件，
+</span></span></span><span class=line><span class=cl><span class=c1></span>                <span class=c1>// 那么 1. 说明是接收到了数据; 2. 客户端断开连接
+</span></span></span><span class=line><span class=cl><span class=c1></span>                <span class=n>std</span><span class=o>::</span><span class=n>array</span><span class=o>&lt;</span><span class=kt>char</span><span class=p>,</span> <span class=mi>1024</span><span class=o>&gt;</span> <span class=n>buf</span><span class=p>{};</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>                <span class=c1>// 客户端断开连接
+</span></span></span><span class=line><span class=cl><span class=c1></span>                <span class=k>if</span> <span class=p>(</span><span class=n>read</span><span class=p>(</span><span class=n>eventfd</span><span class=p>,</span> <span class=n>buf</span><span class=p>.</span><span class=n>data</span><span class=p>(),</span> <span class=n>buf</span><span class=p>.</span><span class=n>size</span><span class=p>())</span> <span class=o>&lt;=</span> <span class=mi>0</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>                    <span class=n>std</span><span class=o>::</span><span class=n>cout</span> <span class=o>&lt;&lt;</span> <span class=s>&#34;Disconnected. socket = &#34;</span> <span class=o>&lt;&lt;</span> <span class=n>eventfd</span> <span class=o>&lt;&lt;</span> <span class=sc>&#39;\n&#39;</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>                    <span class=n>close</span><span class=p>(</span><span class=n>eventfd</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>                    <span class=n>fds</span><span class=p>[</span><span class=n>eventfd</span><span class=p>].</span><span class=n>fd</span> <span class=o>=</span> <span class=o>-</span><span class=mi>1</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>                    <span class=c1>// 恰好是最后一个客户端，那么就要重新计算 max_fd
+</span></span></span><span class=line><span class=cl><span class=c1></span>                    <span class=k>if</span> <span class=p>(</span><span class=n>eventfd</span> <span class=o>==</span> <span class=n>max_fd</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>                        <span class=k>for</span> <span class=p>(</span><span class=kt>int</span> <span class=n>i</span> <span class=o>=</span> <span class=n>max_fd</span><span class=p>;</span> <span class=n>i</span> <span class=o>&gt;</span> <span class=mi>0</span><span class=p>;</span> <span class=o>--</span><span class=n>i</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>                            <span class=k>if</span> <span class=p>(</span><span class=n>fds</span><span class=p>[</span><span class=n>eventfd</span><span class=p>].</span><span class=n>fd</span> <span class=o>!=</span> <span class=o>-</span><span class=mi>1</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>                                <span class=n>max_fd</span> <span class=o>=</span> <span class=n>i</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>                                <span class=k>break</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>                            <span class=p>}</span>
+</span></span><span class=line><span class=cl>                        <span class=p>}</span>
+</span></span><span class=line><span class=cl>                    <span class=p>}</span>
+</span></span><span class=line><span class=cl>                <span class=p>}</span> <span class=k>else</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>                    <span class=c1>// 如果客户端有数据发送
+</span></span></span><span class=line><span class=cl><span class=c1></span>                    <span class=n>std</span><span class=o>::</span><span class=n>cout</span> <span class=o>&lt;&lt;</span> <span class=s>&#34;client: &#34;</span> <span class=o>&lt;&lt;</span> <span class=n>eventfd</span> <span class=o>&lt;&lt;</span> <span class=s>&#34;</span><span class=se>\n</span><span class=s>msg: &#34;</span> <span class=o>&lt;&lt;</span> <span class=n>buf</span><span class=p>.</span><span class=n>data</span><span class=p>();</span>
+</span></span><span class=line><span class=cl>                    <span class=n>write</span><span class=p>(</span><span class=n>eventfd</span><span class=p>,</span> <span class=n>buf</span><span class=p>.</span><span class=n>data</span><span class=p>(),</span> <span class=n>buf</span><span class=p>.</span><span class=n>size</span><span class=p>());</span>
+</span></span><span class=line><span class=cl>                <span class=p>}</span>
+</span></span><span class=line><span class=cl>            <span class=p>}</span>
+</span></span><span class=line><span class=cl>        <span class=p>}</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><p>poll 基本就是 select 的 plus 版，没啥太大区别</p><ul><li>poll 的数据结构是数组，在内核中为链表</li><li>调用一次 select 要拷贝两次 bitmap (自己拷贝一次，内核拷贝一次)，poll 要拷贝一次结构体数组</li><li>poll 没有 1024 限制，但也很烦</li></ul><h2 id=epoll>epoll</h2><h3 id=lt>LT</h3><p>水平触发：不管是读事件还是写事件，只要有数据，那么调用 epoll_wait 就会通知，触发事件。</p><p>也就是说，epoll 会一直通知你，直到你把数据发送/接收完。</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span><span class=lnt>20
+</span><span class=lnt>21
+</span><span class=lnt>22
+</span><span class=lnt>23
+</span><span class=lnt>24
+</span><span class=lnt>25
+</span><span class=lnt>26
+</span><span class=lnt>27
+</span><span class=lnt>28
+</span><span class=lnt>29
+</span><span class=lnt>30
+</span><span class=lnt>31
+</span><span class=lnt>32
+</span><span class=lnt>33
+</span><span class=lnt>34
+</span><span class=lnt>35
+</span><span class=lnt>36
+</span><span class=lnt>37
+</span><span class=lnt>38
+</span><span class=lnt>39
+</span><span class=lnt>40
+</span><span class=lnt>41
+</span><span class=lnt>42
+</span><span class=lnt>43
+</span><span class=lnt>44
+</span><span class=lnt>45
+</span><span class=lnt>46
+</span><span class=lnt>47
+</span><span class=lnt>48
+</span><span class=lnt>49
+</span><span class=lnt>50
+</span><span class=lnt>51
+</span><span class=lnt>52
+</span><span class=lnt>53
+</span><span class=lnt>54
+</span><span class=lnt>55
+</span><span class=lnt>56
+</span><span class=lnt>57
+</span><span class=lnt>58
+</span><span class=lnt>59
+</span><span class=lnt>60
+</span><span class=lnt>61
+</span><span class=lnt>62
+</span><span class=lnt>63
+</span><span class=lnt>64
+</span><span class=lnt>65
+</span><span class=lnt>66
+</span><span class=lnt>67
+</span><span class=lnt>68
+</span><span class=lnt>69
+</span><span class=lnt>70
+</span><span class=lnt>71
+</span><span class=lnt>72
+</span><span class=lnt>73
+</span><span class=lnt>74
+</span><span class=lnt>75
+</span><span class=lnt>76
+</span><span class=lnt>77
+</span><span class=lnt>78
+</span><span class=lnt>79
+</span><span class=lnt>80
+</span><span class=lnt>81
+</span><span class=lnt>82
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=cp>#include</span> <span class=cpf>&lt;sys/epoll.h&gt;</span><span class=cp>
+</span></span></span><span class=line><span class=cl><span class=cp>#include</span> <span class=cpf>&lt;unistd.h&gt;</span><span class=cp>
+</span></span></span><span class=line><span class=cl><span class=cp></span>
+</span></span><span class=line><span class=cl><span class=cp>#include</span> <span class=cpf>&lt;array&gt;</span><span class=cp>
+</span></span></span><span class=line><span class=cl><span class=cp>#include</span> <span class=cpf>&lt;iostream&gt;</span><span class=cp>
+</span></span></span><span class=line><span class=cl><span class=cp></span>
+</span></span><span class=line><span class=cl><span class=cp>#include</span> <span class=cpf>&#34;util.hpp&#34;</span><span class=cp>
+</span></span></span><span class=line><span class=cl><span class=cp></span>
+</span></span><span class=line><span class=cl><span class=kt>int</span> <span class=nf>main</span><span class=p>(</span><span class=kt>int</span> <span class=n>argc</span><span class=p>,</span> <span class=kt>char</span><span class=o>*</span> <span class=n>argv</span><span class=p>[])</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=k>if</span> <span class=p>(</span><span class=n>argc</span> <span class=o>!=</span> <span class=mi>2</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=n>std</span><span class=o>::</span><span class=n>cerr</span> <span class=o>&lt;&lt;</span> <span class=s>&#34;Usage: ./select port</span><span class=se>\n</span><span class=s>&#34;</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>        <span class=k>return</span> <span class=o>-</span><span class=mi>1</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=kt>int</span> <span class=n>sockfd</span> <span class=o>=</span> <span class=n>socket_init</span><span class=p>(</span><span class=n>atoi</span><span class=p>(</span><span class=n>argv</span><span class=p>[</span><span class=mi>1</span><span class=p>]));</span>
+</span></span><span class=line><span class=cl>    <span class=n>std</span><span class=o>::</span><span class=n>cout</span> <span class=o>&lt;&lt;</span> <span class=s>&#34;Listen: &#34;</span> <span class=o>&lt;&lt;</span> <span class=n>sockfd</span> <span class=o>&lt;&lt;</span> <span class=sc>&#39;\n&#39;</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=c1>// 创建 epoll fd
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=kt>int</span> <span class=n>epollfd</span> <span class=o>=</span> <span class=n>epoll_create</span><span class=p>(</span><span class=mi>1</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=c1>// 为服务端准备读事件
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=n>epoll_event</span> <span class=n>ev</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=c1>// 指定事件的自定义数据，会随 epoll_wait() 返回的事件一起返回
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=n>ev</span><span class=p>.</span><span class=n>data</span><span class=p>.</span><span class=n>fd</span> <span class=o>=</span> <span class=n>sockfd</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=n>ev</span><span class=p>.</span><span class=n>events</span> <span class=o>=</span> <span class=n>EPOLLIN</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=c1>// 需要监听的 socket 加入 epoll
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=n>epoll_ctl</span><span class=p>(</span><span class=n>epollfd</span><span class=p>,</span> <span class=n>EPOLL_CTL_ADD</span><span class=p>,</span> <span class=n>sockfd</span><span class=p>,</span> <span class=o>&amp;</span><span class=n>ev</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=c1>// 事件数组，可以随意设置大小
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=n>epoll_event</span> <span class=n>evs</span><span class=p>[</span><span class=mi>10</span><span class=p>];</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=k>for</span> <span class=p>(;;)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=kt>int</span> <span class=n>nfds</span> <span class=o>=</span> <span class=n>epoll_wait</span><span class=p>(</span><span class=n>epollfd</span><span class=p>,</span> <span class=n>evs</span><span class=p>,</span> <span class=mi>10</span><span class=p>,</span> <span class=o>-</span><span class=mi>1</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>        <span class=k>if</span> <span class=p>(</span><span class=n>nfds</span> <span class=o>&lt;</span> <span class=mi>0</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>            <span class=n>std</span><span class=o>::</span><span class=n>cerr</span> <span class=o>&lt;&lt;</span> <span class=s>&#34;epoll_wait() failed.</span><span class=se>\n</span><span class=s>&#34;</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>            <span class=k>break</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>        <span class=p>}</span>
+</span></span><span class=line><span class=cl>        <span class=k>if</span> <span class=p>(</span><span class=n>nfds</span> <span class=o>==</span> <span class=mi>0</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>            <span class=n>std</span><span class=o>::</span><span class=n>cerr</span> <span class=o>&lt;&lt;</span> <span class=s>&#34;epoll_wait() timeout.</span><span class=se>\n</span><span class=s>&#34;</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>            <span class=k>continue</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>        <span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>        <span class=k>for</span> <span class=p>(</span><span class=kt>int</span> <span class=n>i</span><span class=p>{};</span> <span class=n>i</span> <span class=o>&lt;</span> <span class=n>nfds</span><span class=p>;</span> <span class=o>++</span><span class=n>i</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>            <span class=c1>// 如果发生事件的是 sockfd 表示有新连接
+</span></span></span><span class=line><span class=cl><span class=c1></span>            <span class=k>if</span> <span class=p>(</span><span class=n>evs</span><span class=p>[</span><span class=n>i</span><span class=p>].</span><span class=n>data</span><span class=p>.</span><span class=n>fd</span> <span class=o>==</span> <span class=n>sockfd</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>                <span class=n>sockaddr_in</span> <span class=n>client</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>                <span class=n>socklen_t</span> <span class=n>len</span> <span class=o>=</span> <span class=k>sizeof</span><span class=p>(</span><span class=n>sockaddr_in</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>                <span class=kt>int</span> <span class=n>client_sock</span> <span class=o>=</span> <span class=n>accept</span><span class=p>(</span><span class=n>sockfd</span><span class=p>,</span> <span class=p>(</span><span class=n>sockaddr</span><span class=o>*</span><span class=p>)</span><span class=o>&amp;</span><span class=n>client</span><span class=p>,</span> <span class=o>&amp;</span><span class=n>len</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>                <span class=k>if</span> <span class=p>(</span><span class=n>client_sock</span> <span class=o>&lt;</span> <span class=mi>0</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>                    <span class=n>std</span><span class=o>::</span><span class=n>cerr</span> <span class=o>&lt;&lt;</span> <span class=s>&#34;accept() failed</span><span class=se>\n</span><span class=s>&#34;</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>                    <span class=k>continue</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>                <span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>                <span class=n>std</span><span class=o>::</span><span class=n>cout</span> <span class=o>&lt;&lt;</span> <span class=s>&#34;accept client. socket = &#34;</span> <span class=o>&lt;&lt;</span> <span class=n>client_sock</span> <span class=o>&lt;&lt;</span> <span class=sc>&#39;\n&#39;</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>                <span class=c1>// 为新的连接准备事件
+</span></span></span><span class=line><span class=cl><span class=c1></span>                <span class=n>ev</span><span class=p>.</span><span class=n>data</span><span class=p>.</span><span class=n>fd</span> <span class=o>=</span> <span class=n>client_sock</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>                <span class=n>ev</span><span class=p>.</span><span class=n>events</span> <span class=o>=</span> <span class=n>EPOLLIN</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>                <span class=n>epoll_ctl</span><span class=p>(</span><span class=n>epollfd</span><span class=p>,</span> <span class=n>EPOLL_CTL_ADD</span><span class=p>,</span> <span class=n>client_sock</span><span class=p>,</span> <span class=o>&amp;</span><span class=n>ev</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>            <span class=p>}</span> <span class=k>else</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>                <span class=c1>// 如果是客户端的 socket 发生事件，
+</span></span></span><span class=line><span class=cl><span class=c1></span>                <span class=c1>// 那么 1. 说明是接收到了数据; 2. 客户端断开连接
+</span></span></span><span class=line><span class=cl><span class=c1></span>                <span class=n>std</span><span class=o>::</span><span class=n>array</span><span class=o>&lt;</span><span class=kt>char</span><span class=p>,</span> <span class=mi>1024</span><span class=o>&gt;</span> <span class=n>buf</span><span class=p>{};</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>                <span class=c1>// 客户端断开连接
+</span></span></span><span class=line><span class=cl><span class=c1></span>                <span class=k>if</span> <span class=p>(</span><span class=n>recv</span><span class=p>(</span><span class=n>evs</span><span class=p>[</span><span class=n>i</span><span class=p>].</span><span class=n>data</span><span class=p>.</span><span class=n>fd</span><span class=p>,</span> <span class=n>buf</span><span class=p>.</span><span class=n>data</span><span class=p>(),</span> <span class=n>buf</span><span class=p>.</span><span class=n>size</span><span class=p>(),</span> <span class=mi>0</span><span class=p>)</span> <span class=o>&lt;=</span> <span class=mi>0</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>                    <span class=n>std</span><span class=o>::</span><span class=n>cout</span> <span class=o>&lt;&lt;</span> <span class=s>&#34;Disconnected. socket = &#34;</span> <span class=o>&lt;&lt;</span> <span class=n>evs</span><span class=p>[</span><span class=n>i</span><span class=p>].</span><span class=n>data</span><span class=p>.</span><span class=n>fd</span> <span class=o>&lt;&lt;</span> <span class=sc>&#39;\n&#39;</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>                    <span class=n>close</span><span class=p>(</span><span class=n>evs</span><span class=p>[</span><span class=n>i</span><span class=p>].</span><span class=n>data</span><span class=p>.</span><span class=n>fd</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>                    <span class=c1>// socket 关闭后会自动被删除
+</span></span></span><span class=line><span class=cl><span class=c1></span>                    <span class=c1>// epoll_ctl(epollfd, EPOLL_CTL_DEL, evs[i].data.fd, 0);
+</span></span></span><span class=line><span class=cl><span class=c1></span>                <span class=p>}</span> <span class=k>else</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>                    <span class=c1>// 如果客户端有数据发送
+</span></span></span><span class=line><span class=cl><span class=c1></span>                    <span class=n>std</span><span class=o>::</span><span class=n>cout</span> <span class=o>&lt;&lt;</span> <span class=s>&#34;client: &#34;</span> <span class=o>&lt;&lt;</span> <span class=n>evs</span><span class=p>[</span><span class=n>i</span><span class=p>].</span><span class=n>data</span><span class=p>.</span><span class=n>fd</span> <span class=o>&lt;&lt;</span> <span class=s>&#34;</span><span class=se>\n</span><span class=s>msg: &#34;</span> <span class=o>&lt;&lt;</span> <span class=n>buf</span><span class=p>.</span><span class=n>data</span><span class=p>();</span>
+</span></span><span class=line><span class=cl>                    <span class=n>send</span><span class=p>(</span><span class=n>evs</span><span class=p>[</span><span class=n>i</span><span class=p>].</span><span class=n>data</span><span class=p>.</span><span class=n>fd</span><span class=p>,</span> <span class=n>buf</span><span class=p>.</span><span class=n>data</span><span class=p>(),</span> <span class=n>buf</span><span class=p>.</span><span class=n>size</span><span class=p>(),</span> <span class=mi>0</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>                <span class=p>}</span>
+</span></span><span class=line><span class=cl>            <span class=p>}</span>
+</span></span><span class=line><span class=cl>        <span class=p>}</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>    <span class=k>return</span> <span class=mi>0</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><h3 id=et>ET</h3><p>边缘触发：</p><p>读事件：<strong>只有新的数据到达</strong>，才会触发读事件，不管有没有处理读事件，epoll_wait 对于每个事件只提醒一次。也就是说，如果数据没读完，那也不会再通知你；每次只会读 buffer 数量的数据（下一次有新数据时继续读）</p><p>写事件：epoll_wait 触发写后，如果发送缓冲区仍然没有写满，那么就不会再次触发。发送缓冲区从满 -> 不满，才会触发写事件。</p><p>监听 socket 采用边缘触发时，要使用非阻塞模式，否则会有 socket 在队列中没有被处理；然后使用循环。</p><p>如果客户端连接进来的 socket 使用边缘触发，也要设置为非阻塞模式，之后循环调用 recv</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp></code></pre></td></tr></table></div></div><h2 id=udp-编程>UDP 编程</h2><p>以下是经典的 UDP 客户/服务器程序的函数调用。</p><img src=image-20240317151334367.png alt=UDP style=zoom:67%><p><strong>客户不与服务器建立连接</strong>，只是单纯使用 <code>sendto()</code> 发送数据报，必须指定目的地地址。类似地，服务器不接受连接，只是使用 <code>recvfrom()</code> 函数，等待某个客户端的数据到达。</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=cp>#include</span> <span class=cpf>&lt;sys/socket.h&gt;</span><span class=cp>
+</span></span></span><span class=line><span class=cl><span class=cp></span><span class=n>ssize_t</span> <span class=nf>recvfrom</span><span class=p>(</span><span class=kt>int</span> <span class=n>sockfd</span><span class=p>,</span> <span class=kt>void</span><span class=o>*</span> <span class=n>buff</span><span class=p>,</span> <span class=n>size_t</span> <span class=n>nbytes</span><span class=p>,</span> <span class=kt>int</span> <span class=n>flags</span><span class=p>,</span> 
+</span></span><span class=line><span class=cl>                <span class=k>struct</span> <span class=nc>sockaddr</span><span class=o>*</span> <span class=n>from</span><span class=p>,</span> <span class=n>socklen_t</span><span class=o>*</span> <span class=n>addrlen</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=n>ssize_t</span> <span class=nf>sendto</span><span class=p>(</span><span class=kt>int</span> <span class=n>sockfd</span><span class=p>,</span> <span class=kt>void</span><span class=o>*</span> <span class=n>buf</span><span class=p>,</span> <span class=n>size_t</span> <span class=n>nbytes</span><span class=p>,</span> <span class=kt>int</span> <span class=n>flags</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>              <span class=k>const</span> <span class=k>struct</span> <span class=nc>sockaddr</span><span class=o>*</span> <span class=n>to</span><span class=p>,</span> <span class=n>socklen_t</span><span class=o>*</span> <span class=n>addrlen</span><span class=p>);</span>
+</span></span></code></pre></td></tr></table></div></div><p>flag 以后再说。</p><p>对于 UDP 来说，写一个长度为 0 的数据报是可以接受的，不像 TCP 中返回 0 代表关闭连接。</p><p>UDP 层中隐含有排队情况发生，每个 UDP 套接字都有一个接收缓冲区，到达该套接字的每个数据报都进入这个套接字接受缓冲区。进程调用 <code>recvfrom</code> 时，缓冲区中的下一个数据包以 FIFO 顺序返回给进程。</p><p>在进程能够读取该套接字中排队的数据之前，如果有多个数据包到达该套接字，那么只会到达缓冲区中，然而缓冲区大小有限。(<code>SO_RECVBUF</code>)</p><p>众所周知 UDP 不可靠。举个例子，例如 echo 服务器。</p><p>如果一个客户数据报丢失，客户就永远阻塞在 <code>recvfrom</code> 了，防止这样的办法一般是设置一个超时。</p><p>如果服务器未启动就运行客户端会怎么样？<code>sendto</code> 可以发消息，但是会永远阻塞在 <code>recvfrom</code>。服务器主机会响应一个 <em>port unreachable</em> 错误的 ICMP 消息。不过这个不会返回给客户端进程。</p><p>为什么呢？这种错误称为 异步错误。<code>sendto</code> 引起该错误，但其本身会返回成功。因为返回成功仅仅代表输出队列中存放了所形成的 IP 数据报，而 ICMP 则直到后来才返回。</p><p>那该怎么办？使用 <code>connect</code> 函数。而 UDP socket 上使用 <code>connect</code> 只是检查是否存在立即可知的错误（例如一个不可达的目的地），然后返回给进程。我们必须区分：</p><ul><li>未连接 UDP socket，新建的 UDP socket 默认如此。</li><li>已连接 UDP socket，对 UDP socket 调用 connect 的结果。</li></ul><p>对于已连接的 UDP socket，有几个变化：</p><ol><li>不能使用 <code>sendto</code>，而是使用 <code>write</code> 或者 <code>send</code>，写到已连接 UDP 套接字上的任何内容都自动发送到由 connect 指定的协议地址。</li><li>不能使用 <code>recvfrom</code> ，而是 <code>read</code>/<code>recv</code>或者 <code>recvmsg</code>。在已连接的 UDP socket 上，只会收到早先连接到的地址上的数据报。</li><li>已连接 UDP socket 引发的错误会返回给他们所在的进程。</li></ol><p>在性能上，内核在连接的套接字上，只会复制一次地址信息，否则每次都要复制。</p></section><footer class=article-footer><section class=article-copyright><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-copyright" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="12" r="9"/><path d="M14.5 9a3.5 4 0 100 6"/></svg>
+<span>Licensed under CC BY-NC-SA 4.0</span></section><section class=article-lastmod><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/></svg>
+<span>最后更新于 Dec 27, 2023 00:00 UTC</span></section></footer></article><footer class=site-footer><section class=copyright>&copy;
+2023 -
+2024 Roses</section><section class=powerby>使用 <a href=https://gohugo.io/ target=_blank rel=noopener>Hugo</a> 构建<br>主题 <b><a href=https://github.com/CaiJimmy/hugo-theme-stack target=_blank rel=noopener data-version=3.26.0>Stack</a></b> 由 <a href=https://jimmycai.com target=_blank rel=noopener>Jimmy</a> 设计</section></footer><div class=pswp tabindex=-1 role=dialog aria-hidden=true><div class=pswp__bg></div><div class=pswp__scroll-wrap><div class=pswp__container><div class=pswp__item></div><div class=pswp__item></div><div class=pswp__item></div></div><div class="pswp__ui pswp__ui--hidden"><div class=pswp__top-bar><div class=pswp__counter></div><button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
+<button class="pswp__button pswp__button--share" title=Share></button>
+<button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
+<button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button><div class=pswp__preloader><div class=pswp__preloader__icn><div class=pswp__preloader__cut><div class=pswp__preloader__donut></div></div></div></div></div><div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap"><div class=pswp__share-tooltip></div></div><button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
+</button>
+<button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)"></button><div class=pswp__caption><div class=pswp__caption__center></div></div></div></div></div><script src=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo=" crossorigin=anonymous defer></script><script src=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU=" crossorigin=anonymous defer></script><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css crossorigin=anonymous><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css crossorigin=anonymous></main></div><script src=https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z+KMkF24hUW8WePSA9HM=" crossorigin=anonymous></script><script type=text/javascript src=/ts/main.js defer></script><script>(function(){const e=document.createElement("link");e.href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap",e.type="text/css",e.rel="stylesheet",document.head.appendChild(e)})()</script></body></html>

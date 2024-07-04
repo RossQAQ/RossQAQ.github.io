@@ -1,0 +1,229 @@
+<!doctype html><html lang=zh-cn dir=ltr><head><meta charset=utf-8><meta name=viewport content='width=device-width,initial-scale=1'><meta name=description content="结构化并发，你需要了解。"><title>Structured Concurrency</title>
+<link rel=canonical href=https://rossqaq.github.io/article/coro-structed-con/><link rel=stylesheet href=/scss/style.min.0304c6baf04e01a8fe70693791cb744d56a3578a3120a8796cefc66825aa39c7.css><meta property='og:title' content="Structured Concurrency"><meta property='og:description' content="结构化并发，你需要了解。"><meta property='og:url' content='https://rossqaq.github.io/article/coro-structed-con/'><meta property='og:site_name' content='Roses'><meta property='og:type' content='article'><meta property='article:section' content='Post'><meta property='article:published_time' content='2024-05-12T00:00:00+00:00'><meta property='article:modified_time' content='2024-05-12T00:00:00+00:00'><meta name=twitter:title content="Structured Concurrency"><meta name=twitter:description content="结构化并发，你需要了解。"><link rel="shortcut icon" href=/favicon.png></head><body class=article-page><script>(function(){const e="StackColorScheme";localStorage.getItem(e)||localStorage.setItem(e,"auto")})()</script><script>(function(){const t="StackColorScheme",e=localStorage.getItem(t),n=window.matchMedia("(prefers-color-scheme: dark)").matches===!0;e=="dark"||e==="auto"&&n?document.documentElement.dataset.scheme="dark":document.documentElement.dataset.scheme="light"})()</script><div class="container main-container flex on-phone--column extended"><aside class="sidebar left-sidebar sticky"><button class="hamburger hamburger--spin" type=button id=toggle-menu aria-label=切换菜单>
+<span class=hamburger-box><span class=hamburger-inner></span></span></button><header><figure class=site-avatar><a href=/><img src=/img/avatar_hu57fe4ea25b3b752b8c24bca0d657f08c_427356_300x0_resize_box_3.png width=300 height=300 class=site-logo loading=lazy alt=Avatar>
+</a><span class=emoji>♉</span></figure><div class=site-meta><h1 class=site-name><a href=/>Roses</a></h1><h2 class=site-description>有限的时间，无尽的痛苦。</h2></div></header><ol class=menu-social><li><a href=https://space.bilibili.com/3078464 target=_blank title=Bilibili rel=me><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-brand-bilibili" width="44" height="44" viewBox="0 0 24 24" stroke-width="1.5" stroke="#2c3e50" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M3 10a4 4 0 014-4h10a4 4 0 014 4v6a4 4 0 01-4 4H7a4 4 0 01-4-4v-6z"/><path d="M8 3l2 3"/><path d="M16 3l-2 3"/><path d="M9 13v-2"/><path d="M15 11v2"/></svg></a></li><li><a href=https://github.com/RossQAQ target=_blank title=Github rel=me><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-brand-github" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M9 19c-4.3 1.4-4.3-2.5-6-3m12 5v-3.5c0-1 .1-1.4-.5-2 2.8-.3 5.5-1.4 5.5-6a4.6 4.6.0 00-1.3-3.2 4.2 4.2.0 00-.1-3.2s-1.1-.3-3.5 1.3a12.3 12.3.0 00-6.2.0C6.5 2.8 5.4 3.1 5.4 3.1a4.2 4.2.0 00-.1 3.2A4.6 4.6.0 004 9.5c0 4.6 2.7 5.7 5.5 6-.6.6-.6 1.2-.5 2V21"/></svg></a></li><li><a href='https://music.163.com/playlist?id=109571638&amp;userid=93740300' target=_blank title=网易云音乐 rel=me><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-brand-netease-music" width="44" height="44" viewBox="0 0 24 24" stroke-width="1.5" stroke="#2c3e50" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M9 4c-2.93 1.346-5 5.046-5 8.492C4 17 8 20 12 20s8-3 8-7c0-3.513-3.5-5.513-6-5.513S9 9 9 12c0 2 1.5 3 3 3s3-1 3-3c0-3.513-2-4.508-2-6.515.0-3.504 3.5-2.603 4-1.502"/></svg></a></li><li><a href=mailto:rossqaq@outlook.com target=_blank title=邮件 rel=me><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-mail" width="44" height="44" viewBox="0 0 24 24" stroke-width="1.5" stroke="#2c3e50" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M3 7a2 2 0 012-2h14a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2V7z"/><path d="M3 7l9 6 9-6"/></svg></a></li></ol><ol class=menu id=main-menu><li><a href=/><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-home" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><polyline points="5 12 3 12 12 3 21 12 19 12"/><path d="M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7"/><path d="M9 21v-6a2 2 0 012-2h2a2 2 0 012 2v6"/></svg>
+<span>主页</span></a></li><li><a href=/archives/><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-archive" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><rect x="3" y="4" width="18" height="4" rx="2"/><path d="M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
+<span>归档</span></a></li><li><a href=/search/><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-search" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="10" cy="10" r="7"/><line x1="21" y1="21" x2="15" y2="15"/></svg>
+<span>搜索</span></a></li><li><a href=/%E5%8F%8B%E6%83%85%E9%93%BE%E6%8E%A5/><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-link" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><path d="M10 14a3.5 3.5.0 005 0l4-4a3.5 3.5.0 00-5-5l-.5.5"/><path d="M14 10a3.5 3.5.0 00-5 0l-4 4a3.5 3.5.0 005 5l.5-.5"/></svg>
+<span>友情链接</span></a></li><li class=menu-bottom-section><ol class=menu><li id=dark-mode-toggle><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="8" cy="12" r="2"/><rect x="2" y="6" width="20" height="12" rx="6"/></svg>
+<svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="16" cy="12" r="2"/><rect x="2" y="6" width="20" height="12" rx="6"/></svg>
+<span>暗色模式</span></li></ol></li></ol></aside><aside class="sidebar right-sidebar sticky"><section class="widget archives"><div class=widget-icon><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-hash" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><line x1="5" y1="9" x2="19" y2="9"/><line x1="5" y1="15" x2="19" y2="15"/><line x1="11" y1="4" x2="7" y2="20"/><line x1="17" y1="4" x2="13" y2="20"/></svg></div><h2 class="widget-title section-title">目录</h2><div class=widget--toc><nav id=TableOfContents><ol><li><a href=#序>序</a></li><li><a href=#结构化编程与-c>结构化编程与 C++</a></li><li><a href=#多线程带来的麻烦>多线程带来的麻烦</a></li><li><a href=#非结构化并发>非结构化并发</a></li><li><a href=#结构化并发>结构化并发</a></li><li><a href=#取消>取消</a></li><li><a href=#结构化并发--协程>结构化并发 > 协程</a></li><li><a href=#并发>并发</a></li><li><a href=#migration>Migration</a></li><li><a href=#总结>总结</a></li></ol></nav></div></section></aside><main class="main full-width"><article class=main-article><header class=article-header><div class=article-details><header class=article-category><a href=/categories/coroutine/ style=background-color:#2a9d8f;color:#fff>协程渡劫
+</a><a href=/categories/techs/ style=background-color:#2a9d8f;color:#fff>技术
+</a><a href=/categories/finished/ style=background-color:#2a9d8f;color:#fff>施工完毕</a></header><div class=article-title-wrapper><h2 class=article-title><a href=/article/coro-structed-con/>Structured Concurrency</a></h2><h3 class=article-subtitle>结构化并发，你需要了解。</h3></div><footer class=article-time><div><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><path d="M11.795 21H5a2 2 0 01-2-2V7a2 2 0 012-2h12a2 2 0 012 2v4"/><circle cx="18" cy="18" r="4"/><path d="M15 3v4"/><path d="M7 3v4"/><path d="M3 11h16"/><path d="M18 16.496V18l1 1"/></svg>
+<time class=article-time--published>May 12, 2024</time></div><div><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/></svg>
+<time class=article-time--reading>阅读时长: 11 分钟</time></div></footer></div></header><section class=article-content><p>原文地址：<a class=link href=https://ericniebler.com/2020/11/08/structured-concurrency/ target=_blank rel=noopener>Structured Concurrency – Eric Niebler</a></p><p>全文会将 Structured 翻译为 结构化的/结构化</p><p>写 C++ 协程库的时候遇到了各种各样的 lifetime 问题，发现 CppCon2023 有 lecture 描述了如何处理这些问题，什么才是正确的编程模式。这是那篇 lecture 中引用的一篇宗旨文章。</p><p>注意，你需要对协程有比较深入的了解，或者至少你也得了解协程地语法以及其他某种语言的异步编程方式，你才能看懂这篇文章。</p><h2 id=序>序</h2><p>太长不看版：<strong>“结构化并发” 指代的是一种异步操作结构，其子部分保证完成于父部分之前，就像函数调用保证在它的 caller 结束前完成一样</strong>。听起来这个很简单很无聊，但对 C++ 来讲所有事情都没那么简单。结构化并发对 C++ 协程异步架构的正确性和简单性有深远影响。它通过把异步 lifetimes 与 C++ 语句作用域对应，将 <a class=link href="https://docs.microsoft.com/en-us/cpp/cpp/welcome-back-to-cpp-modern-cpp?view=msvc-160" target=_blank rel=noopener>现代 C++ 风格</a> 代入了我们的异步程序，以此消除了引用计数管理生命周期的需求。</p><h2 id=结构化编程与-c>结构化编程与 C++</h2><p>在上世纪 50 年代，新生的计算工业提出了结构化编程：高级语言拥有词法范围（lexical scopes）、控制结构，而 subroutines 会使得程序相较于使用 test-and-jump 指令以及 <code>goto</code> 变得更容易读写和维护。这是一个巨大的进步，以至于没有人讨论结构化编程，因为它只是“编程”。</p><blockquote><p>意思就是概念早已经被人习惯了，现在没人提。</p></blockquote><p>C++，比其他语言更复杂，充分利用了结构化编程。对象生命周期的语义代表了它跟其作用域的严格嵌套和绑定。例如，你代码的 <em>structure</em>。函数的执行流嵌套，作用域嵌套，对象的生命周期嵌套。对象的生命周期在大括号 <code>}</code> 处结束，然后对象会按照构造顺序的逆序进行析构。</p><p>现代 C++ 风格建立在这种结构化的基础上。对象拥有<strong>值语义</strong>，它们的行为就像 int，资源会在析构器中自动释放，这保证了对象不会在生命周期结束后被使用。<strong>这非常重要</strong>。</p><p>当我们放弃将对象生命周期和其作用域绑定时，那么，我们会在堆上使用引用计数来管理一个对象、或者我们使用单例模式；此时，我们正在与语言优势对抗而不是跟语言协作。</p><h2 id=多线程带来的麻烦>多线程带来的麻烦</h2><p>编写正确的并发程序远比单线程程序困难得多。有许多原因，一是因为线程和单例一样都是动态分配的对象，根本不会嵌套在作用域内。即使你使用现代 C++ <strong>提供</strong> 的线程，但当逻辑跟生命周期跨线程时，程序的层级结构会让人摸不着头脑。我们在单线程下用以管理代码复杂性的工具 —— 将嵌套的生命周期和嵌套的作用域绑定，无法替我们管理异步代码。</p><p>为了进一步解释，我们看看将同步函数变为异步函数会发生什么：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span><span class=lnt>7
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=kt>void</span> <span class=nf>computeResult</span><span class=p>(</span><span class=n>State</span> <span class=o>&amp;</span> <span class=n>s</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=kt>int</span> <span class=nf>doThing</span><span class=p>()</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=n>State</span> <span class=n>s</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=n>computeResult</span><span class=p>(</span><span class=n>s</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=k>return</span> <span class=n>s</span><span class=p>.</span><span class=n>result</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><p><code>doThing</code> 非常简单，它声明了一些内部状态，调用一个 helper，然后返回结果。现在我们要把两个函数都变成异步的，因为它们可能需要比较长的时间。我们直接使用 Boost future，它支持连续的链式调用：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span><span class=lnt>7
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=n>boost</span><span class=o>::</span><span class=n>future</span><span class=o>&lt;</span><span class=kt>void</span><span class=o>&gt;</span> <span class=n>computeResult</span><span class=p>(</span><span class=n>State</span><span class=o>&amp;</span> <span class=n>s</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=n>boost</span><span class=o>::</span><span class=n>future</span><span class=o>&lt;</span><span class=kt>int</span><span class=o>&gt;</span> <span class=n>doThing</span><span class=p>()</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=n>State</span> <span class=n>s</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=k>auto</span> <span class=n>fut</span> <span class=o>=</span> <span class=n>computeResult</span><span class=p>(</span><span class=n>s</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=k>return</span> <span class=n>fut</span><span class=p>.</span><span class=n>then</span><span class=p>([</span><span class=o>&amp;</span><span class=p>](</span><span class=k>auto</span><span class=o>&amp;&amp;</span><span class=p>)</span> <span class=p>{</span><span class=k>return</span> <span class=n>s</span><span class=p>.</span><span class=n>result</span><span class=p>;</span> <span class=p>});</span>	<span class=c1>// OOPS
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><p>如果你使用过 future 的话，你可能会大喊：“不~~！”，<code>.then</code> 指定了一些在 <code>computeResult()</code> 完成后的工作，<code>doThing()</code> 之后返回结果 future。问题在于，<code>doThing()</code> 返回时，<code>State</code> 的生命周期结束了，<strong>并且 continuation 捕获了它的引用</strong>，现在这是悬垂引用，很可能会导致崩溃。</p><p>问题在哪？futures 允许我们计算一个现在还不需要的结果，Boost 风格允许我们链式执行，但是 continuation 是一个单独的函数，具有单独的作用域。没有嵌套的作用域，没有嵌套的生命周期，我们需要手动管理 state 的生命周期。</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span><span class=lnt>7
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=n>boost</span><span class=o>::</span><span class=n>future</span><span class=o>&lt;</span><span class=kt>void</span><span class=o>&gt;</span> <span class=n>computeResult</span><span class=p>(</span><span class=n>std</span><span class=o>::</span><span class=n>shared_ptr</span><span class=o>&lt;</span><span class=n>State</span><span class=o>&gt;</span> <span class=n>s</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=n>boost</span><span class=o>::</span><span class=n>future</span><span class=o>&lt;</span><span class=kt>int</span><span class=o>&gt;</span> <span class=n>doThing</span><span class=p>()</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=k>auto</span> <span class=n>s</span> <span class=o>=</span> <span class=n>std</span><span class=o>::</span><span class=n>make_shared</span><span class=o>&lt;</span><span class=n>State</span><span class=o>&gt;</span><span class=p>();</span>
+</span></span><span class=line><span class=cl>    <span class=k>auto</span> <span class=n>fut</span> <span class=o>=</span> <span class=n>computeResult</span><span class=p>(</span><span class=n>s</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=k>return</span> <span class=n>fut</span><span class=p>.</span><span class=n>then</span><span class=p>([</span><span class=n>s</span><span class=p>](</span><span class=k>auto</span><span class=o>&amp;&amp;</span><span class=p>)</span> <span class=p>{</span><span class=k>return</span> <span class=n>s</span><span class=p>.</span><span class=n>result</span><span class=p>;</span> <span class=p>});</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><p>因为两个异步操作都需要 state，所以它们都有责任确保其存活。</p><p>另一种思考方式是：**这个异步计算的生命周期是什么？**它从 <code>doTing()</code> 被调用开始，直到 continuation，传入 <code>then</code> 的 lambda 返回。<strong>并没有作用域跟这个生命周期对应</strong>，这就是问题的根源。</p><h2 id=非结构化并发>非结构化并发</h2><p>当我们考虑 executor 时情况会变得更复杂。executors 用来解决执行时的上下文，你可以在它上面调度任务，通常可以是一个线程或者线程池。许多代码库都有 executor 的概念，其中有一些允许你使用 defer 或者其他策略安排调度。我们可以做一些有意思的事情，比如把计算从一个 IO 线程池挪到 CPU 线程池，或者延迟后重试一些异步操作。<code>goto</code> 可以派上用场，但是它非常低级，而且一点也不清晰。</p><p>举个例子，最近我遇到了一个算法，它通过执行器和回调（listener）来重试某些资源的异步分配。以下是一个删减后的版本：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span><span class=lnt>20
+</span><span class=lnt>21
+</span><span class=lnt>22
+</span><span class=lnt>23
+</span><span class=lnt>24
+</span><span class=lnt>25
+</span><span class=lnt>26
+</span><span class=lnt>27
+</span><span class=lnt>28
+</span><span class=lnt>29
+</span><span class=lnt>30
+</span><span class=lnt>31
+</span><span class=lnt>32
+</span><span class=lnt>33
+</span><span class=lnt>34
+</span><span class=lnt>35
+</span><span class=lnt>36
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=c1>// 异步操作完成后会调用该 continuation
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=k>struct</span> <span class=nc>Manager</span><span class=o>::</span><span class=nl>Listener</span> <span class=p>:</span> <span class=n>ListenerInterface</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>  <span class=n>shared_ptr</span><span class=o>&lt;</span><span class=n>Manager</span><span class=o>&gt;</span> <span class=n>manager_</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>  <span class=n>executor</span> <span class=n>executor_</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>  <span class=n>size_t</span> <span class=n>retriesCount_</span><span class=p>;</span>
+</span></span><span class=line><span class=cl> 
+</span></span><span class=line><span class=cl>  <span class=kt>void</span> <span class=nf>onSucceeded</span><span class=p>()</span> <span class=k>override</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=cm>/* 分配成功了…… */</span>
+</span></span><span class=line><span class=cl>  <span class=p>}</span>
+</span></span><span class=line><span class=cl>  <span class=kt>void</span> <span class=nf>onFailed</span><span class=p>()</span> <span class=k>override</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=c1>// 分配失败，向 executor 请求过后再分配一次
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=k>auto</span> <span class=n>alloc</span> <span class=o>=</span> <span class=p>[</span><span class=n>manager</span> <span class=o>=</span> <span class=n>manager_</span><span class=p>]()</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>      <span class=n>manager</span><span class=o>-&gt;</span><span class=n>allocate</span><span class=p>();</span>
+</span></span><span class=line><span class=cl>    <span class=p>};</span>
+</span></span><span class=line><span class=cl>    <span class=c1>// 未来某个时刻重新分配
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=n>executor_</span><span class=p>.</span><span class=n>execute_after</span><span class=p>(</span>
+</span></span><span class=line><span class=cl>      <span class=n>alloc</span><span class=p>,</span> <span class=mi>10</span><span class=n>ms</span> <span class=o>*</span> <span class=p>(</span><span class=mi>1</span> <span class=o>&lt;&lt;</span> <span class=n>retriesCount_</span><span class=p>));</span>
+</span></span><span class=line><span class=cl>  <span class=p>}</span>
+</span></span><span class=line><span class=cl><span class=p>};</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1>// 使用以上的类作为 continuation 尝试异步分配资源
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=kt>void</span> <span class=n>Manager</span><span class=o>::</span><span class=n>allocate</span><span class=p>()</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>  <span class=c1>// 我们已经尝试过很多次了吗？
+</span></span></span><span class=line><span class=cl><span class=c1></span>  <span class=k>if</span> <span class=p>(</span><span class=n>retriesCount_</span> <span class=o>&gt;</span> <span class=n>kMaxRetries</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=cm>/* 通知观察者，分配失败了 */</span>
+</span></span><span class=line><span class=cl>    <span class=k>return</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>  <span class=p>}</span>
+</span></span><span class=line><span class=cl> 
+</span></span><span class=line><span class=cl>  <span class=c1>// 再试一次：
+</span></span></span><span class=line><span class=cl><span class=c1></span>  <span class=o>++</span><span class=n>retriesCount_</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>  <span class=n>allocator_</span><span class=p>.</span><span class=n>doAllocate</span><span class=p>(</span>
+</span></span><span class=line><span class=cl>    <span class=n>make_shared</span><span class=o>&lt;</span><span class=n>Listener</span><span class=o>&gt;</span><span class=p>(</span>
+</span></span><span class=line><span class=cl>      <span class=n>shared_from_this</span><span class=p>(),</span>
+</span></span><span class=line><span class=cl>      <span class=n>executor_</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>      <span class=n>retriesCount_</span><span class=p>));</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><p><code>allocate()</code> 成员函数首先检查异步操作执行了多少寸，如果没执行过，就直接调用 <code>doAllocate()</code> ，传一个回调来通知它是成功还是失败。失败的话，handler 会向执行器再提交一个 deferred 任务，会重新调用 <code>alloate</code>，过后再重试分配。</p><p>这是一个有繁多状态并且非常迂回的异步算法。逻辑生成了很多函数、很多对象，控制流和数据流都不明显。还得注意保证对象生存期的引用计数。向执行器提交任务让它更加困难。这段代码中的执行器没有 continuation 的概念，所以在任务执行中的错误也无处可去。<code>allocate()</code> 函数不能通过异常传递错误以此从错误中恢复，错误处理必须手动完成。如果我们想支持取消，也是同理。</p><p>这是一种 <strong>非结构化并发</strong>：我们以一种 <em>临时</em> 的方式 queue up 异步操作；我们串联相关的工作，使用 continuations 或者 strand 执行器保证顺序一致；我们使用强弱引用计数保证数据在我们需要时存活。没有正式的描述任务 A 是任务 B的子任务的概念，无法强制子任务在父任务前完成，我们也不能指着代码中的某一处说：这是算法。</p><blockquote><p><em>如果你不介意的话，通过执行器进行的跳跃有那么一点像是非 local 的 <code>goto</code> 语句，不管是时间上还是空间上。“X ms 后，在某个线程上，立刻 jump 到程序中的这一点。”</em></p></blockquote><p>这种 non local 的不连续性使得我们很难推导程序的正确性和效率。将这种非结构化的并发扩展到整个程序，然后处理许多并发的实时事件，手动处理代外异步数据的控制和数据量，控制并发访问共享状态，管理对象生命周期都很难受。</p><h2 id=结构化并发>结构化并发</h2><p>在很久之前，非结构化的编程就已经给结构化风格让路了。有 C++ 协程的支持，使得如今的很多异步代码也发生了类似的变化。如果我们使用协程重写以上算法（使用了 <a class=link href=https://github.com/lewissbaker/cppcoro target=_blank rel=noopener>cppcoro</a>），看起来就会是：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span><span class=lnt>20
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=c1>// 尝试分配资源，失败就会重试
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=n>cppcoro</span><span class=o>::</span><span class=n>task</span><span class=o>&lt;&gt;</span> <span class=n>Manager</span><span class=o>::</span><span class=n>allocate</span><span class=p>()</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>  <span class=c1>// 尝试分配，直到次数达到 kMaxRetries;
+</span></span></span><span class=line><span class=cl><span class=c1></span>  <span class=k>for</span> <span class=p>(</span><span class=kt>int</span> <span class=n>retriesCount</span> <span class=o>=</span> <span class=mi>1</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>       <span class=n>retriesCount</span> <span class=o>&lt;=</span> <span class=n>kMaxRetries</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>       <span class=o>++</span><span class=n>retriesCount</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=k>try</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>      <span class=k>co_await</span> <span class=n>allocator_</span><span class=p>.</span><span class=n>doAllocate</span><span class=p>();</span>
+</span></span><span class=line><span class=cl>      <span class=k>co_return</span><span class=p>;</span> <span class=c1>// success!
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=p>}</span> <span class=k>catch</span> <span class=p>(...)</span> <span class=p>{}</span>
+</span></span><span class=line><span class=cl> 
+</span></span><span class=line><span class=cl>    <span class=c1>// 失败，让出线程，稍后重试
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=k>co_await</span> <span class=n>scheduler_</span><span class=p>.</span><span class=n>schedule_after</span><span class=p>(</span>
+</span></span><span class=line><span class=cl>      <span class=mi>10</span><span class=n>ms</span> <span class=o>*</span> <span class=p>(</span><span class=mi>1</span> <span class=o>&lt;&lt;</span> <span class=n>retriesCount</span><span class=p>));</span>
+</span></span><span class=line><span class=cl>  <span class=p>}</span>
+</span></span><span class=line><span class=cl> 
+</span></span><span class=line><span class=cl>  <span class=c1>// 错误，失败太多次
+</span></span></span><span class=line><span class=cl><span class=c1></span>  <span class=k>throw</span> <span class=n>std</span><span class=o>::</span><span class=n>runtime_error</span><span class=p>(</span>
+</span></span><span class=line><span class=cl>    <span class=s>&#34;Resource allocation retry count exceeded.&#34;</span><span class=p>);</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><p><em>说明：cppcoro 的 scheduler 和 上文的 executor 概念类似。</em></p><p>我们列出以上做法的优点：</p><ol><li>只有一个函数，非常有逻辑性。</li><li>状态（例如 <code>retriesCount</code>）可以被轻松的维护，而不需要使用引用计数。</li><li>我们可以使用普通的 C++ 错误处理技术。</li><li>保证结构化，即异步调用 <code>alllocator_.doAllocate()</code> 在函数继续执行前完成。</li></ol><p>第四点有深刻的意义。考虑文章开头的简单的例子，以下的使用协程的实现非常安全：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=n>cppcoro</span><span class=o>::</span><span class=n>task</span><span class=o>&lt;&gt;</span> <span class=n>computeResult</span><span class=p>(</span><span class=n>State</span><span class=o>&amp;</span> <span class=n>s</span><span class=p>);</span>
+</span></span><span class=line><span class=cl><span class=n>cppcoro</span><span class=o>::</span><span class=n>task</span><span class=o>&lt;</span><span class=kt>int</span><span class=o>&gt;</span> <span class=n>doThing</span><span class=p>()</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=n>State</span> <span class=n>s</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=k>co_await</span> <span class=nf>computeResult</span><span class=p>(</span><span class=n>s</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=k>co_return</span> <span class=n>s</span><span class=p>.</span><span class=n>result</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><p>以上代码很安全，因为我们知道 <code>computeResult</code> 会在 <code>doThing</code> 恢复前完成，也即 <code>s</code> 析构之前。</p><blockquote><p><em>有了结构化并发，将 local 变量作为引用传递给子任务来 await 非常安全。</em></p></blockquote><h2 id=取消>取消</h2><p>如果使用结构化并发的方法，那么并发操作的生命周期就会严格内嵌于资源的生命周期中，绑定在其作用域上，允许我们避免像是 <code>shared_ptr</code> 之类的垃圾回收机制。这样代码会更加效率，只需要更少的堆分配以及很少的 atomic ref count 操作，当然代码也更易读而且 bug 更容易分析。</p><p>然而，这种方法有一个隐含的要求，即<strong>我们必须在父操作完成前 join 并且 wait 子操作</strong>。我们并不能 detach 这些子操作，然后让资源自动释放。为了避免在结果已经使用过的子操作上进行不必要的等待，我们需要一个机制来取消这些子操作，这样它们才能尽快结束。因此，结构化并发模型需要对取消操作的深度支持，以避免不必要的延迟。</p><p>注意，我们会在每次向子协程传递 local 变量的时候依赖结构化生命周期以及结构化并发。我们必须确保子协程完成并且不再需要那个变量，之后父协程中 local 变量作用域结束再被销毁。</p><h2 id=结构化并发--协程>结构化并发 > 协程</h2><p>当我说起“结构化并发”时，我不仅仅是说协程，虽然协程是最明显的表现方式。为了解释我的意思，我们简单的讨论一下协程<strong>是什么</strong>、<strong>不是什么</strong>。注意，C++的协程根本没有固有的并发性质！它们只是编译器把函数改为回调的一种方式。</p><p>考虑以下简单的协程：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span><span class=lnt>7
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=n>cppcoro</span><span class=o>::</span><span class=n>task</span><span class=o>&lt;&gt;</span> <span class=n>computeResult</span><span class=p>(</span><span class=n>State</span><span class=o>&amp;</span> <span class=n>s</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=n>cppcoro</span><span class=o>::</span><span class=n>task</span><span class=o>&lt;</span><span class=kt>int</span><span class=o>&gt;</span> <span class=n>doThing</span><span class=p>()</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=n>State</span> <span class=n>s</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=k>co_await</span> <span class=nf>computeResult</span><span class=p>(</span><span class=n>s</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=k>co_return</span> <span class=n>s</span><span class=p>.</span><span class=n>result</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><p><code>co_await</code> 是什么意思？很老套的答案：这取决于作者想让 <code>cppcoro::task&lt;></code> 是什么。完整的答案是，<code>co_await</code> 暂停当前协程，将协程中剩下的内容打包（这里即 <code>co_return s.result;</code>），作为 continuation，然后把它传入 awaitable 对象（这里是 <code>task&lt;></code> 通过 <code>computeResult</code> 返回）。awaitable 会把它存到某个地方，在子任务完成之后就可以调用了。这是 <code>cppcoro::task&lt;></code> 做的。</p><p>换句话说，<code>task&lt;></code> 类型以及语言的协程一起将结构化并发置于无聊的回调之上。以上。这就是所有的 magic。只是回调而已，但是是另一种模式的回调，而这种模式使其变得结构化。这种模式保证了子操作在父操作前完成，就是这种属性带来了收益。</p><p>一旦我们认识到结构化并发只是回调的一种特殊模式后，我们就会发现我们可以<strong>不使用协程</strong>实现结构化并发。使用回调当然不是什么新鲜事，这些模式可以被编码到一个库中然后变得可复用。这就是 <a class=link href=https://github.com/facebookexperimental/libunifex target=_blank rel=noopener>libunifex</a> 做的。如果你关注 C++ 标准委员会，就知道这是 <a class=link href=http://wg21.link/P0443 target=_blank rel=noopener>Executors 提案</a> 中的 sender/receiver 抽象。</p><p>使用 libunifex 作为结构化并发的基础，我们就可以写出以下的代码：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=n>unifex</span><span class=o>::</span><span class=n>any_sender_of</span><span class=o>&lt;&gt;</span> <span class=n>computeResult</span><span class=p>(</span><span class=n>State</span><span class=o>&amp;</span> <span class=n>s</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=k>auto</span> <span class=nf>doThing</span><span class=p>()</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=k>return</span> <span class=n>unifex</span><span class=o>::</span><span class=n>let_with</span><span class=p>(</span>
+</span></span><span class=line><span class=cl>    <span class=c1>// 声明 &#34;local variable&#34;:
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=p>[]</span> <span class=p>{</span><span class=k>return</span> <span class=n>State</span><span class=p>{};},</span>
+</span></span><span class=line><span class=cl>    <span class=c1>// 使用 local 来构造异步任务
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=p>[](</span><span class=n>State</span><span class=o>&amp;</span> <span class=n>s</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=k>return</span> <span class=n>unifex</span><span class=o>::</span><span class=n>transform</span><span class=p>(</span>
+</span></span><span class=line><span class=cl>            <span class=n>computeResult</span><span class=p>(</span><span class=n>s</span><span class=p>),</span>
+</span></span><span class=line><span class=cl>            <span class=p>[</span><span class=o>&amp;</span><span class=p>]</span> <span class=p>{</span> <span class=k>return</span> <span class=n>s</span><span class=p>.</span><span class=n>result</span><span class=p>;</span> <span class=p>})</span><span class=err>；</span>
+</span></span><span class=line><span class=cl>    <span class=p>});</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><p>我们都有协程了为什么还要写这个？你需要一个更好的解释，我只能抛砖引玉。有了协程，你会在协程第一次被调用时进行分配，然后在它每次恢复后间接调用一个函数。编译器有时可以消除其开销，有时不行。而通过结构化并发的方式直接使用回调，我们可以直接获得同样的收益但是没有协程调用的开销。</p><p>这种风格的编程导致了不一样的开销：很难编写出跟协程一样可读性的代码。我认为未来 90% 的异步代码都会因可维护性而使用协程编写。对于 hot code，选择性地使用 lower-level 的方式替代协程。</p><h2 id=并发>并发</h2><p>我在上面提到，协程本身并不是并发的；它们只是回调的一种编写方式。协程本质上是顺序的，而<code>task&lt;></code> 的惰性（协程开始时暂停，被 awaited 时才执行）代表我们不能使用它来向程序中引入并发。已有的 <code>future</code>-based 代码经常假设操作已经 eagerly 开始，引入 <em>临时</em> 的并发你就需要小心的处理。这会迫使你一遍又一遍地使用 <em>临时</em> 的风格重新实现并发模式。</p><p>有了结构化并发，我们就可以在算法中贯彻并发模式并且以结构化的方式引入并发。例如，我们如果有一堆 <code>task</code>s 并且想要等待它们都完成后把它们的结果作为 tuple 返回，我们可以将其传入 <code>cppcoro::when_all</code> 并且 <code>co_await</code> 结果。（libunifex 也有 <code>when_all</code> 算法）</p><p>目前，不管是 cppcoro 还是 libunifex 都没有 <code>when_any</code>，所以你不能运行并发操作然后当 <em>第一个</em> 操作完成后就返回。虽然这是一个非常重要又有趣的基础算法。为了维护结构化并发的保证，当第一个子任务完成时，<code>when_any</code> 需要取消其他所有的任务，<strong>并且等待它们完成</strong>。此算法的效果取决于其他的异步操作对于你的取消请求的响应速度，这表明了对取消的深度支持在现代异步程序中的重要性。</p><h2 id=migration>Migration</h2><p>目前，我已经讨论了什么是结构化并发以及它为什么重要。我还没有讨论我们怎么达成。如果你已经使用协程来编写异步 C++ 了，恭喜。你可以继续享受到结构化并发带来的收益，也许还对协程为什么具有改革性有了更深的理解。</p><p>对于缺少结构化并发的代码，对取消的支持，或者是异步机制的抽象都极具难度。它可能从引入复杂性开始，开辟一座孤岛，周围的代码保证结构化并发需要的条件。例如，这包括创建一个任务的取消操作，即使底层的执行上下文不直接提供取消。增加的复杂性可以被隔离在一层中，结构化并发的孤岛构建于其之上。然后剩下的就是简单的操作了，对于采用 future- 或者 callback-style 的代码，把它们转化为协程方式，理清父子关系、所有权，以及生命周期。</p><h2 id=总结>总结</h2><p><code>co_await</code> 的加入在不干预计算结构的基础上把同步函数变成异步函数。被 awaited 的异步操作必须在调用它的函数完成前完成，就像是普通的函数调用。革新的地方是：<strong>没有改变的地方</strong>。作用域和生命周期仍然像往常一样嵌套，只是现在的作用域并不是连续的了。使用传统的回调和 future，这种结构就没有了。</p><p>协程，以及更广泛意义上的结构化并发，带来的是现代 C++ 的风格：值语义，算法驱动的设计，清晰的所有权语义 with deterministic finalization，以上这些都加入了一步变成。它这么做的方式是因为它把异步的生命周期绑定回普通的 C++ 作用域上。协程把我们的异步函数变成拥有挂起点的回调函数，回调函数使用非常特殊的模式被调用，以此来维护严格嵌套的作用域、生命周期，以及函数栈（function activations）</p><p>我们在代码中使用 <code>co_await</code> ，然后我们可以继续使用我们熟悉的：异常来进行错误处理、local 变量、析构函数释放资源、值/引用传递参数，以及其他任何的 good、safe、惯用的现代 C++。</p><p>感谢阅读。</p><hr><p>了解更多的话，一定要看看 CppCon 2019 Lewis Baker 的 <a class=link href="https://www.youtube.com/watch?v=1Wy5sq3s2rg" target=_blank rel=noopener>Structured Concurrency: Writing Safer Concurrent Code with Coroutines&mldr;</a> 的演讲。</p></section><footer class=article-footer><section class=article-copyright><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-copyright" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="12" r="9"/><path d="M14.5 9a3.5 4 0 100 6"/></svg>
+<span>Licensed under CC BY-NC-SA 4.0</span></section><section class=article-lastmod><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/></svg>
+<span>最后更新于 May 12, 2024 00:00 UTC</span></section></footer></article><footer class=site-footer><section class=copyright>&copy;
+2023 -
+2024 Roses</section><section class=powerby>使用 <a href=https://gohugo.io/ target=_blank rel=noopener>Hugo</a> 构建<br>主题 <b><a href=https://github.com/CaiJimmy/hugo-theme-stack target=_blank rel=noopener data-version=3.26.0>Stack</a></b> 由 <a href=https://jimmycai.com target=_blank rel=noopener>Jimmy</a> 设计</section></footer><div class=pswp tabindex=-1 role=dialog aria-hidden=true><div class=pswp__bg></div><div class=pswp__scroll-wrap><div class=pswp__container><div class=pswp__item></div><div class=pswp__item></div><div class=pswp__item></div></div><div class="pswp__ui pswp__ui--hidden"><div class=pswp__top-bar><div class=pswp__counter></div><button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
+<button class="pswp__button pswp__button--share" title=Share></button>
+<button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
+<button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button><div class=pswp__preloader><div class=pswp__preloader__icn><div class=pswp__preloader__cut><div class=pswp__preloader__donut></div></div></div></div></div><div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap"><div class=pswp__share-tooltip></div></div><button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
+</button>
+<button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)"></button><div class=pswp__caption><div class=pswp__caption__center></div></div></div></div></div><script src=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo=" crossorigin=anonymous defer></script><script src=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU=" crossorigin=anonymous defer></script><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css crossorigin=anonymous><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css crossorigin=anonymous></main></div><script src=https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z+KMkF24hUW8WePSA9HM=" crossorigin=anonymous></script><script type=text/javascript src=/ts/main.js defer></script><script>(function(){const e=document.createElement("link");e.href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap",e.type="text/css",e.rel="stylesheet",document.head.appendChild(e)})()</script></body></html>

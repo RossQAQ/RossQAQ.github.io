@@ -1,0 +1,645 @@
+<!doctype html><html lang=zh-cn dir=ltr><head><meta charset=utf-8><meta name=viewport content='width=device-width,initial-scale=1'><meta name=description content="对 CppCon 2023, Mateusz Pusz 演讲的翻译与总结。"><title>C++ 转发引用（万能引用）</title>
+<link rel=canonical href=https://rossqaq.github.io/article/cppcon-2023-fwdref/><link rel=stylesheet href=/scss/style.min.0304c6baf04e01a8fe70693791cb744d56a3578a3120a8796cefc66825aa39c7.css><meta property='og:title' content="C++ 转发引用（万能引用）"><meta property='og:description' content="对 CppCon 2023, Mateusz Pusz 演讲的翻译与总结。"><meta property='og:url' content='https://rossqaq.github.io/article/cppcon-2023-fwdref/'><meta property='og:site_name' content='Roses'><meta property='og:type' content='article'><meta property='article:section' content='Post'><meta property='article:published_time' content='2024-03-24T00:00:00+00:00'><meta property='article:modified_time' content='2024-03-24T00:00:00+00:00'><meta property='og:image' content='https://rossqaq.github.io/cppcon2023-cover.png'><meta name=twitter:title content="C++ 转发引用（万能引用）"><meta name=twitter:description content="对 CppCon 2023, Mateusz Pusz 演讲的翻译与总结。"><meta name=twitter:card content="summary_large_image"><meta name=twitter:image content='https://rossqaq.github.io/cppcon2023-cover.png'><link rel="shortcut icon" href=/favicon.png></head><body class=article-page><script>(function(){const e="StackColorScheme";localStorage.getItem(e)||localStorage.setItem(e,"auto")})()</script><script>(function(){const t="StackColorScheme",e=localStorage.getItem(t),n=window.matchMedia("(prefers-color-scheme: dark)").matches===!0;e=="dark"||e==="auto"&&n?document.documentElement.dataset.scheme="dark":document.documentElement.dataset.scheme="light"})()</script><div class="container main-container flex on-phone--column extended"><aside class="sidebar left-sidebar sticky"><button class="hamburger hamburger--spin" type=button id=toggle-menu aria-label=切换菜单>
+<span class=hamburger-box><span class=hamburger-inner></span></span></button><header><figure class=site-avatar><a href=/><img src=/img/avatar_hu57fe4ea25b3b752b8c24bca0d657f08c_427356_300x0_resize_box_3.png width=300 height=300 class=site-logo loading=lazy alt=Avatar>
+</a><span class=emoji>♉</span></figure><div class=site-meta><h1 class=site-name><a href=/>Roses</a></h1><h2 class=site-description>有限的时间，无尽的痛苦。</h2></div></header><ol class=menu-social><li><a href=https://space.bilibili.com/3078464 target=_blank title=Bilibili rel=me><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-brand-bilibili" width="44" height="44" viewBox="0 0 24 24" stroke-width="1.5" stroke="#2c3e50" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M3 10a4 4 0 014-4h10a4 4 0 014 4v6a4 4 0 01-4 4H7a4 4 0 01-4-4v-6z"/><path d="M8 3l2 3"/><path d="M16 3l-2 3"/><path d="M9 13v-2"/><path d="M15 11v2"/></svg></a></li><li><a href=https://github.com/RossQAQ target=_blank title=Github rel=me><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-brand-github" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M9 19c-4.3 1.4-4.3-2.5-6-3m12 5v-3.5c0-1 .1-1.4-.5-2 2.8-.3 5.5-1.4 5.5-6a4.6 4.6.0 00-1.3-3.2 4.2 4.2.0 00-.1-3.2s-1.1-.3-3.5 1.3a12.3 12.3.0 00-6.2.0C6.5 2.8 5.4 3.1 5.4 3.1a4.2 4.2.0 00-.1 3.2A4.6 4.6.0 004 9.5c0 4.6 2.7 5.7 5.5 6-.6.6-.6 1.2-.5 2V21"/></svg></a></li><li><a href='https://music.163.com/playlist?id=109571638&amp;userid=93740300' target=_blank title=网易云音乐 rel=me><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-brand-netease-music" width="44" height="44" viewBox="0 0 24 24" stroke-width="1.5" stroke="#2c3e50" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M9 4c-2.93 1.346-5 5.046-5 8.492C4 17 8 20 12 20s8-3 8-7c0-3.513-3.5-5.513-6-5.513S9 9 9 12c0 2 1.5 3 3 3s3-1 3-3c0-3.513-2-4.508-2-6.515.0-3.504 3.5-2.603 4-1.502"/></svg></a></li><li><a href=mailto:rossqaq@outlook.com target=_blank title=邮件 rel=me><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-mail" width="44" height="44" viewBox="0 0 24 24" stroke-width="1.5" stroke="#2c3e50" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M3 7a2 2 0 012-2h14a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2V7z"/><path d="M3 7l9 6 9-6"/></svg></a></li></ol><ol class=menu id=main-menu><li><a href=/><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-home" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><polyline points="5 12 3 12 12 3 21 12 19 12"/><path d="M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7"/><path d="M9 21v-6a2 2 0 012-2h2a2 2 0 012 2v6"/></svg>
+<span>主页</span></a></li><li><a href=/archives/><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-archive" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><rect x="3" y="4" width="18" height="4" rx="2"/><path d="M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
+<span>归档</span></a></li><li><a href=/search/><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-search" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="10" cy="10" r="7"/><line x1="21" y1="21" x2="15" y2="15"/></svg>
+<span>搜索</span></a></li><li><a href=/%E5%8F%8B%E6%83%85%E9%93%BE%E6%8E%A5/><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-link" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><path d="M10 14a3.5 3.5.0 005 0l4-4a3.5 3.5.0 00-5-5l-.5.5"/><path d="M14 10a3.5 3.5.0 00-5 0l-4 4a3.5 3.5.0 005 5l.5-.5"/></svg>
+<span>友情链接</span></a></li><li class=menu-bottom-section><ol class=menu><li id=dark-mode-toggle><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="8" cy="12" r="2"/><rect x="2" y="6" width="20" height="12" rx="6"/></svg>
+<svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="16" cy="12" r="2"/><rect x="2" y="6" width="20" height="12" rx="6"/></svg>
+<span>暗色模式</span></li></ol></li></ol></aside><aside class="sidebar right-sidebar sticky"><section class="widget archives"><div class=widget-icon><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-hash" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><line x1="5" y1="9" x2="19" y2="9"/><line x1="5" y1="15" x2="19" y2="15"/><line x1="11" y1="4" x2="7" y2="20"/><line x1="17" y1="4" x2="13" y2="20"/></svg></div><h2 class="widget-title section-title">目录</h2><div class=widget--toc><nav id=TableOfContents><ol><li><a href=#值类别>值类别</a></li><li><a href=#指针-vs-引用>指针 vs. 引用</a></li><li><a href=#传参>传参</a></li><li><a href=#右值引用类型的参数>右值引用类型的参数</a></li><li><a href=#万能引用>万能引用</a></li><li><a href=#推荐做法>推荐做法</a></li><li><a href=#转发函数的参数>转发函数的参数</a></li><li><a href=#sinks-可扩展性>Sinks: 可扩展性</a></li><li><a href=#问题以下的代码>问题，以下的代码？</a></li><li><a href=#推荐做法-1>推荐做法</a></li><li><a href=#t-和移动语义>T&& 和移动语义</a></li><li><a href=#捕获参数>捕获参数</a></li><li><a href=#完美的返回参数>完美的返回参数</a></li><li><a href=#这是万能引用吗>这是万能引用吗？</a></li><li><a href=#总结>总结</a></li></ol></nav></div></section></aside><main class="main full-width"><article class="has-image main-article"><header class=article-header><div class=article-image><a href=/article/cppcon-2023-fwdref/><img src=/cppcon2023-cover.png loading=lazy alt="Featured image of post C++ 转发引用（万能引用）"></a></div><div class=article-details><header class=article-category><a href=/categories/cppcon/ style=background-color:#2a9d8f;color:#fff>CppCon
+</a><a href=/categories/techs/ style=background-color:#2a9d8f;color:#fff>技术
+</a><a href=/categories/finished/ style=background-color:#2a9d8f;color:#fff>施工完毕</a></header><div class=article-title-wrapper><h2 class=article-title><a href=/article/cppcon-2023-fwdref/>C++ 转发引用（万能引用）</a></h2><h3 class=article-subtitle>对 CppCon 2023, Mateusz Pusz 演讲的翻译与总结。</h3></div><footer class=article-time><div><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><path d="M11.795 21H5a2 2 0 01-2-2V7a2 2 0 012-2h12a2 2 0 012 2v4"/><circle cx="18" cy="18" r="4"/><path d="M15 3v4"/><path d="M7 3v4"/><path d="M3 11h16"/><path d="M18 16.496V18l1 1"/></svg>
+<time class=article-time--published>Mar 24, 2024</time></div><div><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/></svg>
+<time class=article-time--reading>阅读时长: 7 分钟</time></div></footer></div></header><section class=article-content><p><a class=link href="https://www.youtube.com/watch?v=0GXnfi9RAlU" target=_blank rel=noopener>Back to Basics: Forwarding References - How to Forward Parameters in Modern C++ - Mateusz Pusz 2023 (youtube.com)</a></p><p><a class=link href=https://github.com/CppCon/CppCon2023/blob/main/Presentations/B2B_Forwarding_References.pdf target=_blank rel=noopener>Slides</a></p><p>最近写模版，所以回顾一下万能引用。</p><p>（感觉这个主讲人是德国口音，有点喜感hhh）</p><h2 id=值类别>值类别</h2><p><img src=/article/cppcon-2023-fwdref/image-20240324123257303.png width=723 height=507 srcset="/article/cppcon-2023-fwdref/image-20240324123257303_hu72a281d7b7357be29f7068deff214f61_154000_480x0_resize_box_3.png 480w, /article/cppcon-2023-fwdref/image-20240324123257303_hu72a281d7b7357be29f7068deff214f61_154000_1024x0_resize_box_3.png 1024w" loading=lazy alt=value-categories class=gallery-image data-flex-grow=142 data-flex-basis=342px></p><ul><li>&ldquo;Generalized&rdquo; Lvalues：lvalue 是具有 <em>identity</em> 的对象、位域或者函数。</li><li>&ldquo;Pure&rdquo; Rvalues：prvalue 是运算符和操作数<em>计算的结果</em>，或者对象的<em>初始化</em>，或者位域</li><li>&ldquo;Expiring&rdquo; Lvalue：xvalue 代表可以被重用的资源（你应该对他使用 move，当然 别 return std::move）</li></ul><p>之后主讲人发起了个 quiz，做题，以下传入的表达式的值类别是什么？</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=n>foo</span><span class=p>(</span><span class=mi>42</span><span class=p>);</span>	<span class=c1>// prvalue
+</span></span></span></code></pre></td></tr></table></div></div><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=kt>int</span> <span class=n>i</span><span class=p>{</span><span class=mi>42</span><span class=p>};</span>
+</span></span><span class=line><span class=cl><span class=n>foo</span><span class=p>(</span><span class=n>i</span><span class=p>);</span>		<span class=c1>// lvalue
+</span></span></span></code></pre></td></tr></table></div></div><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=kt>int</span> <span class=n>i</span><span class=p>{</span><span class=mi>42</span><span class=p>};</span>
+</span></span><span class=line><span class=cl><span class=n>foo</span><span class=p>(</span><span class=n>std</span><span class=o>::</span><span class=n>move</span><span class=p>(</span><span class=n>i</span><span class=p>));</span>	<span class=c1>// xvalue
+</span></span></span></code></pre></td></tr></table></div></div><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=kt>int</span> <span class=nf>make_int</span><span class=p>()</span> <span class=p>{</span><span class=k>return</span> <span class=mi>42</span><span class=p>;}</span>
+</span></span><span class=line><span class=cl><span class=n>foo</span><span class=p>(</span><span class=n>make_int</span><span class=p>());</span>	<span class=c1>// prvalue。译者注：函数调用是纯右值
+</span></span></span></code></pre></td></tr></table></div></div><p>接下来是重载的选择：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=kt>void</span> <span class=nf>f</span><span class=p>(</span><span class=kt>int</span><span class=o>*</span> <span class=n>ptr</span><span class=p>);</span>
+</span></span><span class=line><span class=cl><span class=kt>void</span> <span class=nf>f</span><span class=p>(</span><span class=k>const</span> <span class=kt>int</span><span class=o>*</span> <span class=n>ptr</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=kt>int</span> <span class=n>i</span><span class=p>{</span><span class=mi>42</span><span class=p>};</span>
+</span></span><span class=line><span class=cl><span class=k>const</span> <span class=kt>int</span> <span class=n>ci</span><span class=p>{</span><span class=mi>42</span><span class=p>};</span>
+</span></span><span class=line><span class=cl><span class=kt>int</span> <span class=nf>make_int</span><span class=p>()</span> <span class=p>{</span><span class=k>return</span> <span class=mi>42</span><span class=p>};</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1>// 以下那些可以编译？
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=n>f</span><span class=p>(</span><span class=n>i</span><span class=p>);</span>
+</span></span><span class=line><span class=cl><span class=n>f</span><span class=p>(</span><span class=n>ci</span><span class=p>);</span>
+</span></span><span class=line><span class=cl><span class=n>f</span><span class=p>(</span><span class=n>std</span><span class=o>::</span><span class=n>move</span><span class=p>(</span><span class=n>i</span><span class=p>));</span>
+</span></span><span class=line><span class=cl><span class=n>f</span><span class=p>(</span><span class=n>std</span><span class=o>::</span><span class=n>move</span><span class=p>(</span><span class=n>ci</span><span class=p>));</span>
+</span></span><span class=line><span class=cl><span class=n>f</span><span class=p>(</span><span class=mi>42</span><span class=p>);</span>
+</span></span><span class=line><span class=cl><span class=n>f</span><span class=p>(</span><span class=n>make_int</span><span class=p>());</span>
+</span></span></code></pre></td></tr></table></div></div><p><strong>都不能编译</strong>，因为函数参数是指针。为了让他能编译，我们需要取地址，继续：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=kt>void</span> <span class=nf>f</span><span class=p>(</span><span class=kt>int</span><span class=o>*</span> <span class=n>ptr</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=kt>int</span> <span class=n>i</span><span class=p>{</span><span class=mi>42</span><span class=p>};</span>
+</span></span><span class=line><span class=cl><span class=k>const</span> <span class=kt>int</span> <span class=n>ci</span><span class=p>{</span><span class=mi>42</span><span class=p>};</span>
+</span></span><span class=line><span class=cl><span class=kt>int</span> <span class=nf>make_int</span><span class=p>()</span> <span class=p>{</span><span class=k>return</span> <span class=mi>42</span><span class=p>};</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=n>f</span><span class=p>(</span><span class=o>&amp;</span><span class=n>i</span><span class=p>);</span>				<span class=c1>// √
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=n>f</span><span class=p>(</span><span class=o>&amp;</span><span class=n>ci</span><span class=p>);</span>				<span class=c1>// ×
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=n>f</span><span class=p>(</span><span class=o>&amp;</span><span class=n>std</span><span class=o>::</span><span class=n>move</span><span class=p>(</span><span class=n>i</span><span class=p>));</span>	 <span class=c1>// ×
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=n>f</span><span class=p>(</span><span class=o>&amp;</span><span class=n>std</span><span class=o>::</span><span class=n>move</span><span class=p>(</span><span class=n>ci</span><span class=p>));</span>	 <span class=c1>// ×
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=n>f</span><span class=p>(</span><span class=o>&amp;</span><span class=mi>42</span><span class=p>);</span>				<span class=c1>// ×
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=n>f</span><span class=p>(</span><span class=o>&amp;</span><span class=n>make_int</span><span class=p>());</span>		 <span class=c1>// ×
+</span></span></span></code></pre></td></tr></table></div></div><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=kt>void</span> <span class=nf>f</span><span class=p>(</span><span class=k>const</span> <span class=kt>int</span><span class=o>*</span> <span class=n>ptr</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=kt>int</span> <span class=n>i</span><span class=p>{</span><span class=mi>42</span><span class=p>};</span>
+</span></span><span class=line><span class=cl><span class=k>const</span> <span class=kt>int</span> <span class=n>ci</span><span class=p>{</span><span class=mi>42</span><span class=p>};</span>
+</span></span><span class=line><span class=cl><span class=kt>int</span> <span class=nf>make_int</span><span class=p>()</span> <span class=p>{</span><span class=k>return</span> <span class=mi>42</span><span class=p>};</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=n>f</span><span class=p>(</span><span class=o>&amp;</span><span class=n>i</span><span class=p>);</span>				<span class=c1>// √
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=n>f</span><span class=p>(</span><span class=o>&amp;</span><span class=n>ci</span><span class=p>);</span>				<span class=c1>// √
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=n>f</span><span class=p>(</span><span class=o>&amp;</span><span class=n>std</span><span class=o>::</span><span class=n>move</span><span class=p>(</span><span class=n>i</span><span class=p>));</span>	 <span class=c1>// ×
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=n>f</span><span class=p>(</span><span class=o>&amp;</span><span class=n>std</span><span class=o>::</span><span class=n>move</span><span class=p>(</span><span class=n>ci</span><span class=p>));</span>	 <span class=c1>// ×
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=n>f</span><span class=p>(</span><span class=o>&amp;</span><span class=mi>42</span><span class=p>);</span>				<span class=c1>// ×
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=n>f</span><span class=p>(</span><span class=o>&amp;</span><span class=n>make_int</span><span class=p>());</span>		 <span class=c1>// ×
+</span></span></span></code></pre></td></tr></table></div></div><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=kt>void</span> <span class=nf>f</span><span class=p>(</span><span class=kt>int</span><span class=o>&amp;</span> <span class=n>ref</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=kt>int</span> <span class=n>i</span><span class=p>{</span><span class=mi>42</span><span class=p>};</span>
+</span></span><span class=line><span class=cl><span class=k>const</span> <span class=kt>int</span> <span class=n>ci</span><span class=p>{</span><span class=mi>42</span><span class=p>};</span>
+</span></span><span class=line><span class=cl><span class=kt>int</span> <span class=nf>make_int</span><span class=p>()</span> <span class=p>{</span><span class=k>return</span> <span class=mi>42</span><span class=p>};</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=n>f</span><span class=p>(</span><span class=n>i</span><span class=p>);</span>				<span class=c1>// √
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=n>f</span><span class=p>(</span><span class=n>ci</span><span class=p>);</span>				<span class=c1>// ×
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=n>f</span><span class=p>(</span><span class=n>std</span><span class=o>::</span><span class=n>move</span><span class=p>(</span><span class=n>i</span><span class=p>));</span>	 <span class=c1>// ×
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=n>f</span><span class=p>(</span><span class=n>std</span><span class=o>::</span><span class=n>move</span><span class=p>(</span><span class=n>ci</span><span class=p>));</span>	 <span class=c1>// ×
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=n>f</span><span class=p>(</span><span class=mi>42</span><span class=p>);</span>				<span class=c1>// ×
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=n>f</span><span class=p>(</span><span class=n>make_int</span><span class=p>());</span>		 <span class=c1>// ×
+</span></span></span></code></pre></td></tr></table></div></div><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=kt>void</span> <span class=nf>f</span><span class=p>(</span><span class=k>const</span> <span class=kt>int</span><span class=o>&amp;</span> <span class=n>ref</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=kt>int</span> <span class=n>i</span><span class=p>{</span><span class=mi>42</span><span class=p>};</span>
+</span></span><span class=line><span class=cl><span class=k>const</span> <span class=kt>int</span> <span class=n>ci</span><span class=p>{</span><span class=mi>42</span><span class=p>};</span>
+</span></span><span class=line><span class=cl><span class=kt>int</span> <span class=nf>make_int</span><span class=p>()</span> <span class=p>{</span><span class=k>return</span> <span class=mi>42</span><span class=p>};</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1>// 全能编译
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=n>f</span><span class=p>(</span><span class=n>i</span><span class=p>);</span>				
+</span></span><span class=line><span class=cl><span class=n>f</span><span class=p>(</span><span class=n>ci</span><span class=p>);</span>				
+</span></span><span class=line><span class=cl><span class=n>f</span><span class=p>(</span><span class=n>std</span><span class=o>::</span><span class=n>move</span><span class=p>(</span><span class=n>i</span><span class=p>));</span>	
+</span></span><span class=line><span class=cl><span class=n>f</span><span class=p>(</span><span class=n>std</span><span class=o>::</span><span class=n>move</span><span class=p>(</span><span class=n>ci</span><span class=p>));</span>	 
+</span></span><span class=line><span class=cl><span class=n>f</span><span class=p>(</span><span class=mi>42</span><span class=p>);</span>				
+</span></span><span class=line><span class=cl><span class=n>f</span><span class=p>(</span><span class=n>make_int</span><span class=p>());</span>		 
+</span></span></code></pre></td></tr></table></div></div><h2 id=指针-vs-引用>指针 vs. 引用</h2><div class=table-wrapper><table><thead><tr><th>Ptr</th><th>Ref</th></tr></thead><tbody><tr><td>是对象</td><td>Alias（不是对象）</td></tr><tr><td>总是占用内存</td><td>一般不占用内存</td></tr><tr><td>数组的指针合法</td><td>数组不能创建引用</td></tr><tr><td>指针的指针</td><td>引用不能引用引用</td></tr><tr><td>void 指针</td><td>不能引用 void</td></tr><tr><td>可以未初始化</td><td>必须初始化</td></tr><tr><td>初始化之后可以重新赋值</td><td>不能更改</td></tr><tr><td>可以 cv 修饰</td><td>不能 cv 修饰</td></tr></tbody></table></div><blockquote><p>我看看谁再说引用的本质是指针。</p></blockquote><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=kt>void</span> <span class=nf>f</span><span class=p>(</span><span class=kt>int</span><span class=o>&amp;&amp;</span> <span class=n>ref</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=kt>int</span> <span class=n>i</span><span class=p>{</span><span class=mi>42</span><span class=p>};</span>
+</span></span><span class=line><span class=cl><span class=k>const</span> <span class=kt>int</span> <span class=n>ci</span><span class=p>{</span><span class=mi>42</span><span class=p>};</span>
+</span></span><span class=line><span class=cl><span class=kt>int</span> <span class=nf>make_int</span><span class=p>()</span> <span class=p>{</span><span class=k>return</span> <span class=mi>42</span><span class=p>};</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=n>f</span><span class=p>(</span><span class=n>i</span><span class=p>);</span>				<span class=c1>// ×
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=n>f</span><span class=p>(</span><span class=n>ci</span><span class=p>);</span>				<span class=c1>// ×
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=n>f</span><span class=p>(</span><span class=n>std</span><span class=o>::</span><span class=n>move</span><span class=p>(</span><span class=n>i</span><span class=p>));</span>	 <span class=c1>// √
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=n>f</span><span class=p>(</span><span class=n>std</span><span class=o>::</span><span class=n>move</span><span class=p>(</span><span class=n>ci</span><span class=p>));</span>	 <span class=c1>// × const int&amp;&amp;
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=n>f</span><span class=p>(</span><span class=mi>42</span><span class=p>);</span>				<span class=c1>// √
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=n>f</span><span class=p>(</span><span class=n>make_int</span><span class=p>());</span>		 <span class=c1>// √
+</span></span></span></code></pre></td></tr></table></div></div><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=kt>void</span> <span class=nf>f</span><span class=p>(</span><span class=k>const</span> <span class=kt>int</span><span class=o>&amp;&amp;</span> <span class=n>ref</span><span class=p>);</span>	<span class=c1>// 很奇怪，但确实合法，但确实看起来没有用
+</span></span></span><span class=line><span class=cl><span class=c1></span>
+</span></span><span class=line><span class=cl><span class=kt>int</span> <span class=n>i</span><span class=p>{</span><span class=mi>42</span><span class=p>};</span>
+</span></span><span class=line><span class=cl><span class=k>const</span> <span class=kt>int</span> <span class=n>ci</span><span class=p>{</span><span class=mi>42</span><span class=p>};</span>
+</span></span><span class=line><span class=cl><span class=kt>int</span> <span class=nf>make_int</span><span class=p>()</span> <span class=p>{</span><span class=k>return</span> <span class=mi>42</span><span class=p>};</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=n>f</span><span class=p>(</span><span class=n>i</span><span class=p>);</span>				<span class=c1>// ×
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=n>f</span><span class=p>(</span><span class=n>ci</span><span class=p>);</span>				<span class=c1>// ×
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=n>f</span><span class=p>(</span><span class=n>std</span><span class=o>::</span><span class=n>move</span><span class=p>(</span><span class=n>i</span><span class=p>));</span>	 <span class=c1>// √
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=n>f</span><span class=p>(</span><span class=n>std</span><span class=o>::</span><span class=n>move</span><span class=p>(</span><span class=n>ci</span><span class=p>));</span>	 <span class=c1>// √ 
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=n>f</span><span class=p>(</span><span class=mi>42</span><span class=p>);</span>				<span class=c1>// √
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=n>f</span><span class=p>(</span><span class=n>make_int</span><span class=p>());</span>		 <span class=c1>// √
+</span></span></span></code></pre></td></tr></table></div></div><h2 id=传参>传参</h2><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=kt>void</span> <span class=nf>foo</span><span class=p>(</span><span class=k>const</span> <span class=kt>int</span><span class=o>&amp;</span> <span class=n>x</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=kt>int</span> <span class=n>temp</span> <span class=o>=</span> <span class=n>x</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=n>x</span> <span class=o>=</span> <span class=mi>0</span><span class=p>;</span>	<span class=c1>// Error
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=p>}</span>
+</span></span><span class=line><span class=cl><span class=n>foo</span><span class=p>(</span><span class=n>make_int</span><span class=p>());</span>
+</span></span></code></pre></td></tr></table></div></div><ul><li>const lvalue <strong>不能被修改</strong></li><li>即使你传的是右值也不行</li></ul><p>所以 C++11 加入了右值引用，为了解决这个情况</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=kt>void</span> <span class=nf>foo</span><span class=p>(</span><span class=kt>int</span><span class=o>&amp;&amp;</span> <span class=n>x</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=kt>int</span> <span class=n>temp</span> <span class=o>=</span> <span class=n>x</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=n>x</span> <span class=o>=</span> <span class=mi>0</span><span class=p>;</span>	<span class=c1>// OK
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=n>foo</span><span class=p>(</span><span class=n>make_int</span><span class=p>());</span>
+</span></span></code></pre></td></tr></table></div></div><ul><li>右值<strong>可以</strong>被修改</li><li><strong>暗示移动语义</strong></li></ul><h2 id=右值引用类型的参数>右值引用类型的参数</h2><p>右值引用的变量在表达式中被使用时，是<strong>左值</strong></p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=kt>void</span> <span class=nf>boo</span><span class=p>(</span><span class=kt>int</span><span class=o>&amp;&amp;</span> <span class=n>x</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=kt>void</span> <span class=nf>foo</span><span class=p>(</span><span class=kt>int</span><span class=o>&amp;&amp;</span> <span class=n>x</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=n>boo</span><span class=p>(</span><span class=n>x</span><span class=p>);</span>	<span class=c1>// error
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><p>如果你想让他生效，你得 move 一下</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=kt>void</span> <span class=nf>boo</span><span class=p>(</span><span class=kt>int</span><span class=o>&amp;&amp;</span> <span class=n>x</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=kt>void</span> <span class=nf>foo</span><span class=p>(</span><span class=kt>int</span><span class=o>&amp;&amp;</span> <span class=n>x</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=n>boo</span><span class=p>(</span><span class=n>std</span><span class=o>::</span><span class=n>move</span><span class=p>(</span><span class=n>x</span><span class=p>));</span>	<span class=c1>// error
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><blockquote><p>所以实际上你在参数中看到右值，那么你需要使用移动语义。如果你是传参的那个，看到参数接受右值，那么也代表你在之后最好不要复用传入的参数。</p></blockquote><p>此外，<code>std::move</code> 也并不 move，只是 cast to rvalue type。</p><h2 id=万能引用>万能引用</h2><p>万能引用的形式有如下两种：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=k>template</span><span class=o>&lt;</span><span class=k>typename</span> <span class=n>T</span><span class=o>&gt;</span> <span class=kt>void</span> <span class=n>f</span><span class=p>(</span><span class=n>T</span><span class=o>&amp;&amp;</span> <span class=n>x</span><span class=p>);</span>
+</span></span><span class=line><span class=cl><span class=kt>void</span> <span class=nf>f</span><span class=p>(</span><span class=k>auto</span><span class=o>&amp;&amp;</span> <span class=n>x</span><span class=p>);</span>
+</span></span></code></pre></td></tr></table></div></div><p>要求是：</p><ol><li>推导语境</li><li>声明为右值（长得一样）</li><li>无 cv 限定</li></ol><p>比如：</p><p>以下这些<strong>都不是</strong>万能引用</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=k>template</span><span class=o>&lt;</span><span class=k>typename</span> <span class=n>T</span><span class=o>&gt;</span>
+</span></span><span class=line><span class=cl><span class=kt>int</span> <span class=n>g</span><span class=p>(</span><span class=k>const</span> <span class=n>T</span><span class=o>&amp;&amp;</span> <span class=n>y</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=k>template</span><span class=o>&lt;</span><span class=k>typename</span> <span class=n>T</span><span class=o>&gt;</span>
+</span></span><span class=line><span class=cl><span class=k>struct</span> <span class=nc>A</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>	<span class=k>template</span><span class=o>&lt;</span><span class=k>typename</span> <span class=n>U</span><span class=p>,</span> <span class=k>typename</span> <span class=n>Z</span> <span class=o>=</span> <span class=n>T</span><span class=o>&gt;</span>
+</span></span><span class=line><span class=cl>    <span class=n>A</span><span class=p>(</span><span class=n>T</span><span class=o>&amp;&amp;</span> <span class=n>t</span><span class=p>,</span> <span class=n>U</span><span class=o>&amp;&amp;</span> <span class=n>u</span><span class=p>,</span> <span class=n>Z</span><span class=o>&amp;&amp;</span> <span class=n>z</span><span class=p>);</span> <span class=c1>// &#39;u&#39; &#39;z&#39; 是万能引用，t 不是推导语境
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=p>};</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=k>template</span><span class=o>&lt;</span><span class=k>typename</span> <span class=n>T</span><span class=o>&gt;</span>
+</span></span><span class=line><span class=cl><span class=kt>void</span> <span class=n>foo</span><span class=p>(</span><span class=n>std</span><span class=o>::</span><span class=n>vector</span><span class=o>&lt;</span><span class=n>T</span><span class=o>&gt;&amp;&amp;</span> <span class=n>v</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=k>auto</span><span class=o>&amp;&amp;</span> <span class=n>z</span> <span class=o>=</span> <span class=p>{</span><span class=mi>1</span><span class=p>,</span> <span class=mi>2</span><span class=p>,</span> <span class=mi>3</span><span class=p>};</span>	<span class=c1>// initializer list 在哪都特殊
+</span></span></span></code></pre></td></tr></table></div></div><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=k>template</span><span class=o>&lt;</span><span class=k>typename</span> <span class=n>T</span><span class=o>&gt;</span>
+</span></span><span class=line><span class=cl><span class=kt>void</span> <span class=n>f</span><span class=p>(</span><span class=n>T</span><span class=o>&amp;&amp;</span> <span class=n>x</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=kt>int</span> <span class=n>i</span><span class=p>{</span><span class=mi>42</span><span class=p>};</span>
+</span></span><span class=line><span class=cl><span class=k>const</span> <span class=kt>int</span> <span class=n>ci</span><span class=p>{</span><span class=mi>42</span><span class=p>};</span>
+</span></span><span class=line><span class=cl><span class=kt>int</span> <span class=nf>make_int</span><span class=p>()</span> <span class=p>{</span><span class=k>return</span> <span class=mi>42</span><span class=p>};</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=n>f</span><span class=p>(</span><span class=n>i</span><span class=p>);</span>				<span class=c1>// f&lt;int&amp;&gt;(int&amp;)
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=n>f</span><span class=p>(</span><span class=n>ci</span><span class=p>);</span>				<span class=c1>// f&lt;const int&amp;&gt;(const int&amp;)
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=n>f</span><span class=p>(</span><span class=n>std</span><span class=o>::</span><span class=n>move</span><span class=p>(</span><span class=n>i</span><span class=p>));</span>	 <span class=c1>// f&lt;int&gt;(int&amp;&amp;)
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=n>f</span><span class=p>(</span><span class=n>std</span><span class=o>::</span><span class=n>move</span><span class=p>(</span><span class=n>ci</span><span class=p>));</span>	 <span class=c1>// f&lt;const int&gt;(const int&amp;&amp;)
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=n>f</span><span class=p>(</span><span class=mi>42</span><span class=p>);</span>				<span class=c1>// f&lt;int&gt;(int&amp;&amp;)
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=n>f</span><span class=p>(</span><span class=n>make_int</span><span class=p>());</span>		 <span class=c1>// f&lt;int&gt;(int&amp;&amp;)
+</span></span></span></code></pre></td></tr></table></div></div><p>注意引用折叠：当传入的参数是左值时，万能引用此时会推导为 T&。可以跟以下对比：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=k>template</span><span class=o>&lt;</span><span class=k>typename</span> <span class=n>T</span><span class=o>&gt;</span>
+</span></span><span class=line><span class=cl><span class=kt>void</span> <span class=n>f</span><span class=p>(</span><span class=k>const</span> <span class=n>T</span><span class=o>&amp;</span> <span class=n>x</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=kt>int</span> <span class=n>i</span><span class=p>{</span><span class=mi>42</span><span class=p>};</span>
+</span></span><span class=line><span class=cl><span class=k>const</span> <span class=kt>int</span> <span class=n>ci</span><span class=p>{</span><span class=mi>42</span><span class=p>};</span>
+</span></span><span class=line><span class=cl><span class=kt>int</span> <span class=nf>make_int</span><span class=p>()</span> <span class=p>{</span><span class=k>return</span> <span class=mi>42</span><span class=p>};</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=n>f</span><span class=p>(</span><span class=n>i</span><span class=p>);</span>				<span class=c1>// f&lt;int&gt;(const int&amp;)
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=n>f</span><span class=p>(</span><span class=n>ci</span><span class=p>);</span>				<span class=c1>// f&lt;int&gt;(const int&amp;)
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=n>f</span><span class=p>(</span><span class=n>std</span><span class=o>::</span><span class=n>move</span><span class=p>(</span><span class=n>i</span><span class=p>));</span>	 <span class=c1>// f&lt;int&gt;(const int&amp;)
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=n>f</span><span class=p>(</span><span class=n>std</span><span class=o>::</span><span class=n>move</span><span class=p>(</span><span class=n>ci</span><span class=p>));</span>	 <span class=c1>// f&lt;int&gt;(const int&amp;)
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=n>f</span><span class=p>(</span><span class=mi>42</span><span class=p>);</span>				<span class=c1>// f&lt;int&gt;(const int&amp;)
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=n>f</span><span class=p>(</span><span class=n>make_int</span><span class=p>());</span>		 <span class=c1>// f&lt;int&gt;(const int&amp;)
+</span></span></span></code></pre></td></tr></table></div></div><h2 id=推荐做法>推荐做法</h2><p>如果你需要一个函数，可以绑定所有的类型，但是只是读取数据，那么你应该使用 <code>const T&</code> (当然，各种 range 也可以)</p><h2 id=转发函数的参数>转发函数的参数</h2><p>假设我们实现一些功能：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=kt>void</span> <span class=nf>f</span><span class=p>(</span><span class=kt>int</span><span class=o>&amp;</span><span class=p>)</span> <span class=p>{</span><span class=n>std</span><span class=o>::</span><span class=n>cout</span> <span class=o>&lt;&lt;</span> <span class=s>&#34;lvalue</span><span class=se>\n</span><span class=s>&#34;</span><span class=p>;</span> <span class=p>}</span>
+</span></span><span class=line><span class=cl><span class=kt>void</span> <span class=nf>f</span><span class=p>(</span><span class=k>const</span> <span class=kt>int</span><span class=o>&amp;</span><span class=p>)</span> <span class=p>{</span><span class=n>std</span><span class=o>::</span><span class=n>cout</span> <span class=o>&lt;&lt;</span> <span class=s>&#34;const lvalue</span><span class=se>\n</span><span class=s>&#34;</span><span class=p>;</span> <span class=p>}</span>
+</span></span><span class=line><span class=cl><span class=kt>void</span> <span class=nf>f</span><span class=p>(</span><span class=kt>int</span><span class=o>&amp;&amp;</span><span class=p>)</span> <span class=p>{</span><span class=n>std</span><span class=o>::</span><span class=n>cout</span> <span class=o>&lt;&lt;</span> <span class=s>&#34;rvalue</span><span class=se>\n</span><span class=s>&#34;</span><span class=p>;</span> <span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><p>我们需要处理数据，然后把他们传入参数，我们总不能对每个函数都写个 wrapper 吧？所以我们需要完美转发。</p><p><strong>完美转发可以保留函数参数的值类别</strong>，通过 <code>std::forward</code> 转发给别的函数。</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=k>template</span><span class=o>&lt;</span><span class=k>typename</span> <span class=n>T</span><span class=o>&gt;</span>
+</span></span><span class=line><span class=cl><span class=kt>void</span> <span class=n>wrapper</span><span class=p>(</span><span class=n>T</span><span class=o>&amp;&amp;</span> <span class=n>v</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=n>do_something</span><span class=p>();</span>
+</span></span><span class=line><span class=cl>    <span class=n>f</span><span class=p>(</span><span class=n>std</span><span class=o>::</span><span class=n>forward</span><span class=o>&lt;</span><span class=n>T</span><span class=o>&gt;</span><span class=p>(</span><span class=n>v</span><span class=p>));</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><p><code>std::forward</code> <strong>只会将右值保留为右值</strong></p><p>简单实现：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=k>template</span><span class=o>&lt;</span><span class=k>typename</span> <span class=n>T</span><span class=o>&gt;</span>
+</span></span><span class=line><span class=cl><span class=na>[[nodiscard]]</span> <span class=k>constexpr</span> <span class=n>T</span><span class=o>&amp;&amp;</span> <span class=n>forward</span><span class=p>(</span><span class=n>std</span><span class=o>::</span><span class=n>type_identity_t</span><span class=o>&lt;</span><span class=n>T</span><span class=o>&gt;&amp;</span> <span class=n>param</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=k>return</span> <span class=k>static_cast</span><span class=o>&lt;</span><span class=n>std</span><span class=o>::</span><span class=n>type_identity_t</span><span class=o>&lt;</span><span class=n>T</span><span class=o>&gt;&amp;&amp;&gt;</span><span class=p>(</span><span class=n>param</span><span class=p>);</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><p>注：<code>std::type_identity</code> 用于**建立非推导语境。**正常的 <code>forward</code> 实现也是非推导语境，所以你需要手动指定模板类型参数。</p><h2 id=sinks-可扩展性>Sinks: 可扩展性</h2><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span><span class=lnt>7
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=k>class</span> <span class=nc>MyClass</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl><span class=k>public</span><span class=o>:</span>
+</span></span><span class=line><span class=cl>    <span class=k>explicit</span> <span class=n>MyClass</span><span class=p>(</span><span class=k>const</span> <span class=n>std</span><span class=o>::</span><span class=n>string</span><span class=o>&amp;</span> <span class=n>txt</span><span class=p>)</span> <span class=o>:</span> <span class=n>txt_</span><span class=p>(</span><span class=n>txt</span><span class=p>)</span> <span class=p>{}</span>
+</span></span><span class=line><span class=cl>    <span class=k>explicit</span> <span class=nf>MyClass</span><span class=p>(</span><span class=n>std</span><span class=o>::</span><span class=n>string</span><span class=o>&amp;&amp;</span> <span class=n>txt</span><span class=p>)</span> <span class=o>:</span> <span class=n>txt_</span><span class=p>(</span><span class=n>std</span><span class=o>::</span><span class=n>move</span><span class=p>(</span><span class=n>txt</span><span class=p>))</span> <span class=p>{}</span>
+</span></span><span class=line><span class=cl><span class=k>private</span><span class=o>:</span>
+</span></span><span class=line><span class=cl>    <span class=n>std</span><span class=o>::</span><span class=n>string</span> <span class=n>txt_</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=p>};</span>
+</span></span></code></pre></td></tr></table></div></div><p>考虑这种情况，那么显然重载两个构造函数是最好的。</p><p>但是这么做缺乏可扩展性，如果你的成员多了，那得重载多少个构造函数？</p><p>所以你可以考虑使用值类型，这样让用户来决定传什么：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span><span class=lnt>7
+</span><span class=lnt>8
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=k>class</span> <span class=nc>MyClass</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl><span class=k>public</span><span class=o>:</span>
+</span></span><span class=line><span class=cl>    <span class=k>explicit</span> <span class=n>MyClass</span><span class=p>(</span><span class=n>std</span><span class=o>::</span><span class=n>string</span> <span class=n>txt1</span><span class=p>,</span> <span class=n>std</span><span class=o>::</span><span class=n>string</span> <span class=n>txt2</span><span class=p>)</span> <span class=o>:</span> 
+</span></span><span class=line><span class=cl>    	<span class=n>txt1_</span><span class=p>(</span><span class=n>std</span><span class=o>::</span><span class=n>move</span><span class=p>(</span><span class=n>txt1</span><span class=p>)),</span> <span class=n>txt2</span><span class=p>(</span><span class=n>std</span><span class=o>::</span><span class=n>move</span><span class=p>(</span><span class=n>txt2</span><span class=p>))</span> <span class=p>{}</span>
+</span></span><span class=line><span class=cl><span class=k>private</span><span class=o>:</span>
+</span></span><span class=line><span class=cl>    <span class=n>std</span><span class=o>::</span><span class=n>string</span> <span class=n>txt1_</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=n>std</span><span class=o>::</span><span class=n>string</span> <span class=n>txt2_</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=p>};</span>
+</span></span></code></pre></td></tr></table></div></div><p>但如果你的类型移动开销高的话，那可能你也不想用这种方法，那你需要完美转发：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span><span class=lnt>7
+</span><span class=lnt>8
+</span><span class=lnt>9
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=k>class</span> <span class=nc>MyClass</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl><span class=k>public</span><span class=o>:</span>
+</span></span><span class=line><span class=cl>    <span class=k>template</span><span class=o>&lt;</span><span class=k>typename</span> <span class=n>T</span><span class=p>,</span> <span class=k>typename</span> <span class=n>U</span><span class=o>&gt;</span>
+</span></span><span class=line><span class=cl>    <span class=n>MyClass</span><span class=p>(</span><span class=n>T</span><span class=o>&amp;&amp;</span> <span class=n>txt1</span><span class=p>,</span> <span class=n>U</span><span class=o>&amp;&amp;</span> <span class=n>txt2</span><span class=p>)</span> <span class=o>:</span> 
+</span></span><span class=line><span class=cl>    	<span class=n>txt1_</span><span class=p>(</span><span class=n>std</span><span class=o>::</span><span class=n>forward</span><span class=o>&lt;</span><span class=n>T</span><span class=o>&gt;</span><span class=p>(</span><span class=n>txt1</span><span class=p>)),</span> <span class=n>txt2</span><span class=p>(</span><span class=n>std</span><span class=o>::</span><span class=n>forward</span><span class=o>&lt;</span><span class=n>U</span><span class=o>&gt;</span><span class=p>(</span><span class=n>txt2</span><span class=p>))</span> <span class=p>{}</span>
+</span></span><span class=line><span class=cl><span class=k>private</span><span class=o>:</span>
+</span></span><span class=line><span class=cl>    <span class=n>std</span><span class=o>::</span><span class=n>string</span> <span class=n>txt1_</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=n>std</span><span class=o>::</span><span class=n>string</span> <span class=n>txt2_</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=p>};</span>
+</span></span></code></pre></td></tr></table></div></div><p>但这样的话还有别的问题，别人<strong>不知道你到底需要什么类型</strong>，没准给你传个int 或者 double 进来，</p><p>那么你就需要一些 Concepts</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span><span class=lnt>7
+</span><span class=lnt>8
+</span><span class=lnt>9
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=k>class</span> <span class=nc>MyClass</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl><span class=k>public</span><span class=o>:</span>
+</span></span><span class=line><span class=cl>    <span class=k>template</span><span class=o>&lt;</span><span class=n>std</span><span class=o>::</span><span class=n>same_as</span><span class=o>&lt;</span><span class=n>std</span><span class=o>::</span><span class=n>string</span><span class=o>&gt;</span> <span class=n>T</span><span class=p>,</span> <span class=n>std</span><span class=o>::</span><span class=n>same_as</span><span class=o>&lt;</span><span class=n>std</span><span class=o>::</span><span class=n>string</span><span class=o>&gt;</span> <span class=n>U</span><span class=o>&gt;</span>
+</span></span><span class=line><span class=cl>    <span class=n>MyClass</span><span class=p>(</span><span class=n>T</span><span class=o>&amp;&amp;</span> <span class=n>txt1</span><span class=p>,</span> <span class=n>U</span><span class=o>&amp;&amp;</span> <span class=n>txt2</span><span class=p>)</span> <span class=o>:</span> 
+</span></span><span class=line><span class=cl>    	<span class=n>txt1_</span><span class=p>(</span><span class=n>std</span><span class=o>::</span><span class=n>forward</span><span class=o>&lt;</span><span class=n>T</span><span class=o>&gt;</span><span class=p>(</span><span class=n>txt1</span><span class=p>)),</span> <span class=n>txt2</span><span class=p>(</span><span class=n>std</span><span class=o>::</span><span class=n>forward</span><span class=o>&lt;</span><span class=n>U</span><span class=o>&gt;</span><span class=p>(</span><span class=n>txt2</span><span class=p>))</span> <span class=p>{}</span>
+</span></span><span class=line><span class=cl><span class=k>private</span><span class=o>:</span>
+</span></span><span class=line><span class=cl>    <span class=n>std</span><span class=o>::</span><span class=n>string</span> <span class=n>txt1_</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=n>std</span><span class=o>::</span><span class=n>string</span> <span class=n>txt2_</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=p>};</span>
+</span></span></code></pre></td></tr></table></div></div><p>此时如果我传一些 <code>std::string</code> 左值，他就不会工作了，why？</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=n>std</span><span class=o>::</span><span class=n>string</span> <span class=n>txt</span><span class=p>{</span><span class=s>&#34;abc&#34;</span><span class=p>};</span>
+</span></span><span class=line><span class=cl><span class=n>MyClass</span> <span class=nf>c</span><span class=p>(</span><span class=n>txt</span><span class=p>,</span> <span class=n>txt</span><span class=p>);</span>
+</span></span></code></pre></td></tr></table></div></div><p>明显 <code>std::string</code> 和推导出的 <code>std::string&</code> 不是一个类型。所以你还得 remove cvr。</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=k>class</span> <span class=nc>MyClass</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl><span class=k>public</span><span class=o>:</span>
+</span></span><span class=line><span class=cl>    <span class=k>template</span><span class=o>&lt;</span><span class=k>typename</span> <span class=n>T</span><span class=p>,</span> <span class=k>typename</span> <span class=n>U</span><span class=o>&gt;</span>
+</span></span><span class=line><span class=cl>    	<span class=k>requires</span> <span class=n>std</span><span class=o>::</span><span class=n>same_as</span><span class=o>&lt;</span><span class=n>std</span><span class=o>::</span><span class=n>remove_cvref_t</span><span class=o>&lt;</span><span class=n>T</span><span class=o>&gt;</span><span class=p>,</span> <span class=n>std</span><span class=o>::</span><span class=n>string</span><span class=o>&gt;&amp;&amp;</span>
+</span></span><span class=line><span class=cl>    			<span class=n>std</span><span class=o>::</span><span class=n>same_as</span><span class=o>&lt;</span><span class=n>std</span><span class=o>::</span><span class=n>remove_cvref_t</span><span class=o>&lt;</span><span class=n>U</span><span class=o>&gt;</span><span class=p>,</span> <span class=n>std</span><span class=o>::</span><span class=n>string</span><span class=o>&gt;</span>
+</span></span><span class=line><span class=cl>    <span class=n>MyClass</span><span class=p>(</span><span class=n>T</span><span class=o>&amp;&amp;</span> <span class=n>txt1</span><span class=p>,</span> <span class=n>U</span><span class=o>&amp;&amp;</span> <span class=n>txt2</span><span class=p>)</span> <span class=o>:</span> 
+</span></span><span class=line><span class=cl>    	<span class=n>txt1_</span><span class=p>(</span><span class=n>std</span><span class=o>::</span><span class=n>forward</span><span class=o>&lt;</span><span class=n>T</span><span class=o>&gt;</span><span class=p>(</span><span class=n>txt1</span><span class=p>)),</span> <span class=n>txt2</span><span class=p>(</span><span class=n>std</span><span class=o>::</span><span class=n>forward</span><span class=o>&lt;</span><span class=n>U</span><span class=o>&gt;</span><span class=p>(</span><span class=n>txt2</span><span class=p>))</span> <span class=p>{}</span>
+</span></span><span class=line><span class=cl><span class=k>private</span><span class=o>:</span>
+</span></span><span class=line><span class=cl>    <span class=n>std</span><span class=o>::</span><span class=n>string</span> <span class=n>txt1_</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=n>std</span><span class=o>::</span><span class=n>string</span> <span class=n>txt2_</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=p>};</span>
+</span></span></code></pre></td></tr></table></div></div><p>那么传 <code>const char[]</code> 也不能过编译，所以我们也不能这么干，应该写：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span><span class=lnt>7
+</span><span class=lnt>8
+</span><span class=lnt>9
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=k>class</span> <span class=nc>MyClass</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl><span class=k>public</span><span class=o>:</span>
+</span></span><span class=line><span class=cl>    <span class=k>template</span><span class=o>&lt;</span><span class=n>std</span><span class=o>::</span><span class=n>convertible_to</span><span class=o>&lt;</span><span class=n>std</span><span class=o>::</span><span class=n>string</span><span class=o>&gt;</span> <span class=n>T</span><span class=p>,</span> <span class=n>std</span><span class=o>::</span><span class=n>convertible_to</span><span class=o>&lt;</span><span class=n>std</span><span class=o>::</span><span class=n>string</span><span class=o>&gt;</span> <span class=n>U</span><span class=o>&gt;</span>
+</span></span><span class=line><span class=cl>    <span class=n>MyClass</span><span class=p>(</span><span class=n>T</span><span class=o>&amp;&amp;</span> <span class=n>txt1</span><span class=p>,</span> <span class=n>U</span><span class=o>&amp;&amp;</span> <span class=n>txt2</span><span class=p>)</span> <span class=o>:</span> 
+</span></span><span class=line><span class=cl>    	<span class=n>txt1_</span><span class=p>(</span><span class=n>std</span><span class=o>::</span><span class=n>forward</span><span class=o>&lt;</span><span class=n>T</span><span class=o>&gt;</span><span class=p>(</span><span class=n>txt1</span><span class=p>)),</span> <span class=n>txt2</span><span class=p>(</span><span class=n>std</span><span class=o>::</span><span class=n>forward</span><span class=o>&lt;</span><span class=n>U</span><span class=o>&gt;</span><span class=p>(</span><span class=n>txt2</span><span class=p>))</span> <span class=p>{}</span>
+</span></span><span class=line><span class=cl><span class=k>private</span><span class=o>:</span>
+</span></span><span class=line><span class=cl>    <span class=n>std</span><span class=o>::</span><span class=n>string</span> <span class=n>txt1_</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=n>std</span><span class=o>::</span><span class=n>string</span> <span class=n>txt2_</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=p>};</span>
+</span></span></code></pre></td></tr></table></div></div><p>此外，可以使用 <code>std::convertible_from</code> 允许显式转换。</p><h2 id=问题以下的代码>问题，以下的代码？</h2><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=k>class</span> <span class=nc>int_or_empty</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=kt>int</span> <span class=n>value_</span><span class=p>{};</span>
+</span></span><span class=line><span class=cl>    <span class=kt>bool</span> <span class=n>empty_</span><span class=p>{</span><span class=nb>true</span><span class=p>};</span>
+</span></span><span class=line><span class=cl>    
+</span></span><span class=line><span class=cl><span class=k>public</span><span class=o>:</span>
+</span></span><span class=line><span class=cl>    <span class=n>int_or_empty</span><span class=p>()</span> <span class=o>=</span> <span class=k>default</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    
+</span></span><span class=line><span class=cl>    <span class=k>template</span><span class=o>&lt;</span><span class=n>std</span><span class=o>::</span><span class=n>convertible_to</span><span class=o>&lt;</span><span class=kt>int</span><span class=o>&gt;</span> <span class=n>T</span><span class=o>&gt;</span>
+</span></span><span class=line><span class=cl>    <span class=k>constexpr</span> <span class=n>int_or_empty</span><span class=p>(</span><span class=n>T</span><span class=o>&amp;&amp;</span> <span class=n>v</span><span class=p>)</span> <span class=o>:</span> <span class=n>value_</span><span class=p>{</span><span class=n>std</span><span class=o>::</span><span class=n>forward</span><span class=o>&lt;</span><span class=n>T</span><span class=o>&gt;</span><span class=p>(</span><span class=n>v</span><span class=p>)},</span> <span class=n>empty_</span><span class=p>{</span><span class=nb>false</span><span class=p>}</span> <span class=p>{}</span>
+</span></span><span class=line><span class=cl>    
+</span></span><span class=line><span class=cl>    <span class=k>constexpr</span> <span class=kt>bool</span> <span class=nf>empty</span><span class=p>()</span> <span class=k>const</span> <span class=p>{</span><span class=k>return</span> <span class=n>empty_</span><span class=p>;}</span>
+</span></span><span class=line><span class=cl>    <span class=k>constexpr</span> <span class=k>operator</span> <span class=nf>int</span><span class=p>()</span> <span class=k>const</span> <span class=p>{</span><span class=k>return</span> <span class=n>value_</span><span class=p>;}</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><p>这个代码有点像 optional。</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=n>int_or_empty</span> <span class=n>empty</span><span class=p>;</span>	<span class=c1>// It is empty
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=n>int_or_empty</span> <span class=n>one</span><span class=p>{</span><span class=mi>1</span><span class=p>};</span> <span class=c1>// It 1
+</span></span></span><span class=line><span class=cl><span class=c1></span>
+</span></span><span class=line><span class=cl><span class=n>int_or_empty</span> <span class=n>empty2</span><span class=p>{</span><span class=n>empty</span><span class=p>};</span>	<span class=c1>// 不行，因为 empty 可以隐式转换为 int
+</span></span></span><span class=line><span class=cl><span class=c1></span>                        	<span class=c1>// 但如果 empty 是 const 就可以，因为这样不能转换了
+</span></span></span><span class=line><span class=cl><span class=c1></span>                            <span class=c1>// 即使你有拷贝构造也不可以
+</span></span></span></code></pre></td></tr></table></div></div><p>这个问题主讲称之为：“Too perfect forwarding”</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=k>class</span> <span class=nc>int_or_empty</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=kt>int</span> <span class=n>value_</span><span class=p>{};</span>
+</span></span><span class=line><span class=cl>    <span class=kt>bool</span> <span class=n>empty_</span><span class=p>{</span><span class=nb>true</span><span class=p>};</span>
+</span></span><span class=line><span class=cl>    
+</span></span><span class=line><span class=cl><span class=k>public</span><span class=o>:</span>
+</span></span><span class=line><span class=cl>    <span class=n>int_or_empty</span><span class=p>()</span> <span class=o>=</span> <span class=k>default</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    
+</span></span><span class=line><span class=cl>    <span class=k>template</span><span class=o>&lt;</span><span class=n>std</span><span class=o>::</span><span class=n>convertible_to</span><span class=o>&lt;</span><span class=kt>int</span><span class=o>&gt;</span> <span class=n>T</span><span class=o>&gt;</span>
+</span></span><span class=line><span class=cl>    	<span class=k>requires</span> <span class=p>(</span><span class=o>!</span><span class=n>std</span><span class=o>::</span><span class=n>same_as</span><span class=o>&lt;</span><span class=n>std</span><span class=o>::</span><span class=n>remove_cvref_t</span><span class=o>&lt;</span><span class=n>T</span><span class=o>&gt;</span><span class=p>,</span> <span class=n>int_or_empty</span><span class=o>&gt;</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>    <span class=k>constexpr</span> <span class=n>int_or_empty</span><span class=p>(</span><span class=n>T</span><span class=o>&amp;&amp;</span> <span class=n>v</span><span class=p>)</span> <span class=o>:</span> <span class=n>value_</span><span class=p>{</span><span class=n>std</span><span class=o>::</span><span class=n>forward</span><span class=o>&lt;</span><span class=n>T</span><span class=o>&gt;</span><span class=p>(</span><span class=n>v</span><span class=p>)},</span> <span class=n>empty_</span><span class=p>{</span><span class=nb>false</span><span class=p>}</span> <span class=p>{}</span>
+</span></span><span class=line><span class=cl>    
+</span></span><span class=line><span class=cl>    <span class=k>constexpr</span> <span class=kt>bool</span> <span class=nf>empty</span><span class=p>()</span> <span class=k>const</span> <span class=p>{</span><span class=k>return</span> <span class=n>empty_</span><span class=p>;}</span>
+</span></span><span class=line><span class=cl>    <span class=k>constexpr</span> <span class=k>operator</span> <span class=nf>int</span><span class=p>()</span> <span class=k>const</span> <span class=p>{</span><span class=k>return</span> <span class=n>value_</span><span class=p>;}</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><p>你还是得约束一下。</p><h2 id=推荐做法-1>推荐做法</h2><p><strong>如果构造函数参数是 完美转发的 单个模板参数 或者 一个参数包</strong>，一定要注意，他们可能会劫持你的拷贝构造。</p><h2 id=t-和移动语义>T&& 和移动语义</h2><p>如果我就想接受右值引用，不想让他是万能引用怎么办？</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=k>template</span><span class=o>&lt;</span><span class=k>typename</span> <span class=n>T</span><span class=o>&gt;</span>
+</span></span><span class=line><span class=cl><span class=kt>void</span> <span class=n>foo</span><span class=p>(</span><span class=n>T</span><span class=o>&amp;&amp;</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=n>std</span><span class=o>::</span><span class=n>vector</span> <span class=n>obj</span> <span class=p>{</span><span class=mi>1</span><span class=p>,</span> <span class=mi>2</span><span class=p>,</span> <span class=mi>3</span><span class=p>};</span>
+</span></span><span class=line><span class=cl><span class=k>const</span> <span class=n>std</span><span class=o>::</span><span class=n>vector</span> <span class=n>cobj</span> <span class=p>{</span><span class=mi>1</span><span class=p>,</span> <span class=mi>2</span><span class=p>,</span> <span class=mi>3</span><span class=p>};</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=n>foo</span><span class=p>(</span><span class=n>obj</span><span class=p>);</span>	<span class=c1>// 不想编译
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=n>foo</span><span class=p>(</span><span class=n>cobj</span><span class=p>);</span>	<span class=c1>// 不想编译
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=n>foo</span><span class=p>(</span><span class=n>std</span><span class=o>::</span><span class=n>move</span><span class=p>(</span><span class=n>obj</span><span class=p>));</span>			<span class=c1>// rvalue √
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=n>foo</span><span class=p>(</span><span class=n>std</span><span class=o>::</span><span class=n>move</span><span class=p>(</span><span class=n>cobj</span><span class=p>));</span>			<span class=c1>// rvalue √
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=n>foo</span><span class=p>(</span><span class=n>std</span><span class=o>::</span><span class=n>vector</span><span class=p>{</span><span class=mi>1</span><span class=p>,</span> <span class=mi>2</span><span class=p>,</span> <span class=mi>3</span><span class=p>});</span>		<span class=c1>// rvalue √
+</span></span></span></code></pre></td></tr></table></div></div><p>这里显然委员会的设计有问题（确实，之前nikolai 讲移动语义的时候也提到了，他们在设计完美转发的时候不太成熟就放出来了）</p><p>你需要约束一下：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=k>template</span><span class=o>&lt;</span><span class=k>typename</span> <span class=n>T</span><span class=o>&gt;</span>
+</span></span><span class=line><span class=cl>	<span class=k>requires</span> <span class=p>(</span><span class=o>!</span><span class=n>std</span><span class=o>::</span><span class=n>is_lvalue_reference_v</span><span class=o>&lt;</span><span class=n>T</span><span class=o>&gt;</span><span class=p>)</span>	<span class=c1>// 这里 T 会被推导为 std::vector&lt;int&gt;&amp;，这样就可以避免左值时的调用了 
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=kt>void</span> <span class=n>foo</span><span class=p>(</span><span class=n>T</span><span class=o>&amp;&amp;</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=n>std</span><span class=o>::</span><span class=n>vector</span> <span class=n>obj</span> <span class=p>{</span><span class=mi>1</span><span class=p>,</span> <span class=mi>2</span><span class=p>,</span> <span class=mi>3</span><span class=p>};</span>
+</span></span><span class=line><span class=cl><span class=k>const</span> <span class=n>std</span><span class=o>::</span><span class=n>vector</span> <span class=n>cobj</span> <span class=p>{</span><span class=mi>1</span><span class=p>,</span> <span class=mi>2</span><span class=p>,</span> <span class=mi>3</span><span class=p>};</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=n>foo</span><span class=p>(</span><span class=n>obj</span><span class=p>);</span>	<span class=c1>// ×
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=n>foo</span><span class=p>(</span><span class=n>cobj</span><span class=p>);</span>	<span class=c1>// ×
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=n>foo</span><span class=p>(</span><span class=n>std</span><span class=o>::</span><span class=n>move</span><span class=p>(</span><span class=n>obj</span><span class=p>));</span>			<span class=c1>// rvalue √
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=n>foo</span><span class=p>(</span><span class=n>std</span><span class=o>::</span><span class=n>move</span><span class=p>(</span><span class=n>cobj</span><span class=p>));</span>			<span class=c1>// rvalue √
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=n>foo</span><span class=p>(</span><span class=n>std</span><span class=o>::</span><span class=n>vector</span><span class=p>{</span><span class=mi>1</span><span class=p>,</span> <span class=mi>2</span><span class=p>,</span> <span class=mi>3</span><span class=p>});</span>		<span class=c1>// rvalue √
+</span></span></span></code></pre></td></tr></table></div></div><p>只使用 <code>std::is_reference_v&lt;T></code> 是不行的，因为有的人可能会显示调用这个函数（<code>foo&lt;std::vector&lt;int>&&>(v)</code>）</p><h2 id=捕获参数>捕获参数</h2><p>协程的状态存储协程参数：</p><ul><li>by-value 那么参数会 move 或者 copy</li><li>by-reference 那么依然会是引用</li></ul><p>所以你给协程传参时要注意生命周期，不然可能会悬垂引用。那怎么办呢？</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=k>template</span><span class=o>&lt;</span><span class=k>typename</span> <span class=n>T</span><span class=o>&gt;</span>
+</span></span><span class=line><span class=cl><span class=n>task</span><span class=o>&lt;</span><span class=kt>void</span><span class=o>&gt;</span> <span class=n>foo</span><span class=p>(</span><span class=n>T</span><span class=o>&amp;&amp;</span> <span class=n>t</span><span class=p>)</span> <span class=p>{</span> <span class=p>...</span> <span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=k>template</span><span class=o>&lt;</span><span class=k>typename</span> <span class=n>U</span><span class=o>&gt;</span>
+</span></span><span class=line><span class=cl><span class=n>task</span><span class=o>&lt;</span><span class=kt>void</span><span class=o>&gt;</span> <span class=n>boo</span><span class=p>(</span><span class=n>U</span><span class=o>&amp;&amp;</span> <span class=n>u</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=k>return</span> <span class=nf>foo</span><span class=p>(</span><span class=n>std</span><span class=o>::</span><span class=n>forward</span><span class=o>&lt;</span><span class=n>U</span><span class=o>&gt;</span><span class=p>(</span><span class=n>u</span><span class=p>));</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=kt>int</span> <span class=nf>main</span><span class=p>()</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=kt>int</span> <span class=n>i</span><span class=p>{</span><span class=mi>123</span><span class=p>};</span>
+</span></span><span class=line><span class=cl>	<span class=k>co_await</span> <span class=n>boo</span><span class=p>(</span><span class=n>i</span><span class=p>);</span>	<span class=c1>// T -&gt; int&amp;; t -&gt; int&amp;
+</span></span></span><span class=line><span class=cl><span class=c1></span>	<span class=k>co_await</span> <span class=n>boo</span><span class=p>(</span><span class=mi>42</span><span class=p>);</span>	<span class=c1>// T -&gt; int;  t -&gt; int&amp;&amp;
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><p><code>co_await boo(i)</code> 没问题，因为 i 存在于函数的栈上。但如果是临时变量，它就释放了。</p><p>所以 foo 那个协程，根据上面的规则，保留了引用（即使是右值引用）那么生命周期就会出问题。</p><p>那该咋办呢？</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=k>template</span><span class=o>&lt;</span><span class=k>typename</span> <span class=n>T</span><span class=o>&gt;</span>
+</span></span><span class=line><span class=cl><span class=n>task</span><span class=o>&lt;</span><span class=kt>void</span><span class=o>&gt;</span> <span class=n>foo</span><span class=p>(</span><span class=n>T</span> <span class=n>t</span><span class=p>)</span> <span class=p>{</span> <span class=p>...</span> <span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><p>其他都不变，这样就可以了。此时</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=k>co_await</span> <span class=nf>boo</span><span class=p>(</span><span class=mi>42</span><span class=p>);</span>	<span class=c1>// T -&gt; int; t -&gt; int
+</span></span></span></code></pre></td></tr></table></div></div><p>这样就可以直接拷贝，不会有右值引用的生命周期问题了。</p><h2 id=完美的返回参数>完美的返回参数</h2><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=k>template</span><span class=o>&lt;</span><span class=k>typename</span> <span class=n>T</span><span class=o>&gt;</span>
+</span></span><span class=line><span class=cl><span class=k>auto</span> <span class=n>wrapper</span><span class=p>(</span><span class=n>T</span><span class=o>&amp;&amp;</span> <span class=n>v</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=k>return</span> <span class=nf>foo</span><span class=p>(</span><span class=n>std</span><span class=o>::</span><span class=n>forward</span><span class=o>&lt;</span><span class=n>T</span><span class=o>&gt;</span><span class=p>(</span><span class=n>v</span><span class=p>));</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><p><code>auto</code> 并不行，他总是会想返回值。<code>auto&&</code> 也不好，我们应该使用：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=k>template</span><span class=o>&lt;</span><span class=k>typename</span> <span class=n>T</span><span class=o>&gt;</span>
+</span></span><span class=line><span class=cl><span class=k>decltype</span><span class=p>(</span><span class=k>auto</span><span class=p>)</span> <span class=n>wrapper</span><span class=p>(</span><span class=n>T</span><span class=o>&amp;&amp;</span> <span class=n>v</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=k>return</span> <span class=nf>foo</span><span class=p>(</span><span class=n>std</span><span class=o>::</span><span class=n>forward</span><span class=o>&lt;</span><span class=n>T</span><span class=o>&gt;</span><span class=p>(</span><span class=n>v</span><span class=p>));</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><p>这样 <code>decltype(auto)</code> 会在返回临时变量的时候返回值，返回引用的时候返回引用。</p><p>当然，也可能需要先完美转发，再完美的返回。</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=k>template</span><span class=o>&lt;</span><span class=k>typename</span> <span class=n>T</span><span class=o>&gt;</span>
+</span></span><span class=line><span class=cl><span class=k>decltype</span><span class=p>(</span><span class=k>auto</span><span class=p>)</span> <span class=n>wrapper</span><span class=p>(</span><span class=n>T</span><span class=o>&amp;&amp;</span> <span class=n>v</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=k>auto</span><span class=o>&amp;&amp;</span> <span class=n>ret</span> <span class=o>=</span> <span class=n>foo</span><span class=p>(</span><span class=n>std</span><span class=o>::</span><span class=n>forward</span><span class=o>&lt;</span><span class=n>T</span><span class=o>&gt;</span><span class=p>(</span><span class=n>v</span><span class=p>));</span>
+</span></span><span class=line><span class=cl>    <span class=k>return</span> <span class=nf>foo2</span><span class=p>(</span><span class=n>std</span><span class=o>::</span><span class=n>forward</span><span class=o>&lt;</span><span class=k>decltype</span><span class=p>(</span><span class=n>ret</span><span class=p>)</span><span class=o>&gt;</span><span class=p>(</span><span class=n>ret</span><span class=p>));</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><h2 id=这是万能引用吗>这是万能引用吗？</h2><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=k>for</span> <span class=p>(</span><span class=k>auto</span><span class=o>&amp;&amp;</span> <span class=nl>x</span> <span class=p>:</span> <span class=n>f</span><span class=p>())</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=c1>// ...
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><p>在泛型语境中，使用 <code>auto&&</code> 来遍历 for 循环是最安全的。</p><h2 id=总结>总结</h2><ul><li><strong>只读</strong>情况下使用 <code>const MyClass&</code></li><li>一起使用 <code>const MyClass&</code> and <code>MyClass&&</code> 在移动消耗不高的情况下<ul><li>使用 <code>MyClass</code> 开销比较大时考虑</li></ul></li><li>使用 <code>T&&</code> 来转发参数<ul><li><strong>注意接收一个参数的构造函数</strong></li><li>记住它会<strong>绑定一切</strong>而不是仅仅你想要的类型</li><li>记住<strong>它不是右值引用</strong></li></ul></li><li>使用 <code>decltype(auto)</code> 作为函数的返回类型来<strong>完美返回</strong>另外一个函数的调用结果</li><li>使用 <code>auto&&</code> 来<strong>存储一会要转发的万能引用</strong><ul><li>一般在<strong>泛型语境的 range-based-for 中使用</strong></li></ul></li></ul></section><footer class=article-footer><section class=article-copyright><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-copyright" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="12" r="9"/><path d="M14.5 9a3.5 4 0 100 6"/></svg>
+<span>Licensed under CC BY-NC-SA 4.0</span></section><section class=article-lastmod><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/></svg>
+<span>最后更新于 Mar 24, 2024 00:00 UTC</span></section></footer></article><footer class=site-footer><section class=copyright>&copy;
+2023 -
+2024 Roses</section><section class=powerby>使用 <a href=https://gohugo.io/ target=_blank rel=noopener>Hugo</a> 构建<br>主题 <b><a href=https://github.com/CaiJimmy/hugo-theme-stack target=_blank rel=noopener data-version=3.26.0>Stack</a></b> 由 <a href=https://jimmycai.com target=_blank rel=noopener>Jimmy</a> 设计</section></footer><div class=pswp tabindex=-1 role=dialog aria-hidden=true><div class=pswp__bg></div><div class=pswp__scroll-wrap><div class=pswp__container><div class=pswp__item></div><div class=pswp__item></div><div class=pswp__item></div></div><div class="pswp__ui pswp__ui--hidden"><div class=pswp__top-bar><div class=pswp__counter></div><button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
+<button class="pswp__button pswp__button--share" title=Share></button>
+<button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
+<button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button><div class=pswp__preloader><div class=pswp__preloader__icn><div class=pswp__preloader__cut><div class=pswp__preloader__donut></div></div></div></div></div><div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap"><div class=pswp__share-tooltip></div></div><button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
+</button>
+<button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)"></button><div class=pswp__caption><div class=pswp__caption__center></div></div></div></div></div><script src=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo=" crossorigin=anonymous defer></script><script src=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU=" crossorigin=anonymous defer></script><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css crossorigin=anonymous><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css crossorigin=anonymous></main></div><script src=https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z+KMkF24hUW8WePSA9HM=" crossorigin=anonymous></script><script type=text/javascript src=/ts/main.js defer></script><script>(function(){const e=document.createElement("link");e.href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap",e.type="text/css",e.rel="stylesheet",document.head.appendChild(e)})()</script></body></html>

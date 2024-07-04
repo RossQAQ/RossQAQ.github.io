@@ -1,0 +1,309 @@
+<!doctype html><html lang=zh-cn dir=ltr><head><meta charset=utf-8><meta name=viewport content='width=device-width,initial-scale=1'><meta name=description content="对 CppCon 2022, Anthony Williams 演讲的翻译与总结。"><title>C++ 的并发 API 总结</title>
+<link rel=canonical href=https://rossqaq.github.io/article/cppcon-2022-concurrency/><link rel=stylesheet href=/scss/style.min.0304c6baf04e01a8fe70693791cb744d56a3578a3120a8796cefc66825aa39c7.css><meta property='og:title' content="C++ 的并发 API 总结"><meta property='og:description' content="对 CppCon 2022, Anthony Williams 演讲的翻译与总结。"><meta property='og:url' content='https://rossqaq.github.io/article/cppcon-2022-concurrency/'><meta property='og:site_name' content='Roses'><meta property='og:type' content='article'><meta property='article:section' content='Post'><meta property='article:published_time' content='2023-12-29T00:00:00+00:00'><meta property='article:modified_time' content='2023-12-29T00:00:00+00:00'><meta property='og:image' content='https://rossqaq.github.io/article/cppcon-2022-concurrency/cppcon2022-cover.png'><meta name=twitter:title content="C++ 的并发 API 总结"><meta name=twitter:description content="对 CppCon 2022, Anthony Williams 演讲的翻译与总结。"><meta name=twitter:card content="summary_large_image"><meta name=twitter:image content='https://rossqaq.github.io/article/cppcon-2022-concurrency/cppcon2022-cover.png'><link rel="shortcut icon" href=/favicon.png></head><body class=article-page><script>(function(){const e="StackColorScheme";localStorage.getItem(e)||localStorage.setItem(e,"auto")})()</script><script>(function(){const t="StackColorScheme",e=localStorage.getItem(t),n=window.matchMedia("(prefers-color-scheme: dark)").matches===!0;e=="dark"||e==="auto"&&n?document.documentElement.dataset.scheme="dark":document.documentElement.dataset.scheme="light"})()</script><div class="container main-container flex on-phone--column extended"><aside class="sidebar left-sidebar sticky"><button class="hamburger hamburger--spin" type=button id=toggle-menu aria-label=切换菜单>
+<span class=hamburger-box><span class=hamburger-inner></span></span></button><header><figure class=site-avatar><a href=/><img src=/img/avatar_hu57fe4ea25b3b752b8c24bca0d657f08c_427356_300x0_resize_box_3.png width=300 height=300 class=site-logo loading=lazy alt=Avatar>
+</a><span class=emoji>♉</span></figure><div class=site-meta><h1 class=site-name><a href=/>Roses</a></h1><h2 class=site-description>有限的时间，无尽的痛苦。</h2></div></header><ol class=menu-social><li><a href=https://space.bilibili.com/3078464 target=_blank title=Bilibili rel=me><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-brand-bilibili" width="44" height="44" viewBox="0 0 24 24" stroke-width="1.5" stroke="#2c3e50" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M3 10a4 4 0 014-4h10a4 4 0 014 4v6a4 4 0 01-4 4H7a4 4 0 01-4-4v-6z"/><path d="M8 3l2 3"/><path d="M16 3l-2 3"/><path d="M9 13v-2"/><path d="M15 11v2"/></svg></a></li><li><a href=https://github.com/RossQAQ target=_blank title=Github rel=me><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-brand-github" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M9 19c-4.3 1.4-4.3-2.5-6-3m12 5v-3.5c0-1 .1-1.4-.5-2 2.8-.3 5.5-1.4 5.5-6a4.6 4.6.0 00-1.3-3.2 4.2 4.2.0 00-.1-3.2s-1.1-.3-3.5 1.3a12.3 12.3.0 00-6.2.0C6.5 2.8 5.4 3.1 5.4 3.1a4.2 4.2.0 00-.1 3.2A4.6 4.6.0 004 9.5c0 4.6 2.7 5.7 5.5 6-.6.6-.6 1.2-.5 2V21"/></svg></a></li><li><a href='https://music.163.com/playlist?id=109571638&amp;userid=93740300' target=_blank title=网易云音乐 rel=me><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-brand-netease-music" width="44" height="44" viewBox="0 0 24 24" stroke-width="1.5" stroke="#2c3e50" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M9 4c-2.93 1.346-5 5.046-5 8.492C4 17 8 20 12 20s8-3 8-7c0-3.513-3.5-5.513-6-5.513S9 9 9 12c0 2 1.5 3 3 3s3-1 3-3c0-3.513-2-4.508-2-6.515.0-3.504 3.5-2.603 4-1.502"/></svg></a></li><li><a href=mailto:rossqaq@outlook.com target=_blank title=邮件 rel=me><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-mail" width="44" height="44" viewBox="0 0 24 24" stroke-width="1.5" stroke="#2c3e50" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M3 7a2 2 0 012-2h14a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2V7z"/><path d="M3 7l9 6 9-6"/></svg></a></li></ol><ol class=menu id=main-menu><li><a href=/><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-home" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><polyline points="5 12 3 12 12 3 21 12 19 12"/><path d="M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7"/><path d="M9 21v-6a2 2 0 012-2h2a2 2 0 012 2v6"/></svg>
+<span>主页</span></a></li><li><a href=/archives/><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-archive" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><rect x="3" y="4" width="18" height="4" rx="2"/><path d="M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
+<span>归档</span></a></li><li><a href=/search/><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-search" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="10" cy="10" r="7"/><line x1="21" y1="21" x2="15" y2="15"/></svg>
+<span>搜索</span></a></li><li><a href=/%E5%8F%8B%E6%83%85%E9%93%BE%E6%8E%A5/><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-link" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><path d="M10 14a3.5 3.5.0 005 0l4-4a3.5 3.5.0 00-5-5l-.5.5"/><path d="M14 10a3.5 3.5.0 00-5 0l-4 4a3.5 3.5.0 005 5l.5-.5"/></svg>
+<span>友情链接</span></a></li><li class=menu-bottom-section><ol class=menu><li id=dark-mode-toggle><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="8" cy="12" r="2"/><rect x="2" y="6" width="20" height="12" rx="6"/></svg>
+<svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="16" cy="12" r="2"/><rect x="2" y="6" width="20" height="12" rx="6"/></svg>
+<span>暗色模式</span></li></ol></li></ol></aside><aside class="sidebar right-sidebar sticky"><section class="widget archives"><div class=widget-icon><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-hash" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><line x1="5" y1="9" x2="19" y2="9"/><line x1="5" y1="15" x2="19" y2="15"/><line x1="11" y1="4" x2="7" y2="20"/><line x1="17" y1="4" x2="13" y2="20"/></svg></div><h2 class="widget-title section-title">目录</h2><div class=widget--toc><nav id=TableOfContents><ol><li><a href=#取消操作>取消操作</a></li><li><a href=#管理线程>管理线程</a><ol><li><a href=#stdjthread>std::jthread</a></li><li><a href=#线程callable-and-args>线程：Callable and Args</a></li><li><a href=#取消-api>取消 API</a></li></ol></li><li><a href=#同步工具>同步工具</a><ol><li><a href=#latches>Latches</a></li><li><a href=#barriers>Barriers</a></li><li><a href=#futures>Futures</a><ol><li><a href=#stdfuture>std::future</a></li><li><a href=#stdpromise>std::promise</a></li><li><a href=#stdasync>std::async</a></li><li><a href=#stdshared_future>std::shared_future</a></li></ol></li><li><a href=#stdmutex>std::mutex</a></li></ol></li><li><a href=#等待数据>等待数据</a></li><li><a href=#信号量>信号量</a></li><li><a href=#原子变量>原子变量</a><ol><li><a href=#原子变量-lock_free-吗>原子变量 lock_free 吗？</a></li></ol></li></ol></nav></div></section></aside><main class="main full-width"><article class="has-image main-article"><header class=article-header><div class=article-image><a href=/article/cppcon-2022-concurrency/><img src=/article/cppcon-2022-concurrency/cppcon2022-cover_hu7c68731152d935aaf39331c224457d06_58010_800x0_resize_box_3.png srcset="/article/cppcon-2022-concurrency/cppcon2022-cover_hu7c68731152d935aaf39331c224457d06_58010_800x0_resize_box_3.png 800w, /article/cppcon-2022-concurrency/cppcon2022-cover_hu7c68731152d935aaf39331c224457d06_58010_1600x0_resize_box_3.png 1600w" width=800 height=339 loading=lazy alt="Featured image of post C++ 的并发 API 总结"></a></div><div class=article-details><header class=article-category><a href=/categories/cppcon/ style=background-color:#2a9d8f;color:#fff>CppCon
+</a><a href=/categories/techs/ style=background-color:#2a9d8f;color:#fff>技术
+</a><a href=/categories/finished/ style=background-color:#2a9d8f;color:#fff>施工完毕</a></header><div class=article-title-wrapper><h2 class=article-title><a href=/article/cppcon-2022-concurrency/>C++ 的并发 API 总结</a></h2><h3 class=article-subtitle>对 CppCon 2022, Anthony Williams 演讲的翻译与总结。</h3></div><footer class=article-time><div><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><path d="M11.795 21H5a2 2 0 01-2-2V7a2 2 0 012-2h12a2 2 0 012 2v4"/><circle cx="18" cy="18" r="4"/><path d="M15 3v4"/><path d="M7 3v4"/><path d="M3 11h16"/><path d="M18 16.496V18l1 1"/></svg>
+<time class=article-time--published>Dec 29, 2023</time></div><div><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/></svg>
+<time class=article-time--reading>阅读时长: 7 分钟</time></div></footer></div></header><section class=article-content><p><a class=link href="https://www.youtube.com/watch?v=3uH-2CkBlPQ" target=_blank rel=noopener>An Introduction to Multithreading in C++20 - Anthony Williams - ACCU 2022</a></p><p>CppCon 2022 也讲了，以前记录过。这次选用 ACCU 的版本，因为内容更全一些。</p><p>Anthony 应该都认识，写《C++并发编程》第二版的那个作者。这是他在 ACCU/CppCon 的讲座的总结，内容是关于 C++20 的所有并发 API。</p><p>首先那个并发执行策略直接跳过，17进入标准，马上就要废弃了纯纯没用。</p><h2 id=取消操作>取消操作</h2><p>假设你的 GUI 下载程序支持取消操作，你点一下下载，发现需要很长时间。你可能会说，啊，快取消这个操作，然后让其他线程帮他清理资源。</p><p>C++20 提供了两个工具，<code>std::stop_source</code>, <code>std::stop_token</code> 来解决协作任务的取消。</p><p><code>std::stop_source</code> 用来检查是否有人让你取消操作。</p><p><strong>取消是一个协作任务，如果别人让你取消，但你不检查 <code>std::stop_source</code>，那么什么都不会发生。</strong></p><hr><p>具体的用法如下：</p><ol><li>创建 <code>std::stop_source</code></li><li>从 <code>std::stop_source</code> 获取 <code>std::stop_token</code></li><li>将 <code>std::stop_token</code> 传递给一个新的线程或者 task（std::async）</li><li>当你想取消操作的时候，就调用 <code>source.request_stop()</code></li><li>周期性检测：<code>token.stop_requested()</code> 来查看是否有人让你暂停</li><li><strong>如果你不检查</strong>，那么什么都不发生</li></ol><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=kt>void</span> <span class=nf>stoppable_func</span><span class=p>(</span><span class=n>std</span><span class=o>::</span><span class=n>stop_token</span> <span class=n>st</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=k>while</span> <span class=p>(</span><span class=o>!</span><span class=n>st</span><span class=p>.</span><span class=n>stop_requested</span><span class=p>())</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=n>do_stuff</span><span class=p>();</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=kt>void</span> <span class=nf>stopper</span><span class=p>(</span><span class=n>std</span><span class=o>::</span><span class=n>stop_source</span> <span class=n>source</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=k>while</span><span class=p>(</span><span class=o>!</span><span class=n>done</span><span class=p>())</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=n>do_something</span><span class=p>();</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>    <span class=n>source</span><span class=p>.</span><span class=n>request_stop</span><span class=p>();</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><p>他们背后并没有什么同步机制，总之你得自己检查。</p><hr><p>你可以使用 <code>std::stop_callback</code> 来提供你自己的取消机制，如：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=n>Data</span> <span class=nf>read_file</span><span class=p>(</span><span class=n>std</span><span class=o>::</span><span class=n>stop_token</span> <span class=n>st</span><span class=p>,</span> <span class=n>std</span><span class=o>::</span><span class=n>filesystem</span><span class=o>::</span><span class=n>path</span> <span class=n>filename</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=k>auto</span> <span class=n>handle</span> <span class=o>=</span> <span class=n>open_file</span><span class=p>(</span><span class=n>filename</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=n>std</span><span class=o>::</span><span class=n>stop_callback</span> <span class=n>cb</span><span class=p>(</span><span class=n>st</span><span class=p>,</span> <span class=p>[</span><span class=o>&amp;</span><span class=p>]{</span><span class=n>cancel_io</span><span class=p>(</span><span class=n>handle</span><span class=p>);});</span>
+</span></span><span class=line><span class=cl>    <span class=k>return</span> <span class=n>read_data</span><span class=p>(</span><span class=n>handle</span><span class=p>);</span>  <span class=c1>// 阻塞
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><p>这样可以在结束后执行回调。</p><h2 id=管理线程>管理线程</h2><h3 id=stdjthread>std::jthread</h3><p>C++20 后，<code>std::jthread</code> 才是你的首选；很少的情况下也许会使用 <code>std::async</code>。</p><p><code>std::jthread</code> 会自动提供你 <code>stop_token</code>（当然，前提是你的函数接收这个参数，不接受的话就不会给你）</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=n>std</span><span class=o>::</span><span class=n>jthread</span> <span class=n>t</span><span class=p>{</span><span class=n>my_func</span><span class=p>,</span> <span class=n>arg1</span><span class=p>,</span> <span class=n>arg2</span><span class=p>};</span>	<span class=c1>// 调用 jthread
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=n>my_func</span><span class=p>(</span><span class=n>stop_token</span><span class=p>,</span> <span class=n>arg1</span><span class=p>,</span> <span class=n>arg2</span><span class=p>);</span>		<span class=c1>// 会得到 stop_token
+</span></span></span></code></pre></td></tr></table></div></div><p>我们来看看 <code>std::jthread</code> 的 API：</p><ul><li><code>std::jthread</code> 默认构造<ul><li>创建一个空的对象</li></ul></li><li><code>std::jthread x{Callable, Args...}</code><ul><li>创建新的 <code>std::stop_source</code> - src</li><li>创建新线程调用 <code>Callable(src.get_token(), Args...)</code> or <code>Callable(Args...)</code></li></ul></li><li>析构函数<ul><li>调用 <code>src.request_stop()</code>，然后等待线程结束后帮你 join</li></ul></li><li><code>x.get_id()</code></li><li><code>x.join()</code> 等待线程结束，不会析构对象</li></ul><p><code>std::jthread</code> 是一个值类型，已经是一个 handle 了，是可移动的，可以转移所有权，可以被存储在容器里。<strong>不要 new</strong>。</p><blockquote><p>Anthony 表示求你了，人家已经是一个 handle 了，别再 new 了。（说实话我也不懂为什么有人这么干。对 std::thread 就有人这么干。难道是写 <code>-></code> 运算符看起来高级吗？）</p></blockquote><h3 id=线程callable-and-args>线程：Callable and Args</h3><p>callabe 和 args 会被<strong>拷贝</strong>到新线程的 local。</p><p>这个主要是防止悬垂引用和竞争，如果想用引用请用 <code>std::ref()</code> 或者 lambda。</p><h3 id=取消-api>取消 API</h3><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span><span class=lnt>7
+</span><span class=lnt>8
+</span><span class=lnt>9
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=n>std</span><span class=o>::</span><span class=n>jthread</span> <span class=n>x</span><span class=p>{</span><span class=n>some_callable</span><span class=p>};</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=n>x</span><span class=p>.</span><span class=n>get_stop_source</span><span class=p>();</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=n>x</span><span class=p>.</span><span class=n>get_stop_token</span><span class=p>();</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=n>x</span><span class=p>.</span><span class=n>request_stop</span><span class=p>();</span>
+</span></span><span class=line><span class=cl><span class=c1>// 等同于 x.get_stop_source().request_stop()
+</span></span></span></code></pre></td></tr></table></div></div><h2 id=同步工具>同步工具</h2><p>多数情况下，线程之间有交互，例如数据交互。那么要小心<strong>数据竞争</strong>。在 C++ 中，数据竞争全是 ub。</p><p>C++20 提供了一大堆同步工具：</p><ul><li>latches</li><li>barriers</li><li>futures</li><li>mutexes</li><li>semaphores</li><li>atomics</li></ul><p>这个顺序是一会讲解的顺序，也是推荐你使用的顺序，按照这个顺序依次思考，这个组件是否能解决你的问题。</p><blockquote><p>Anthony 表示，例如 atomic 就很容易用错，不过你的团队里总有人知道怎么正确使用。所以普通人不懂的就不要乱用。</p><p>（确实，不懂内存序那也用不明白 atomic。）</p></blockquote><h3 id=latches>Latches</h3><p><code>std::latch</code> 是<strong>只能使用一次的计数器</strong>，线程们等待它归零后通行。</p><ol><li>创建一个非 0 count 的 latch</li><li>一个或者多个线程减少 count（原子的）</li><li>其他线程可能等待 latch 被触发</li><li>当 latch 归零的时候，会<strong>保持触发</strong>，所有的等待它的线程都会被唤醒</li></ol><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=n>std</span><span class=o>::</span><span class=n>latch</span> <span class=n>x</span><span class=p>{</span><span class=n>cnt</span><span class=p>};</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1>// 减少 count
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=n>x</span><span class=p>.</span><span class=n>count_down</span><span class=p>();</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1>// 等待 latch 触发
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=n>x</span><span class=p>.</span><span class=n>wait</span><span class=p>();</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1>// x.count_down() + x.wait()
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=n>x</span><span class=p>.</span><span class=n>arrive_and_wait</span><span class=p>();</span>
+</span></span></code></pre></td></tr></table></div></div><blockquote><p>就像一个结界，latch 归 0，线程就都能通过了。</p></blockquote><p>这个也可以用于测试并发，让所有的线程等待一个 latch，之后执行你的可能会发生 data race 的代码。</p><h3 id=barriers>Barriers</h3><p><code>std::barrier&lt;></code> 是一个模板类：</p><ol><li>构造一个 barrier，需要一个 count，以及一个 <strong>Completion Function</strong></li><li>一个或者多个线程到达 barrier</li><li>等待 barrier 被触发</li><li>count 归 0，触发 barrier，<strong>会调用 Completion Function</strong>，然后<strong>重复以上过程</strong>。</li></ol><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=n>std</span><span class=o>::</span><span class=n>barrier</span><span class=o>&lt;</span><span class=n>task_type</span><span class=o>&gt;</span> <span class=n>x</span><span class=p>{</span><span class=n>cnt</span><span class=p>,</span> <span class=n>task</span><span class=p>};</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1>// 递减 count，如果触发了 barrier，就会执行 completion 函数
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=k>auto</span> <span class=n>arrival_token</span> <span class=o>=</span> <span class=n>x</span><span class=p>.</span><span class=n>arrive</span><span class=p>();</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1>// 等待 completion 函数完成
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=n>x</span><span class=p>.</span><span class=n>wait</span><span class=p>(</span><span class=n>arrival_token</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1>// x.wait(x.arrive());
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=n>x</span><span class=p>.</span><span class=n>arrive_and_wait</span><span class=p>();</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1>// 使 cnt 永远减少（当然也可能触发 completion 函数）而不需要等待
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=n>x</span><span class=p>.</span><span class=n>arrive_and_drop</span><span class=p>();</span>
+</span></span></code></pre></td></tr></table></div></div><p>在游戏渲染可能比较有用，因为游戏每一帧都要同步。而 nvidia 对这俩都有特殊的指令支持。</p><p>barrier 可以循环使用，提供了 completion function 也方便在触发后执行一些操作，比如写入文件。</p><h3 id=futures>Futures</h3><h4 id=stdfuture>std::future</h4><p>有时你只是单纯想把数据从一个线程传递到另外一个线程，future 就是干这个的。</p><p>futures 用于线程间的数据传递。</p><ul><li><code>std::async</code> 发起任务，并返回一个值。<strong>推荐的使用方法时，使用 <code>std::async</code> 来立马进行一个计算，之后会使用 future 获取值。否则你可能需要的是 <code>std::packaged_task</code></strong></li><li><code>std::promise</code> 显式设定值</li><li><code>std::packaged_task</code> 将返回一个值的任务封装。它会保存一个任务，你可以在未来对其进行调用，之后获取 future。<strong>可以使用这个配合线程池，来获取返回值</strong></li></ul><p>以上所有这些，你都可以使用 <code>std::future&lt;T></code> 来获取结果。</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=c1>// 空 future
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=n>std</span><span class=o>::</span><span class=n>future</span><span class=o>&lt;</span><span class=n>T</span><span class=o>&gt;</span> <span class=n>default_ctor</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1>// 检查 future 的 state
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=n>f</span><span class=p>.</span><span class=n>valid</span><span class=p>();</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1>// 等待数据完成
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=n>f</span><span class=p>.</span><span class=n>wait</span><span class=p>();</span>
+</span></span><span class=line><span class=cl><span class=n>f</span><span class=p>.</span><span class=n>wait_for</span><span class=p>(</span><span class=n>duration</span><span class=p>);</span>
+</span></span><span class=line><span class=cl><span class=n>f</span><span class=p>.</span><span class=n>wait_until</span><span class=p>(</span><span class=n>time_point</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1>// 等待数据并且获取它。数据如果已经完成，那么也不会阻塞
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=n>x</span><span class=p>.</span><span class=n>get</span><span class=p>();</span>
+</span></span></code></pre></td></tr></table></div></div><hr><h4 id=stdpromise>std::promise</h4><p>promise 可能是你用的最多的：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=c1>// 空 promise
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=n>std</span><span class=o>::</span><span class=n>promise</span><span class=o>&lt;</span><span class=n>T</span><span class=o>&gt;</span> <span class=n>default_ctor</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1>// 检查 promise 的 state
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=n>p</span><span class=p>.</span><span class=n>valid</span><span class=p>();</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1>// state 中设置值
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=n>p</span><span class=p>.</span><span class=n>set_value</span><span class=p>();</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1>// state 中设置异常
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=n>p</span><span class=p>.</span><span class=n>set_exception</span><span class=p>(</span><span class=n>ex_ptr</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1>// 获取当前状态下的 future 
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=n>p</span><span class=p>.</span><span class=n>get_future</span><span class=p>();</span>
+</span></span></code></pre></td></tr></table></div></div><p>使用 future/promise 传递数据：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=n>std</span><span class=o>::</span><span class=n>promise</span><span class=o>&lt;</span><span class=n>MyData</span><span class=o>&gt;</span> <span class=n>prom</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=n>std</span><span class=o>::</span><span class=n>future</span><span class=o>&lt;</span><span class=n>MyData</span><span class=o>&gt;</span> <span class=n>f</span> <span class=o>=</span> <span class=n>prom</span><span class=p>.</span><span class=n>get_future</span><span class=p>();</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=n>std</span><span class=o>::</span><span class=n>jthread</span> <span class=n>th1</span><span class=p>{</span> <span class=p>[</span><span class=n>f</span><span class=o>=</span><span class=n>std</span><span class=o>::</span><span class=n>move</span><span class=p>(</span><span class=n>f</span><span class=p>)]</span> <span class=p>{</span> <span class=n>do_stuff</span><span class=p>(</span><span class=n>f</span><span class=p>.</span><span class=n>get</span><span class=p>());</span> <span class=p>}};</span>
+</span></span><span class=line><span class=cl><span class=n>std</span><span class=o>::</span><span class=n>jthread</span> <span class=n>th2</span><span class=p>{</span> <span class=p>[</span><span class=o>&amp;</span><span class=n>prom</span><span class=p>]</span> <span class=p>{</span> <span class=n>prom</span><span class=p>.</span><span class=n>set_value</span><span class=p>(</span><span class=n>make_data</span><span class=p>());</span> <span class=p>}};</span>
+</span></span></code></pre></td></tr></table></div></div><p>注意，<strong>future 是一次性的，所以你需要注意移动。此外，调用 get() 后，其就不拥有值了</strong>。</p><p>对于异常：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span><span class=lnt>7
+</span><span class=lnt>8
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=n>std</span><span class=o>::</span><span class=n>promise</span><span class=o>&lt;</span><span class=n>MyData</span><span class=o>&gt;</span> <span class=n>prom</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=n>std</span><span class=o>::</span><span class=n>future</span><span class=o>&lt;</span><span class=n>MyData</span><span class=o>&gt;</span> <span class=n>f</span> <span class=o>=</span> <span class=n>prom</span><span class=p>.</span><span class=n>get_future</span><span class=p>();</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1>// 该线程内部抛出异常
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=n>std</span><span class=o>::</span><span class=n>jthread</span> <span class=n>th1</span><span class=p>{</span> <span class=p>[</span><span class=n>f</span><span class=o>=</span><span class=n>std</span><span class=o>::</span><span class=n>move</span><span class=p>(</span><span class=n>f</span><span class=p>)]</span> <span class=p>{</span> <span class=n>do_stuff</span><span class=p>(</span><span class=n>f</span><span class=p>.</span><span class=n>get</span><span class=p>());</span> <span class=p>}};</span>
+</span></span><span class=line><span class=cl><span class=n>std</span><span class=o>::</span><span class=n>jthread</span> <span class=n>th2</span><span class=p>{</span> <span class=p>[</span><span class=o>&amp;</span><span class=n>prom</span><span class=p>]</span> <span class=p>{</span> <span class=n>prom</span><span class=p>.</span><span class=n>set_exception</span><span class=p>(</span>
+</span></span><span class=line><span class=cl>    <span class=n>std</span><span class=o>::</span><span class=n>make_exception_ptr</span><span class=p>(</span><span class=n>my_exception</span><span class=p>{}));</span> 
+</span></span><span class=line><span class=cl><span class=p>}};</span>
+</span></span></code></pre></td></tr></table></div></div><hr><h4 id=stdasync>std::async</h4><p>还可以使用 <code>std::async</code> 来发起一个任务：</p><p><code>std::async</code> 可以用来创建一个线程，只要你第一个参数传递 <code>std::launch::async</code>，否则的话是否新建一个线程是实现定义。</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=k>auto</span> <span class=n>f</span> <span class=o>=</span> <span class=n>std</span><span class=o>::</span><span class=n>async</span><span class=p>(</span><span class=n>std</span><span class=o>::</span><span class=n>launch</span><span class=o>::</span><span class=n>async</span><span class=p>,</span> <span class=n>func</span><span class=p>,</span> <span class=n>arg1</span><span class=p>,</span> <span class=n>arg2</span><span class=p>);</span>
+</span></span></code></pre></td></tr></table></div></div><ul><li><p><code>f.get()</code> 会返回 func 的结果</p></li><li><p>f 拥有一个类似 <code>jthread</code> 的线程，析构函数会帮你处理现成的</p></li></ul><h4 id=stdshared_future>std::shared_future</h4><p><code>std::shared_future</code> 允许你让<strong>多个线程</strong>收到执行结果。</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=n>std</span><span class=o>::</span><span class=n>promise</span><span class=o>&lt;</span><span class=n>Data</span><span class=o>&gt;</span> <span class=n>prom</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=n>std</span><span class=o>::</span><span class=n>shared_future</span><span class=o>&lt;</span><span class=n>Data</span><span class=o>&gt;</span> <span class=n>f</span> <span class=o>=</span> <span class=n>prom</span><span class=p>.</span><span class=n>get_future</span><span class=p>().</span><span class=n>share</span><span class=p>();</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=n>std</span><span class=o>::</span><span class=n>jthread</span> <span class=n>th1</span> <span class=p>{[</span><span class=n>f</span><span class=p>]{</span><span class=n>do_stuff</span><span class=p>(</span><span class=n>f</span><span class=p>.</span><span class=n>get</span><span class=p>());}};</span>
+</span></span><span class=line><span class=cl><span class=n>std</span><span class=o>::</span><span class=n>jthread</span> <span class=n>th2</span> <span class=p>{[</span><span class=n>f</span><span class=p>]{</span><span class=n>do_stuff</span><span class=p>(</span><span class=n>f</span><span class=p>.</span><span class=n>get</span><span class=p>());}};</span>
+</span></span></code></pre></td></tr></table></div></div><hr><h3 id=stdmutex>std::mutex</h3><p>future 比 mutex 好一点，但因为它是一次性的。所以你也许需要 mutex</p><p>C++ 提供了 6 种 mutex，实则有 5 个没啥用</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=n>std</span><span class=o>::</span><span class=n>mutex</span><span class=p>;</span>	<span class=c1>// ← 用这个
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=n>std</span><span class=o>::</span><span class=n>timed_mutex</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=n>std</span><span class=o>::</span><span class=n>recursive_mutex</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=n>std</span><span class=o>::</span><span class=n>recursive_timed_mutex</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=n>std</span><span class=o>::</span><span class=n>shared_mutex</span><span class=p>;</span>  <span class=c1>// ← 读写锁，而实践中用这个很蛋疼。用 mutex 就行。
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=n>std</span><span class=o>::</span><span class=n>shared_timed_mutex</span><span class=p>;</span>
+</span></span></code></pre></td></tr></table></div></div><p>对于上锁和解锁，我们也有 RAII 封装：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=n>std</span><span class=o>::</span><span class=n>scoped_lock</span><span class=p>;</span>	<span class=c1>// ← 用这个
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=n>std</span><span class=o>::</span><span class=n>unique_lock</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=n>std</span><span class=o>::</span><span class=n>lock_guard</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=n>std</span><span class=o>::</span><span class=n>shared_lock</span><span class=p>;</span>
+</span></span></code></pre></td></tr></table></div></div><p>你把所有的锁都给 <code>std::scoped_lock</code> ，他会一起给你上锁，而且保证不会死锁。</p><h2 id=等待数据>等待数据</h2><p>如何等待数据完成？</p><p>忙等吗？这个是个 bad idea，浪费 cpu 性能。</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=n>std</span><span class=o>::</span><span class=n>mutex</span> <span class=n>m</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=n>std</span><span class=o>::</span><span class=n>optional</span><span class=o>&lt;</span><span class=n>Data</span><span class=o>&gt;</span> <span class=n>data</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=kt>void</span> <span class=nf>busy_wait</span><span class=p>()</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=k>while</span> <span class=p>(</span><span class=nb>true</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=n>std</span><span class=o>::</span><span class=n>scoped_lock</span> <span class=n>lock</span><span class=p>(</span><span class=n>m</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>        <span class=k>if</span> <span class=p>(</span><span class=n>data</span><span class=p>.</span><span class=n>has_value</span><span class=p>())</span> <span class=k>break</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>    <span class=n>process_data</span><span class=p>();</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><p>所以我们有 <code>std::condition_variable</code> 来通知，他并不能同步数据，但可以<strong>避免忙等待</strong>。</p><p>我们需要一个 <strong><code>std::unique_lock</code>，因为其跟 scoped_lock 不合</strong></p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=n>std</span><span class=o>::</span><span class=n>mutex</span> <span class=n>m</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=n>std</span><span class=o>::</span><span class=n>condition_variable</span> <span class=n>cond</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=n>std</span><span class=o>::</span><span class=n>optional</span><span class=o>&lt;</span><span class=n>Data</span><span class=o>&gt;</span> <span class=n>data</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=kt>void</span> <span class=nf>cv_wait</span><span class=p>()</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=c1>// 会锁定互斥量
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=n>std</span><span class=o>::</span><span class=n>unique_lock</span> <span class=n>lock</span><span class=p>(</span><span class=n>m</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=n>cond</span><span class=p>.</span><span class=n>wait</span><span class=p>(</span><span class=n>lock</span><span class=p>,</span> <span class=p>[]{</span> <span class=k>return</span> <span class=n>data</span><span class=p>.</span><span class=n>has_value</span><span class=p>();</span> <span class=p>});</span>
+</span></span><span class=line><span class=cl>    <span class=n>process_data</span><span class=p>();</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><p>首先你需要给 <code>mutex</code> 上锁，然后你再调用条件变量来传递 <code>lock</code> 以及一个 lambda，表明：**你到底在等待什么？**当你的 lambda 返回 true 时，就会替你解锁。</p><p>对于 <code>std::condition_variable</code> ，使用忙等实现是合法的，但是操作系统不会这么做，因为操作系统知道这样做不好。如何通知呢？你需要调用一下 <code>notify()</code></p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span><span class=lnt>7
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=kt>void</span> <span class=nf>cv_notify</span><span class=p>()</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=p>{</span>
+</span></span><span class=line><span class=cl>    	<span class=n>std</span><span class=o>::</span><span class=n>scoped_lock</span> <span class=n>lock</span><span class=p>(</span><span class=n>m</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    	<span class=n>data</span> <span class=o>=</span> <span class=n>make_data</span><span class=p>();</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>    <span class=n>cond</span><span class=p>.</span><span class=n>notify_one</span><span class=p>();</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><p>如何使用条件变量配合取消操作呢？使用 <code>std::condition_variable_any</code></p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span><span class=lnt>7
+</span><span class=lnt>8
+</span><span class=lnt>9
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=n>std</span><span class=o>::</span><span class=n>condition_variable_any</span> <span class=n>cond</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=kt>void</span> <span class=nf>cv_wait</span><span class=p>(</span><span class=n>std</span><span class=o>::</span><span class=n>stop_token</span> <span class=n>token</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=n>std</span><span class=o>::</span><span class=n>unique_lock</span> <span class=n>lock</span><span class=p>(</span><span class=n>m</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=k>if</span><span class=p>(</span><span class=o>!</span><span class=n>cond</span><span class=p>.</span><span class=n>wait</span><span class=p>(</span><span class=n>lock</span><span class=p>,</span> <span class=n>token</span><span class=p>,</span> <span class=p>[]{</span><span class=k>return</span> <span class=n>data</span><span class=p>.</span><span class=n>has_value</span><span class=p>();</span> <span class=p>}))</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=k>return</span> <span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>    <span class=n>process_data</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><p>现在 wait 会返回一个布尔变量，告诉你你的谓词是否返回 true，如果返回 false，就代表我需要暂停操作，因为某些线程告诉我 stop。</p><p>当然，如果同时发生 stop 和数据准备好两个事件，那么依然会返回 true，那么依然会处理数据。具体怎么做取决于你，如果你的操作很快，那可以继续，如果想取消，就显式判断 stop。</p><h2 id=信号量>信号量</h2><p>如果以上的工具都不能满足你（显然都不满足你有点难度），那么你可能需要信号量。</p><p>信号量代表一些可以被使用的 &ldquo;slots&rdquo;。如果你 <strong>acquire</strong> 一个 slot，那么信号量会减少，直到你 <strong>release</strong> 该 slot。</p><p><strong>acquire</strong> 一个 slot，但是 count 为 0 时，会阻塞或者失败。</p><p>信号量可以实现所有的同步机制，包括 latches, barriers, mutexes，当然，大部分情况下你直接用更高级的结构即可。</p><p><strong><code>binary_semaphore</code> 有 2 个状态：1 slot free，no slots free，就像 mutex 一样使用。</strong></p><p>C++20 提供了 <code>std::counting_semaphore&lt;max_count></code>, <code>std::binary_semaphore</code> 是其 <code>max_count = 1</code> 时的特化。</p><p>有阻塞的 <code>sem.acquire()</code> 也有 <code>sem.try_acquire()</code>，..for, &mldr;until，替代阻塞的版本。</p><h2 id=原子变量>原子变量</h2><p>原子变量是最最底层的同步设施了。在 C++ 里是 <code>std::atomic&lt;T></code></p><p>T 必须 <strong>可平凡拷贝</strong>，<strong>Bitwise comparable</strong></p><h3 id=原子变量-lock_free-吗>原子变量 lock_free 吗？</h3><p><code>std::atomic&lt;T></code> 可能不是 lock-free 的，可能会使用内部 mutex。</p><p><code>std::atomic_flags</code>, <code>std::atomic_signed_lock_free</code>, <code>std::atomic_unsigned_lock_free</code> 是唯三保证 lock-free 的类型。</p><p>在大多数平台上，<code>std::atomic&lt;integral-type></code> 以及 <code>std::atomic&lt;T*></code> 是 lock-free 的。</p><p>你可以通过 <code>std::atomic&lt;T>::is_always_lock_free</code> 来查看到底是不是 lock-free。</p></section><footer class=article-footer><section class=article-copyright><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-copyright" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="12" r="9"/><path d="M14.5 9a3.5 4 0 100 6"/></svg>
+<span>Licensed under CC BY-NC-SA 4.0</span></section><section class=article-lastmod><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/></svg>
+<span>最后更新于 Dec 29, 2023 00:00 UTC</span></section></footer></article><footer class=site-footer><section class=copyright>&copy;
+2023 -
+2024 Roses</section><section class=powerby>使用 <a href=https://gohugo.io/ target=_blank rel=noopener>Hugo</a> 构建<br>主题 <b><a href=https://github.com/CaiJimmy/hugo-theme-stack target=_blank rel=noopener data-version=3.26.0>Stack</a></b> 由 <a href=https://jimmycai.com target=_blank rel=noopener>Jimmy</a> 设计</section></footer><div class=pswp tabindex=-1 role=dialog aria-hidden=true><div class=pswp__bg></div><div class=pswp__scroll-wrap><div class=pswp__container><div class=pswp__item></div><div class=pswp__item></div><div class=pswp__item></div></div><div class="pswp__ui pswp__ui--hidden"><div class=pswp__top-bar><div class=pswp__counter></div><button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
+<button class="pswp__button pswp__button--share" title=Share></button>
+<button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
+<button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button><div class=pswp__preloader><div class=pswp__preloader__icn><div class=pswp__preloader__cut><div class=pswp__preloader__donut></div></div></div></div></div><div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap"><div class=pswp__share-tooltip></div></div><button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
+</button>
+<button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)"></button><div class=pswp__caption><div class=pswp__caption__center></div></div></div></div></div><script src=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo=" crossorigin=anonymous defer></script><script src=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU=" crossorigin=anonymous defer></script><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css crossorigin=anonymous><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css crossorigin=anonymous></main></div><script src=https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z+KMkF24hUW8WePSA9HM=" crossorigin=anonymous></script><script type=text/javascript src=/ts/main.js defer></script><script>(function(){const e=document.createElement("link");e.href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap",e.type="text/css",e.rel="stylesheet",document.head.appendChild(e)})()</script></body></html>

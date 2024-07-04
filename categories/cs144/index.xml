@@ -1,0 +1,1484 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>CS 144 on Roses</title><link>https://rossqaq.github.io/categories/cs144/</link><description>Recent content in CS 144 on Roses</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><lastBuildDate>Wed, 29 May 2024 00:00:00 +0000</lastBuildDate><atom:link href="https://rossqaq.github.io/categories/cs144/index.xml" rel="self" type="application/rss+xml"/><item><title>CS144-2024 Winter - Lab 2</title><link>https://rossqaq.github.io/article/cs144-p2/</link><pubDate>Wed, 29 May 2024 00:00:00 +0000</pubDate><guid>https://rossqaq.github.io/article/cs144-p2/</guid><description>&lt;p>这几天一直在玩博德之门，终于想起来更新博客了。这次的 TCP Receiver 比上次的 Reassembler 简单多了…虽然有两个部分。&lt;/p>
+&lt;p>下一次就是 TCP Sender 了，我估计可能是整个课程中最难的部分，学过 TCP 的应该都懂吧… 想想又要 close 又要处理 shutdown 又要处理重复的、未收到的部分，光想我就很累了。&lt;/p>
+&lt;h2 id="总览">总览
+&lt;/h2>&lt;p>p0 实现了 ByteStream，p1 实现了 Reassembler，这个模型在 TCP 中非常有用，但都不是 TCP 协议本身的内容。在 p2，会实现 &lt;code>TCPReceiver&lt;/code>用来接收传入的字节流。&lt;/p>
+&lt;p>&lt;code>TCPReceiver&lt;/code> 从对应的 sender 接收信息（通过 &lt;code>receive()&lt;/code> 方法），然后把它传给 &lt;code>Reassembler&lt;/code>，写入 &lt;code>ByteStream&lt;/code>。应用程序从这个 &lt;code>ByteStream&lt;/code> 中读取信息，就像 p0 中你从 &lt;code>TCPSocket&lt;/code> 中读取信息一样。&lt;/p>
+&lt;p>同时，&lt;code>TCPReceiver&lt;/code> 也要生成返回给 sender 的信息，通过 &lt;code>send()&lt;/code> 方法。这些 receiver messages 是为了告诉 sender：&lt;/p>
+&lt;ol>
+&lt;li>first unassembled 字节的索引，也就是 acknowledgment number, &lt;strong>ackno&lt;/strong>，也就是 receiver 需要的下一个字节的索引。&lt;/li>
+&lt;li>&lt;code>ByteStream&lt;/code> 的剩余空间，即 &lt;strong>window size&lt;/strong>&lt;/li>
+&lt;/ol>
+&lt;p>二者共同描述了 receiver 的窗口：允许 sender 发送的字节&lt;strong>序号的范围&lt;/strong>。ackno 也是窗口的 left edge，ackno + window size 是 right edge（左闭右开）。&lt;/p>
+&lt;p>在写 &lt;code>Reassembler&lt;/code> 和 &lt;code>ByteStream&lt;/code> 时已经完成了大部分的算法部分了；本 lab 把以上部分变成 TCP 的一部分。最难的地方是思考 TCP 如何表示流中的每个字节 —— 通常是 sequence number。&lt;/p>
+&lt;h2 id="开始">开始
+&lt;/h2>&lt;ol>
+&lt;li>commit checkpoint 1&lt;/li>
+&lt;li>&lt;code>git fetch --all&lt;/code> 来获取最新的代码&lt;/li>
+&lt;li>下载 checkpoint2 需要的代码 &lt;code>git merge origin/check2-startercode&lt;/code>&lt;/li>
+&lt;li>&lt;code>cmake -S . -B build&lt;/code>&lt;/li>
+&lt;li>编译 &lt;code>cmake --build build&lt;/code>&lt;/li>
+&lt;li>写 &lt;code>check2.md&lt;/code>&lt;/li>
+&lt;/ol>
+&lt;h2 id="checkpoint-2tcp-receiver">checkpoint 2：TCP Receiver
+&lt;/h2>&lt;p>TCP 是基于不可靠的 datagram 上的可靠的一对具有流量控制的字节流。TCP 连接中拥有两个参与者，每个参与者都要扮演 sender 和 receiver。&lt;/p>
+&lt;p>TCP Receiver 要做的是从 sender 接收字节流，重组，然后决定需要发回的 ackno 以及流量控制。&lt;/p>
+&lt;blockquote>
+&lt;p>acknowledgement 代表着 receiver 需要的 &lt;strong>下一个&lt;/strong> 字节的索引。sender 根据这个序号来决定是 send 还是 resend。&lt;/p>
+&lt;p>flow control 代表 receiver 需要的字节索引的范围。sender 根据这个来获取 &lt;strong>被允许&lt;/strong> 发送多少字节。&lt;/p>
+&lt;/blockquote>
+&lt;h3 id="64位-索引转换为-32位-seq-number">64位 索引转换为 32位 seq number
+&lt;/h3>&lt;p>我们根据 TCP 协议以 TCP 的方式来表示索引。上次实现的 Reassembler 使用的是 64位 的流索引，流总是从 0 开始。64位 的索引基本可以看成永远不会溢出。在 TCP 头部中，空间比较宝贵，使用的是 32位 &lt;code>sqeno&lt;/code> 来表示索引，这样就要复杂一些。&lt;/p>
+&lt;ol>
+&lt;li>&lt;strong>你的实现需要包装 32位 整数&lt;/strong>。TCP 的流可以非常长，没有规定 TCP 字节流的发送大小限制。索引到达 2^32-1 后需要从 0 开始重新计数。&lt;/li>
+&lt;li>**TCP seq number 的值开始时是随机的。**为了提高鲁棒性以及防止被旧的来自同一个 endpoint 的连接混淆，TCP 尽量保证 seq number 不会被猜出，并且不太可能重复。&lt;strong>所以流开始时的 seq number 不为 0，而是随机的 32位 整数，叫做 ISN&lt;/strong>。这个数代表的是一个流的开始，即 SYN。剩下的 seq number 都从这个数字开始计数。&lt;/li>
+&lt;li>&lt;strong>逻辑上的建立和关闭连接都要占用一个 seq number&lt;/strong>。SYN（流的开始）和 FIN（流的结束）的 control flags 被赋为 seq number，这些都要占用 &lt;strong>一个&lt;/strong> seq number（SYN 的是 ISN）。&lt;strong>记住：SYN 和 FIN 并不是流本身的一部分，不是字节，它们代表的是字节流自身的开始和节数。&lt;/strong>&lt;/li>
+&lt;/ol>
+&lt;p>这些 seqnos 在每个 TCP 段的头部传输（有两个 stream，每一个都是单向的，每个流有单独的 seqnos 以及单独的随机 ISN）。可能会分开讨论 absolute sequence number 和 stream index。永远从 0 开始，并不被包装；后者是 Reassembler 中使用的，代表流需要的下一个字节的索引，从 0 开始。&lt;/p>
+&lt;p>以下是举例说明，考虑一个仅有 3个 字节的字符串，&amp;lsquo;cat&amp;rsquo;，假设它的 SYN 是 seqno 2^32-2，那么有：&lt;/p>
+&lt;table>
+&lt;thead>
+&lt;tr>
+&lt;th>element&lt;/th>
+&lt;th>&lt;code>SYN&lt;/code>&lt;/th>
+&lt;th>c&lt;/th>
+&lt;th>a&lt;/th>
+&lt;th>t&lt;/th>
+&lt;th>&lt;code>FIN&lt;/code>&lt;/th>
+&lt;/tr>
+&lt;/thead>
+&lt;tbody>
+&lt;tr>
+&lt;td>seqno&lt;/td>
+&lt;td>2^32 - 2&lt;/td>
+&lt;td>2^32 - 1&lt;/td>
+&lt;td>0&lt;/td>
+&lt;td>1&lt;/td>
+&lt;td>2&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>absolute seqno&lt;/td>
+&lt;td>0&lt;/td>
+&lt;td>1&lt;/td>
+&lt;td>2&lt;/td>
+&lt;td>3&lt;/td>
+&lt;td>4&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>stream index&lt;/td>
+&lt;td>&lt;/td>
+&lt;td>0&lt;/td>
+&lt;td>1&lt;/td>
+&lt;td>2&lt;/td>
+&lt;td>&lt;/td>
+&lt;/tr>
+&lt;/tbody>
+&lt;/table>
+&lt;p>在 absolute seqno 和 stream index 中转换很简单，单纯的加或减 1 即可。在 seqno 和 absolute seqno 中转换有点困难，很容易混淆。为了防止这些问题，我们把 seqno 包装为 &lt;code>Warp32&lt;/code> 类型，将他和 absolute seqno（&lt;code>uint64_t&lt;/code>）之间进行转换。&lt;code>Wrap32&lt;/code> 是一个 &lt;em>wrapper type&lt;/em>。&lt;/p>
+&lt;p>已经定义好了这些 helper 函数（&lt;code>wrapping_integers.hh&lt;/code>），你需要实现 &lt;code>wrapping_integers.cc&lt;/code>：&lt;/p>
+&lt;ol>
+&lt;li>
+&lt;p>&lt;code>static Warp32 Warp32::wrap( uint64_t n, Wrap32 zero_point )&lt;/code>&lt;/p>
+&lt;p>转换 absolute seqno -&amp;gt; seqno。给出 absolute seqno 和 ISN（zero_point），返回 &lt;code>n&lt;/code> 的 seqno&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>&lt;code>uint64_t unwrap( Wrap32 zero_point, uint64_t checkpoint ) const&lt;/code>&lt;/p>
+&lt;p>转换 seqno -&amp;gt; absolute seqno。给出 &lt;code>Wrap32&lt;/code> 类型的 seqno，ISN，以及一个 absolute checkpoint seqno，找到最接近 checkpoint 的对应的 absolute seqno&lt;/p>
+&lt;p>注意：&lt;strong>checkpoint&lt;/strong> 存在的意义是任何给出的 seqno 可能对应多个 absolute seqnos。例：ISN = 0，seqno 为 17 其对应的 absolute seqno 可能为 17，也可能是 2^32 + 17,2^33 + 17 等等。checkpoint 帮助你解决这种问题， &lt;strong>在你的实现中，使用 first unassembled index 作为 checkpoint。&lt;/strong>&lt;/p>
+&lt;/li>
+&lt;/ol>
+&lt;blockquote>
+&lt;p>[!NOTE]&lt;/p>
+&lt;p>最简单的实现会使用 &lt;code>wrapping_integers.hh&lt;/code> 的 helper。&lt;em>wrap/unwrap 操作应该保留偏移量，两个相差 17 的 seqnos 对应两个同样相差 17 的 absolute seqnos。&lt;/em>&lt;/p>
+&lt;p>&lt;strong>希望 &lt;code>wrap&lt;/code> 的代码量只有 1行，&lt;code>unwrap&lt;/code> 的代码量少于 10 行&lt;/strong>，如果你的实现代码量比较多，你可以思考一下。&lt;/p>
+&lt;/blockquote>
+&lt;p>测试方法：&lt;code>cmake --build build --target check2&lt;/code>&lt;/p>
+&lt;blockquote>
+&lt;p>wrap 没什么说的，注意范围是 0 ~ u32max，这里面共有 u32max + 1 个数，也就是 (1UL &amp;laquo; 32)，n 对它取余再加 zero 即可。&lt;/p>
+&lt;p>unwrap 略复杂一点，首先你需要画一画数字轮盘，理解一下溢出时的行为，我们需要让他溢出，这样比较好算。需要求出距 checkpoint 的距离，我决定把它先 wrap 一下，顺时针和逆时针分别算出来比较。&lt;/p>
+&lt;p>如果是顺时针方向比较小（在轮盘中，checkpoint 在左边，raw_value_ 在右边）那么自然是 checkpoint + 距离；&lt;/p>
+&lt;p>如果是逆时针方向比较小（在轮盘中，raw_value_ 在左边，checkpoint 在右边）那么就是 checkpoint - 距离；&lt;/p>
+&lt;p>因为包装了 checkpoint，所以最终求结果时已经是相对 zero_point 的结果了。&lt;/p>
+&lt;p>但对于 &lt;code>raw_value_ &amp;gt;= checkpoint&lt;/code> 的情况单独搞。&lt;/p>
+&lt;p>10 行代码完全可以搞定。&lt;/p>
+&lt;/blockquote>
+&lt;hr>
+&lt;h3 id="实现-tcp-receiver">实现 TCP Receiver
+&lt;/h3>&lt;p>这个部分实现的是 &lt;code>TCPReceiver&lt;/code>，它需要：&lt;/p>
+&lt;ol>
+&lt;li>接收来自 sender 的消息，并且使用 &lt;code>Reassembler&lt;/code> 重排 &lt;code>ByteStream&lt;/code>&lt;/li>
+&lt;li>将 &lt;code>ackno&lt;/code> 以及 window size 发给 sender&lt;/li>
+&lt;/ol>
+&lt;p>&lt;strong>我们预期 15 行左右的代码就可以完成。&lt;/strong>&lt;/p>
+&lt;p>首先，我们复习一下 TCP &amp;ldquo;sender messager&amp;rdquo; 的格式，它包含了 ByteStream 的信息。&lt;/p>
+&lt;p>以下是从 &lt;code>TCPSender&lt;/code> 发送给 &lt;code>TCPReceiver&lt;/code> 的内容：&lt;/p>
+&lt;p>&lt;code>TCPSenderMessage&lt;/code> 结构包含五个字段 (&lt;code>minnow/util/tcp_sender_message.hh&lt;/code> ) ，&lt;/p>
+&lt;ol>
+&lt;li>片开始的 &lt;code>seqno&lt;/code>。如果置 &lt;code>SYN&lt;/code> 位，那么这就是 &lt;code>SYN&lt;/code> 位的序号，否则就是携带子串的序号。&lt;/li>
+&lt;li>&lt;code>SYN&lt;/code>位，如果被置位，那么该片是字节流的开始，seq 包含的是 ISN —— zero point。&lt;/li>
+&lt;li>payload：字节流的子串（可能空）。&lt;/li>
+&lt;li>&lt;code>FIN&lt;/code>位，如果被置位，那么 payload 代表字节流的结束。&lt;/li>
+&lt;li>&lt;code>RST&lt;/code>位，如果被置位，那么 stream 出现错误，应该关闭连接。&lt;/li>
+&lt;/ol>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
+&lt;/span>&lt;span class="lnt"> 2
+&lt;/span>&lt;span class="lnt"> 3
+&lt;/span>&lt;span class="lnt"> 4
+&lt;/span>&lt;span class="lnt"> 5
+&lt;/span>&lt;span class="lnt"> 6
+&lt;/span>&lt;span class="lnt"> 7
+&lt;/span>&lt;span class="lnt"> 8
+&lt;/span>&lt;span class="lnt"> 9
+&lt;/span>&lt;span class="lnt">10
+&lt;/span>&lt;span class="lnt">11
+&lt;/span>&lt;span class="lnt">12
+&lt;/span>&lt;span class="lnt">13
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-cpp" data-lang="cpp">&lt;span class="line">&lt;span class="cl"> &lt;span class="k">struct&lt;/span> &lt;span class="nc">TCPSenderMessage&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">Wrap32&lt;/span> &lt;span class="n">seqno&lt;/span> &lt;span class="p">{&lt;/span> &lt;span class="mi">0&lt;/span> &lt;span class="p">};&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="kt">bool&lt;/span> &lt;span class="n">SYN&lt;/span> &lt;span class="p">{};&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">std&lt;/span>&lt;span class="o">::&lt;/span>&lt;span class="n">string&lt;/span> &lt;span class="n">payload&lt;/span> &lt;span class="p">{};&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="kt">bool&lt;/span> &lt;span class="n">FIN&lt;/span> &lt;span class="p">{};&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="kt">bool&lt;/span> &lt;span class="n">RST&lt;/span> &lt;span class="p">{};&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1">// 使用了多少个 seqno
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="n">size_t&lt;/span> &lt;span class="nf">sequence_length&lt;/span>&lt;span class="p">()&lt;/span> &lt;span class="k">const&lt;/span> &lt;span class="p">{&lt;/span> &lt;span class="k">return&lt;/span> &lt;span class="n">SYN&lt;/span> &lt;span class="o">+&lt;/span> &lt;span class="n">payload&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="n">size&lt;/span>&lt;span class="p">()&lt;/span> &lt;span class="o">+&lt;/span> &lt;span class="n">FIN&lt;/span>&lt;span class="p">;&lt;/span> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">};&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>&lt;code>TCPReceiver&lt;/code> 生成自己的消息发送回 &lt;code>TCPSender&lt;/code>:&lt;/p>
+&lt;p>&lt;code>TCPReceiverMessage&lt;/code> 结构包含三个字段（&lt;code>minnow/util/tcp_receiver_message.hh&lt;/code> ），&lt;/p>
+&lt;ol>
+&lt;li>&lt;code>ackno&lt;/code>，receiver 所需的 &lt;em>&lt;strong>下一个&lt;/strong>&lt;/em> seqno。这个字段可选，如果 &lt;code>TCPReceiver&lt;/code> 还没有收到 ISN 的话就为空。&lt;/li>
+&lt;li>window size，从当前的 &lt;code>ackno&lt;/code> 开始，代表 receiver 一次希望接收的 seq 个数的大小，最大 65535 （u16 max）&lt;/li>
+&lt;li>&lt;code>RST&lt;/code> 位，如果置位，同 &lt;code>TCPSender::RST&lt;/code>&lt;/li>
+&lt;/ol>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;span class="lnt">6
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-cpp" data-lang="cpp">&lt;span class="line">&lt;span class="cl"> &lt;span class="k">struct&lt;/span> &lt;span class="nc">TCPReceiverMessage&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">std&lt;/span>&lt;span class="o">::&lt;/span>&lt;span class="n">optional&lt;/span>&lt;span class="o">&amp;lt;&lt;/span>&lt;span class="n">Wrap32&lt;/span>&lt;span class="o">&amp;gt;&lt;/span> &lt;span class="n">ackno&lt;/span> &lt;span class="p">{};&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="kt">uint16_t&lt;/span> &lt;span class="n">window_size&lt;/span> &lt;span class="p">{};&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="kt">bool&lt;/span> &lt;span class="n">RST&lt;/span> &lt;span class="p">{};&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">};&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>&lt;code>TCPReceiver&lt;/code>：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
+&lt;/span>&lt;span class="lnt"> 2
+&lt;/span>&lt;span class="lnt"> 3
+&lt;/span>&lt;span class="lnt"> 4
+&lt;/span>&lt;span class="lnt"> 5
+&lt;/span>&lt;span class="lnt"> 6
+&lt;/span>&lt;span class="lnt"> 7
+&lt;/span>&lt;span class="lnt"> 8
+&lt;/span>&lt;span class="lnt"> 9
+&lt;/span>&lt;span class="lnt">10
+&lt;/span>&lt;span class="lnt">11
+&lt;/span>&lt;span class="lnt">12
+&lt;/span>&lt;span class="lnt">13
+&lt;/span>&lt;span class="lnt">14
+&lt;/span>&lt;span class="lnt">15
+&lt;/span>&lt;span class="lnt">16
+&lt;/span>&lt;span class="lnt">17
+&lt;/span>&lt;span class="lnt">18
+&lt;/span>&lt;span class="lnt">19
+&lt;/span>&lt;span class="lnt">20
+&lt;/span>&lt;span class="lnt">21
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-cpp" data-lang="cpp">&lt;span class="line">&lt;span class="cl"> &lt;span class="k">class&lt;/span> &lt;span class="nc">TCPReceiver&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">public&lt;/span>&lt;span class="o">:&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1">// Construct with given Reassembler
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="k">explicit&lt;/span> &lt;span class="n">TCPReceiver&lt;/span>&lt;span class="p">(&lt;/span> &lt;span class="n">Reassembler&lt;/span>&lt;span class="o">&amp;amp;&amp;amp;&lt;/span> &lt;span class="n">reassembler&lt;/span> &lt;span class="p">)&lt;/span> &lt;span class="o">:&lt;/span> &lt;span class="n">reassembler_&lt;/span>&lt;span class="p">(&lt;/span> &lt;span class="n">std&lt;/span>&lt;span class="o">::&lt;/span>&lt;span class="n">move&lt;/span>&lt;span class="p">(&lt;/span> &lt;span class="n">reassembler&lt;/span> &lt;span class="p">)&lt;/span> &lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1">// The TCPReceiver receives TCPSenderMessages from the peer&amp;#39;s TCPSender.
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="kt">void&lt;/span> &lt;span class="n">receive&lt;/span>&lt;span class="p">(&lt;/span> &lt;span class="n">TCPSenderMessage&lt;/span> &lt;span class="n">message&lt;/span> &lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1">// The TCPReceiver sends TCPReceiverMessages to the peer&amp;#39;s TCPSender.
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="n">TCPReceiverMessage&lt;/span> &lt;span class="nf">send&lt;/span>&lt;span class="p">()&lt;/span> &lt;span class="k">const&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1">// Access the output (only Reader is accessible non-const)
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="k">const&lt;/span> &lt;span class="n">Reassembler&lt;/span>&lt;span class="o">&amp;amp;&lt;/span> &lt;span class="n">reassembler&lt;/span>&lt;span class="p">()&lt;/span> &lt;span class="k">const&lt;/span> &lt;span class="p">{&lt;/span> &lt;span class="k">return&lt;/span> &lt;span class="n">reassembler_&lt;/span>&lt;span class="p">;&lt;/span> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">Reader&lt;/span>&lt;span class="o">&amp;amp;&lt;/span> &lt;span class="n">reader&lt;/span>&lt;span class="p">()&lt;/span> &lt;span class="p">{&lt;/span> &lt;span class="k">return&lt;/span> &lt;span class="n">reassembler_&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="n">reader&lt;/span>&lt;span class="p">();&lt;/span> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">const&lt;/span> &lt;span class="n">Reader&lt;/span>&lt;span class="o">&amp;amp;&lt;/span> &lt;span class="n">reader&lt;/span>&lt;span class="p">()&lt;/span> &lt;span class="k">const&lt;/span> &lt;span class="p">{&lt;/span> &lt;span class="k">return&lt;/span> &lt;span class="n">reassembler_&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="n">reader&lt;/span>&lt;span class="p">();&lt;/span> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">const&lt;/span> &lt;span class="n">Writer&lt;/span>&lt;span class="o">&amp;amp;&lt;/span> &lt;span class="n">writer&lt;/span>&lt;span class="p">()&lt;/span> &lt;span class="k">const&lt;/span> &lt;span class="p">{&lt;/span> &lt;span class="k">return&lt;/span> &lt;span class="n">reassembler_&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="n">writer&lt;/span>&lt;span class="p">();&lt;/span> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">private&lt;/span>&lt;span class="o">:&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">Reassembler&lt;/span> &lt;span class="n">reassembler_&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">};&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h4 id="receive">receive()
+&lt;/h4>&lt;p>这个方法会在每次有新的 segment 被接收时调用。该方法需要：&lt;/p>
+&lt;ol>
+&lt;li>
+&lt;p>&lt;strong>如果有必要的话，设置 ISN。&lt;/strong> 第一个到达的设置了 SYN 的片的 seqno 需要设置为 ISN。你可能需要这个值，因为你要一直在 32位的 seqno/ackno 和 absolute seqno 之间转换。&lt;/p>
+&lt;blockquote>
+&lt;p>[!note]&lt;/p>
+&lt;p>注意 SYN 只是一个位而已，它可以包含数据，也可以包含 FIN。&lt;/p>
+&lt;/blockquote>
+&lt;/li>
+&lt;li>
+&lt;p>**把数据传递给 &lt;code>Reassembler&lt;/code>。**如果设置了 &lt;code>FIN&lt;/code> 位，代表这一片的最后一个字节是整个字节流的结尾。&lt;strong>记住，&lt;code>Reassembler&lt;/code> 希望流的索引从 0 开始，所以你得 unwrap seqnos。&lt;/strong>&lt;/p>
+&lt;/li>
+&lt;/ol>
+&lt;blockquote>
+&lt;p>首先要思考一下这几个 seqno 的关系。&lt;/p>
+&lt;p>&lt;code>Reassembler&lt;/code> 所需要的 &lt;code>first_index&lt;/code> 对应的是 &lt;code>stream_index&lt;/code>，&lt;code>TCPReceiver&lt;/code> 不管序号是多少，把它传给 &lt;code>Reassembler&lt;/code> 就行。&lt;/p>
+&lt;p>&lt;code>TCPSenderMessage&lt;/code> 给出的 &lt;code>seqno&lt;/code> 对应的是 &lt;code>seqno&lt;/code>&lt;/p>
+&lt;p>&lt;code>TCPReceiverMessage&lt;/code> 要发送的 &lt;code>ackno&lt;/code> 是 &lt;code>seqno + 1&lt;/code>，类型是 &lt;code>Wrap32&lt;/code>&lt;/p>
+&lt;p>收到消息，判断是否 &lt;code>RST&lt;/code>，然后判断是否 &lt;code>SYN&lt;/code>，是 &lt;code>SYN&lt;/code> 的话记录 &lt;code>zero_point&lt;/code>，要把 &lt;code>message&lt;/code> 插入到 &lt;code>Reassembler&lt;/code>，需要 &lt;code>first_index&lt;/code> 以及数据。&lt;/p>
+&lt;p>&lt;code>ackno&lt;/code> 如何计算？ &lt;code>ackno&lt;/code> 需要提醒 sender 重发未接收的数据。正常情况下则是 当前已经写入的字符 + 1 + 是否关闭。写入的字符 + 1 代表正常的 &lt;code>ackno&lt;/code>，是否关闭代表是否计算 FIN 位。因为如果没有接受完，那么自然不应该计入 FIN，接收之后字节流会关闭，那自然需要计算 FIN。&lt;/p>
+&lt;p>&lt;code>first_index&lt;/code> 应该如何计算？考虑以下情况：&lt;/p>
+&lt;ol>
+&lt;li>片带 &lt;code>SYN&lt;/code>，且携带数据。此时 &lt;code>first_index&lt;/code> 为 &lt;code>unwrap(seqno) + 1&lt;/code>（需要记录 zero point）&lt;/li>
+&lt;li>片不带 &lt;code>SYN&lt;/code> 与 &lt;code>FIN&lt;/code>。此时 &lt;code>first_index&lt;/code>，即为 &lt;code>unwrap(seqno)&lt;/code>&lt;/li>
+&lt;li>片仅带 &lt;code>FIN&lt;/code>，此时 &lt;code>first_index&lt;/code> 也为 &lt;code>unwrap(seqno)&lt;/code>&lt;/li>
+&lt;li>片同时携带 &lt;code>SYN&lt;/code>，&lt;code>FIN，&lt;/code>此时 &lt;code>first_index&lt;/code> 为 &lt;code>unwrap(seqno) + 1&lt;/code>&lt;/li>
+&lt;/ol>
+&lt;p>记录 &lt;code>zero_point&lt;/code>，unwrap 后 +1 就代表数据正式开始，对应 stream index(&lt;code>first_index&lt;/code>) 为0。之后的就只需要算出unwrap 后的 &lt;code>seqno&lt;/code> 跟其的差值即可。&lt;/p>
+&lt;p>此外，需要处理索引不合法的错误数据。我目测就是 stream index 与 SYN 的序号相同时不合法。&lt;/p>
+&lt;p>在 SYN 之前的数据一律丢弃，也就是说需要知道当前连接的状态。&lt;/p>
+&lt;p>RST 在错误时发生，错误指 ByteStream 中出现错误（&lt;code>has_error()&lt;/code>）或者报文中收到 RST 位，这时候要手动设置 ByteStream 的 &lt;code>set_error()&lt;/code>。&lt;/p>
+&lt;p>但最终我也没在 15 行内完成任务……用了25行。&lt;/p>
+&lt;/blockquote>
+&lt;h2 id="源代码">源代码
+&lt;/h2>&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
+&lt;/span>&lt;span class="lnt"> 2
+&lt;/span>&lt;span class="lnt"> 3
+&lt;/span>&lt;span class="lnt"> 4
+&lt;/span>&lt;span class="lnt"> 5
+&lt;/span>&lt;span class="lnt"> 6
+&lt;/span>&lt;span class="lnt"> 7
+&lt;/span>&lt;span class="lnt"> 8
+&lt;/span>&lt;span class="lnt"> 9
+&lt;/span>&lt;span class="lnt">10
+&lt;/span>&lt;span class="lnt">11
+&lt;/span>&lt;span class="lnt">12
+&lt;/span>&lt;span class="lnt">13
+&lt;/span>&lt;span class="lnt">14
+&lt;/span>&lt;span class="lnt">15
+&lt;/span>&lt;span class="lnt">16
+&lt;/span>&lt;span class="lnt">17
+&lt;/span>&lt;span class="lnt">18
+&lt;/span>&lt;span class="lnt">19
+&lt;/span>&lt;span class="lnt">20
+&lt;/span>&lt;span class="lnt">21
+&lt;/span>&lt;span class="lnt">22
+&lt;/span>&lt;span class="lnt">23
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-cpp" data-lang="cpp">&lt;span class="line">&lt;span class="cl">&lt;span class="c1">// wrapping_integers.cc
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span>&lt;span class="cp">#include&lt;/span> &lt;span class="cpf">&amp;#34;wrapping_integers.hh&amp;#34;&lt;/span>&lt;span class="cp">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cp">&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="k">using&lt;/span> &lt;span class="k">namespace&lt;/span> &lt;span class="n">std&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">Wrap32&lt;/span> &lt;span class="n">Wrap32&lt;/span>&lt;span class="o">::&lt;/span>&lt;span class="n">wrap&lt;/span>&lt;span class="p">(&lt;/span> &lt;span class="kt">uint64_t&lt;/span> &lt;span class="n">n&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">Wrap32&lt;/span> &lt;span class="n">zero_point&lt;/span> &lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">return&lt;/span> &lt;span class="n">Wrap32&lt;/span> &lt;span class="p">{&lt;/span> &lt;span class="n">zero_point&lt;/span> &lt;span class="o">+&lt;/span> &lt;span class="k">static_cast&lt;/span>&lt;span class="o">&amp;lt;&lt;/span>&lt;span class="kt">uint32_t&lt;/span>&lt;span class="o">&amp;gt;&lt;/span>&lt;span class="p">(&lt;/span> &lt;span class="n">n&lt;/span> &lt;span class="o">%&lt;/span> &lt;span class="p">(&lt;/span> &lt;span class="mi">1UL&lt;/span> &lt;span class="o">&amp;lt;&amp;lt;&lt;/span> &lt;span class="mi">32&lt;/span> &lt;span class="p">)&lt;/span> &lt;span class="p">)&lt;/span> &lt;span class="p">};&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="kt">uint64_t&lt;/span> &lt;span class="n">Wrap32&lt;/span>&lt;span class="o">::&lt;/span>&lt;span class="n">unwrap&lt;/span>&lt;span class="p">(&lt;/span> &lt;span class="n">Wrap32&lt;/span> &lt;span class="n">zero_point&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="kt">uint64_t&lt;/span> &lt;span class="n">checkpoint&lt;/span> &lt;span class="p">)&lt;/span> &lt;span class="k">const&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">if&lt;/span> &lt;span class="p">(&lt;/span> &lt;span class="n">raw_value_&lt;/span> &lt;span class="o">&amp;gt;=&lt;/span> &lt;span class="n">checkpoint&lt;/span> &lt;span class="p">)&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">return&lt;/span> &lt;span class="n">raw_value_&lt;/span> &lt;span class="o">-&lt;/span> &lt;span class="n">zero_point&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="n">raw_value_&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">auto&lt;/span> &lt;span class="n">wrapped_checkpoint&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="n">Wrap32&lt;/span>&lt;span class="o">::&lt;/span>&lt;span class="n">wrap&lt;/span>&lt;span class="p">(&lt;/span> &lt;span class="n">checkpoint&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">zero_point&lt;/span> &lt;span class="p">).&lt;/span>&lt;span class="n">raw_value_&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="kt">uint32_t&lt;/span> &lt;span class="n">counter_clockwise&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="n">wrapped_checkpoint&lt;/span> &lt;span class="o">-&lt;/span> &lt;span class="n">raw_value_&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="kt">uint32_t&lt;/span> &lt;span class="n">clockwise&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="n">raw_value_&lt;/span> &lt;span class="o">-&lt;/span> &lt;span class="n">wrapped_checkpoint&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">if&lt;/span> &lt;span class="p">(&lt;/span> &lt;span class="n">counter_clockwise&lt;/span> &lt;span class="o">&amp;lt;&lt;/span> &lt;span class="n">clockwise&lt;/span> &lt;span class="p">)&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">return&lt;/span> &lt;span class="n">checkpoint&lt;/span> &lt;span class="o">-&lt;/span> &lt;span class="n">counter_clockwise&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">return&lt;/span> &lt;span class="n">checkpoint&lt;/span> &lt;span class="o">+&lt;/span> &lt;span class="n">clockwise&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
+&lt;/span>&lt;span class="lnt"> 2
+&lt;/span>&lt;span class="lnt"> 3
+&lt;/span>&lt;span class="lnt"> 4
+&lt;/span>&lt;span class="lnt"> 5
+&lt;/span>&lt;span class="lnt"> 6
+&lt;/span>&lt;span class="lnt"> 7
+&lt;/span>&lt;span class="lnt"> 8
+&lt;/span>&lt;span class="lnt"> 9
+&lt;/span>&lt;span class="lnt">10
+&lt;/span>&lt;span class="lnt">11
+&lt;/span>&lt;span class="lnt">12
+&lt;/span>&lt;span class="lnt">13
+&lt;/span>&lt;span class="lnt">14
+&lt;/span>&lt;span class="lnt">15
+&lt;/span>&lt;span class="lnt">16
+&lt;/span>&lt;span class="lnt">17
+&lt;/span>&lt;span class="lnt">18
+&lt;/span>&lt;span class="lnt">19
+&lt;/span>&lt;span class="lnt">20
+&lt;/span>&lt;span class="lnt">21
+&lt;/span>&lt;span class="lnt">22
+&lt;/span>&lt;span class="lnt">23
+&lt;/span>&lt;span class="lnt">24
+&lt;/span>&lt;span class="lnt">25
+&lt;/span>&lt;span class="lnt">26
+&lt;/span>&lt;span class="lnt">27
+&lt;/span>&lt;span class="lnt">28
+&lt;/span>&lt;span class="lnt">29
+&lt;/span>&lt;span class="lnt">30
+&lt;/span>&lt;span class="lnt">31
+&lt;/span>&lt;span class="lnt">32
+&lt;/span>&lt;span class="lnt">33
+&lt;/span>&lt;span class="lnt">34
+&lt;/span>&lt;span class="lnt">35
+&lt;/span>&lt;span class="lnt">36
+&lt;/span>&lt;span class="lnt">37
+&lt;/span>&lt;span class="lnt">38
+&lt;/span>&lt;span class="lnt">39
+&lt;/span>&lt;span class="lnt">40
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-cpp" data-lang="cpp">&lt;span class="line">&lt;span class="cl">&lt;span class="c1">// tcp_receiver.hh
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span>&lt;span class="cp">#pragma once
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cp">&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cp">#include&lt;/span> &lt;span class="cpf">&amp;#34;reassembler.hh&amp;#34;&lt;/span>&lt;span class="cp">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cp">#include&lt;/span> &lt;span class="cpf">&amp;#34;tcp_receiver_message.hh&amp;#34;&lt;/span>&lt;span class="cp">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cp">#include&lt;/span> &lt;span class="cpf">&amp;#34;tcp_sender_message.hh&amp;#34;&lt;/span>&lt;span class="cp">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cp">#include&lt;/span> &lt;span class="cpf">&amp;lt;optional&amp;gt;&lt;/span>&lt;span class="cp">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cp">&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="k">class&lt;/span> &lt;span class="nc">TCPReceiver&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="k">public&lt;/span>&lt;span class="o">:&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1">// Construct with given Reassembler
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="k">explicit&lt;/span> &lt;span class="n">TCPReceiver&lt;/span>&lt;span class="p">(&lt;/span> &lt;span class="n">Reassembler&lt;/span>&lt;span class="o">&amp;amp;&amp;amp;&lt;/span> &lt;span class="n">reassembler&lt;/span> &lt;span class="p">)&lt;/span> &lt;span class="o">:&lt;/span> &lt;span class="n">reassembler_&lt;/span>&lt;span class="p">(&lt;/span> &lt;span class="n">std&lt;/span>&lt;span class="o">::&lt;/span>&lt;span class="n">move&lt;/span>&lt;span class="p">(&lt;/span> &lt;span class="n">reassembler&lt;/span> &lt;span class="p">)&lt;/span> &lt;span class="p">)&lt;/span> &lt;span class="p">{}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="cm">/*
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm"> * The TCPReceiver receives TCPSenderMessages, inserting their payload into the Reassembler
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm"> * at the correct stream index.
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm"> */&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="kt">void&lt;/span> &lt;span class="nf">receive&lt;/span>&lt;span class="p">(&lt;/span> &lt;span class="n">TCPSenderMessage&lt;/span> &lt;span class="n">message&lt;/span> &lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1">// The TCPReceiver sends TCPReceiverMessages to the peer&amp;#39;s TCPSender.
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="n">TCPReceiverMessage&lt;/span> &lt;span class="nf">send&lt;/span>&lt;span class="p">()&lt;/span> &lt;span class="k">const&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1">// Access the output (only Reader is accessible non-const)
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="k">const&lt;/span> &lt;span class="n">Reassembler&lt;/span>&lt;span class="o">&amp;amp;&lt;/span> &lt;span class="n">reassembler&lt;/span>&lt;span class="p">()&lt;/span> &lt;span class="k">const&lt;/span> &lt;span class="p">{&lt;/span> &lt;span class="k">return&lt;/span> &lt;span class="n">reassembler_&lt;/span>&lt;span class="p">;&lt;/span> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">Reader&lt;/span>&lt;span class="o">&amp;amp;&lt;/span> &lt;span class="n">reader&lt;/span>&lt;span class="p">()&lt;/span> &lt;span class="p">{&lt;/span> &lt;span class="k">return&lt;/span> &lt;span class="n">reassembler_&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="n">reader&lt;/span>&lt;span class="p">();&lt;/span> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">const&lt;/span> &lt;span class="n">Reader&lt;/span>&lt;span class="o">&amp;amp;&lt;/span> &lt;span class="n">reader&lt;/span>&lt;span class="p">()&lt;/span> &lt;span class="k">const&lt;/span> &lt;span class="p">{&lt;/span> &lt;span class="k">return&lt;/span> &lt;span class="n">reassembler_&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="n">reader&lt;/span>&lt;span class="p">();&lt;/span> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">const&lt;/span> &lt;span class="n">Writer&lt;/span>&lt;span class="o">&amp;amp;&lt;/span> &lt;span class="n">writer&lt;/span>&lt;span class="p">()&lt;/span> &lt;span class="k">const&lt;/span> &lt;span class="p">{&lt;/span> &lt;span class="k">return&lt;/span> &lt;span class="n">reassembler_&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="n">writer&lt;/span>&lt;span class="p">();&lt;/span> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="k">private&lt;/span>&lt;span class="o">:&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">Reassembler&lt;/span> &lt;span class="n">reassembler_&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">std&lt;/span>&lt;span class="o">::&lt;/span>&lt;span class="n">optional&lt;/span>&lt;span class="o">&amp;lt;&lt;/span>&lt;span class="n">Wrap32&lt;/span>&lt;span class="o">&amp;gt;&lt;/span> &lt;span class="n">zero_point_&lt;/span> &lt;span class="p">{};&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="kt">uint64_t&lt;/span> &lt;span class="n">ack_&lt;/span> &lt;span class="p">{};&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="kt">uint64_t&lt;/span> &lt;span class="n">stream_index_&lt;/span> &lt;span class="p">{};&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="kt">bool&lt;/span> &lt;span class="n">connected_&lt;/span> &lt;span class="p">{};&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">};&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
+&lt;/span>&lt;span class="lnt"> 2
+&lt;/span>&lt;span class="lnt"> 3
+&lt;/span>&lt;span class="lnt"> 4
+&lt;/span>&lt;span class="lnt"> 5
+&lt;/span>&lt;span class="lnt"> 6
+&lt;/span>&lt;span class="lnt"> 7
+&lt;/span>&lt;span class="lnt"> 8
+&lt;/span>&lt;span class="lnt"> 9
+&lt;/span>&lt;span class="lnt">10
+&lt;/span>&lt;span class="lnt">11
+&lt;/span>&lt;span class="lnt">12
+&lt;/span>&lt;span class="lnt">13
+&lt;/span>&lt;span class="lnt">14
+&lt;/span>&lt;span class="lnt">15
+&lt;/span>&lt;span class="lnt">16
+&lt;/span>&lt;span class="lnt">17
+&lt;/span>&lt;span class="lnt">18
+&lt;/span>&lt;span class="lnt">19
+&lt;/span>&lt;span class="lnt">20
+&lt;/span>&lt;span class="lnt">21
+&lt;/span>&lt;span class="lnt">22
+&lt;/span>&lt;span class="lnt">23
+&lt;/span>&lt;span class="lnt">24
+&lt;/span>&lt;span class="lnt">25
+&lt;/span>&lt;span class="lnt">26
+&lt;/span>&lt;span class="lnt">27
+&lt;/span>&lt;span class="lnt">28
+&lt;/span>&lt;span class="lnt">29
+&lt;/span>&lt;span class="lnt">30
+&lt;/span>&lt;span class="lnt">31
+&lt;/span>&lt;span class="lnt">32
+&lt;/span>&lt;span class="lnt">33
+&lt;/span>&lt;span class="lnt">34
+&lt;/span>&lt;span class="lnt">35
+&lt;/span>&lt;span class="lnt">36
+&lt;/span>&lt;span class="lnt">37
+&lt;/span>&lt;span class="lnt">38
+&lt;/span>&lt;span class="lnt">39
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-cpp" data-lang="cpp">&lt;span class="line">&lt;span class="cl">&lt;span class="c1">// tcp_receiver.cc
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span>&lt;span class="cp">#include&lt;/span> &lt;span class="cpf">&amp;#34;tcp_receiver.hh&amp;#34;&lt;/span>&lt;span class="cp">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cp">#include&lt;/span> &lt;span class="cpf">&amp;lt;numeric&amp;gt;&lt;/span>&lt;span class="cp">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cp">&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="k">using&lt;/span> &lt;span class="k">namespace&lt;/span> &lt;span class="n">std&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="kt">void&lt;/span> &lt;span class="n">TCPReceiver&lt;/span>&lt;span class="o">::&lt;/span>&lt;span class="n">receive&lt;/span>&lt;span class="p">(&lt;/span> &lt;span class="n">TCPSenderMessage&lt;/span> &lt;span class="n">message&lt;/span> &lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">if&lt;/span> &lt;span class="p">(&lt;/span> &lt;span class="n">message&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="n">RST&lt;/span> &lt;span class="p">)&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">reassembler_&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="n">reader&lt;/span>&lt;span class="p">().&lt;/span>&lt;span class="n">set_error&lt;/span>&lt;span class="p">();&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">return&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">if&lt;/span> &lt;span class="p">(&lt;/span> &lt;span class="o">!&lt;/span>&lt;span class="n">message&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="n">SYN&lt;/span> &lt;span class="o">&amp;amp;&amp;amp;&lt;/span> &lt;span class="o">!&lt;/span>&lt;span class="n">connected_&lt;/span> &lt;span class="p">)&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">return&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">if&lt;/span> &lt;span class="p">(&lt;/span> &lt;span class="n">message&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="n">SYN&lt;/span> &lt;span class="p">)&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">connected_&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="nb">true&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">zero_point_&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="n">message&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="n">seqno&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span> &lt;span class="k">else&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">if&lt;/span> &lt;span class="p">(&lt;/span> &lt;span class="n">zero_point_&lt;/span> &lt;span class="o">==&lt;/span> &lt;span class="n">message&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="n">seqno&lt;/span> &lt;span class="p">)&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">return&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">stream_index_&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="n">message&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="n">seqno&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="n">unwrap&lt;/span>&lt;span class="p">(&lt;/span> &lt;span class="o">*&lt;/span>&lt;span class="n">zero_point_&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">reassembler_&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="n">writer&lt;/span>&lt;span class="p">().&lt;/span>&lt;span class="n">bytes_pushed&lt;/span>&lt;span class="p">()&lt;/span> &lt;span class="p">)&lt;/span> &lt;span class="o">-&lt;/span> &lt;span class="mi">1&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">auto&lt;/span> &lt;span class="n">sequence_len&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="n">message&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="n">sequence_length&lt;/span>&lt;span class="p">();&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">reassembler_&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="n">insert&lt;/span>&lt;span class="p">(&lt;/span> &lt;span class="n">stream_index_&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">std&lt;/span>&lt;span class="o">::&lt;/span>&lt;span class="n">move&lt;/span>&lt;span class="p">(&lt;/span> &lt;span class="n">message&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="n">payload&lt;/span> &lt;span class="p">),&lt;/span> &lt;span class="n">message&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="n">FIN&lt;/span> &lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">ack_&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="n">reassembler_&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="n">writer&lt;/span>&lt;span class="p">().&lt;/span>&lt;span class="n">bytes_pushed&lt;/span>&lt;span class="p">()&lt;/span> &lt;span class="o">+&lt;/span> &lt;span class="mi">1&lt;/span> &lt;span class="o">+&lt;/span> &lt;span class="n">reassembler_&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="n">writer&lt;/span>&lt;span class="p">().&lt;/span>&lt;span class="n">is_closed&lt;/span>&lt;span class="p">();&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">stream_index_&lt;/span> &lt;span class="o">+=&lt;/span> &lt;span class="n">sequence_len&lt;/span> &lt;span class="o">-&lt;/span> &lt;span class="n">message&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="n">FIN&lt;/span> &lt;span class="o">-&lt;/span> &lt;span class="n">message&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="n">SYN&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">this&lt;/span>&lt;span class="o">-&amp;gt;&lt;/span>&lt;span class="n">send&lt;/span>&lt;span class="p">();&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">TCPReceiverMessage&lt;/span> &lt;span class="n">TCPReceiver&lt;/span>&lt;span class="o">::&lt;/span>&lt;span class="n">send&lt;/span>&lt;span class="p">()&lt;/span> &lt;span class="k">const&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">return&lt;/span> &lt;span class="n">TCPReceiverMessage&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">zero_point_&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="n">has_value&lt;/span>&lt;span class="p">()&lt;/span> &lt;span class="o">?&lt;/span> &lt;span class="n">Wrap32&lt;/span>&lt;span class="o">::&lt;/span>&lt;span class="n">wrap&lt;/span>&lt;span class="p">(&lt;/span> &lt;span class="n">ack_&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="o">*&lt;/span>&lt;span class="n">zero_point_&lt;/span> &lt;span class="p">)&lt;/span> &lt;span class="o">:&lt;/span> &lt;span class="n">std&lt;/span>&lt;span class="o">::&lt;/span>&lt;span class="n">optional&lt;/span>&lt;span class="o">&amp;lt;&lt;/span>&lt;span class="n">Wrap32&lt;/span>&lt;span class="o">&amp;gt;&lt;/span> &lt;span class="p">{},&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">static_cast&lt;/span>&lt;span class="o">&amp;lt;&lt;/span>&lt;span class="kt">uint16_t&lt;/span>&lt;span class="o">&amp;gt;&lt;/span>&lt;span class="p">(&lt;/span> &lt;span class="n">std&lt;/span>&lt;span class="o">::&lt;/span>&lt;span class="n">min&lt;/span>&lt;span class="p">(&lt;/span> &lt;span class="k">static_cast&lt;/span>&lt;span class="o">&amp;lt;&lt;/span>&lt;span class="kt">uint64_t&lt;/span>&lt;span class="o">&amp;gt;&lt;/span>&lt;span class="p">(&lt;/span> &lt;span class="n">std&lt;/span>&lt;span class="o">::&lt;/span>&lt;span class="n">numeric_limits&lt;/span>&lt;span class="o">&amp;lt;&lt;/span>&lt;span class="kt">uint16_t&lt;/span>&lt;span class="o">&amp;gt;::&lt;/span>&lt;span class="n">max&lt;/span>&lt;span class="p">()&lt;/span> &lt;span class="p">),&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">reassembler_&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="n">writer&lt;/span>&lt;span class="p">().&lt;/span>&lt;span class="n">available_capacity&lt;/span>&lt;span class="p">()&lt;/span> &lt;span class="p">)&lt;/span> &lt;span class="p">),&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">reassembler_&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="n">writer&lt;/span>&lt;span class="p">().&lt;/span>&lt;span class="n">has_error&lt;/span>&lt;span class="p">()&lt;/span> &lt;span class="p">};&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div></description></item><item><title>CS144-2024 Winter - Lab 1</title><link>https://rossqaq.github.io/article/cs144-p1/</link><pubDate>Sun, 12 May 2024 00:00:00 +0000</pubDate><guid>https://rossqaq.github.io/article/cs144-p1/</guid><description>&lt;h2 id="总览">总览
+&lt;/h2>&lt;p>介绍了 TCP 是&lt;strong>可靠的有序字节流&lt;/strong>，简单介绍了它的地位。以下的 assignments 会基于不可靠的 datagram 来实现可靠的 TCP 协议。在未来的 labs，需要两个 lab 0 中的 ByteStream，一个用于发送数据，一个用于接收数据。&lt;/p>
+&lt;h2 id="开始">开始
+&lt;/h2>&lt;p>依然是使用 Minnow 库：&lt;/p>
+&lt;ol>
+&lt;li>确保提交了 checkpoint 0 的代码，不要更改 &lt;code>src&lt;/code> 之外的文件，以及 &lt;code>webget.cc&lt;/code>。&lt;/li>
+&lt;li>&lt;code>git fetch&lt;/code> 来获取最新的 lab assignments&lt;/li>
+&lt;li>&lt;code>git merge name-of-cs144-origin/check1-startercode&lt;/code> 来下载 checkpoint 1 的初始代码&lt;/li>
+&lt;li>确保 build 路径正确设置&lt;/li>
+&lt;li>编译 &lt;code>cmake --build build&lt;/code>&lt;/li>
+&lt;li>打开并且编辑 &lt;code>writeups/check1.md&lt;/code>&lt;/li>
+&lt;/ol>
+&lt;h2 id="按顺序恢复子串">按顺序恢复子串
+&lt;/h2>&lt;p>TCP receiver：接收 datagrams，并将其按顺序排列、丢弃重复的、重新请求发送丢失的。&lt;/p>
+&lt;p>TCP sender：将大的数据流分成小的数据片（1460字节每片）。&lt;/p>
+&lt;p>实现：&lt;code>Reassembler&lt;/code>，接收子串。&lt;/p>
+&lt;ol>
+&lt;li>子串包含字符串、以及其第一个字节的索引 within the larget stream.&lt;/li>
+&lt;li>&lt;strong>每个字节&lt;/strong>都有独立的索引，从 0 开始。&lt;/li>
+&lt;li>Reassembler 获取流的 &lt;strong>下一个字节&lt;/strong> 后，就会把它写到输入端的 &lt;code>ByteStream&lt;/code>&lt;/li>
+&lt;li>customer 可以从其中读取内容。&lt;/li>
+&lt;/ol>
+&lt;p>实现所有 &lt;code>reassembler.hh&lt;/code> 中的 public 接口，不允许自己修改 public 接口。&lt;/p>
+&lt;h3 id="reassembler-内部应该存储什么">Reassembler 内部应该存储什么？
+&lt;/h3>&lt;p>&lt;code>insert&lt;/code> 通知 Reassembler 有新的字节流分片，以及其大小（字符串开头的索引）&lt;/p>
+&lt;p>需要解决三个问题：&lt;/p>
+&lt;ol>
+&lt;li>Bytes 是流中的 &lt;em>next bytes&lt;/em>，直接写入。&lt;/li>
+&lt;li>Bytes 小于 stream 的可用容量范围内，但目前并不能写入，因为之前的 bytes 未知。&lt;strong>暂存&lt;/strong>。&lt;/li>
+&lt;li>Bytes 超过了 stream 的可用容量范围。&lt;strong>丢弃&lt;/strong>。Reassembler 不会存储任何不能被立刻写入的字节（包括太大、或者需要等待较早的字节已知的内容）&lt;/li>
+&lt;/ol>
+&lt;p>宗旨是 &lt;strong>节省内存容量&lt;/strong>。到达的不管是什么数据，我们都用以下的图来描述：&lt;/p>
+&lt;img src="image-20240513094207221.png" alt="buffer" style="zoom:50%;" />
+&lt;ul>
+&lt;li>红色：Reassembler 内部存储的字节&lt;/li>
+&lt;li>绿色：ByteStream 存储的字节&lt;/li>
+&lt;li>蓝色：已经被 popped 的字节&lt;/li>
+&lt;/ul>
+&lt;hr>
+&lt;h3 id="faqs">FAQs
+&lt;/h3>&lt;ul>
+&lt;li>
+&lt;p>整个流的第一个字节的索引是什么？&lt;strong>0&lt;/strong>.&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>我的实现的性能应该是？&lt;/p>
+&lt;p>&lt;strong>选择的数据结构非常重要。不要选择耗时的数据结构或者占据大量空间的结构，Reassembler 会是你的 TCP 实现的基础。你有很多选择。我们已经准备了 benchmark，任何大于 0.1 Gbps 的都可以通过。最大可以实现 10 Gbps 的 Reassembler。&lt;/strong>&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>如何处理不连续的子串？&lt;/p>
+&lt;p>&lt;strong>你可以假设他们并不存在。就是说，你可以假设存在唯一的底层字节流，所有的子字符串都是其准确的切片。&lt;/strong>&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>我可能用到？&lt;/p>
+&lt;p>&lt;strong>你可以使用任何标准库组件。特别地，我们希望你至少使用一种数据结构。&lt;/strong>&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>什么时候将 bytes 写入流？&lt;/p>
+&lt;p>&lt;strong>尽可能快。唯一不能写入的情况就是字节流的前一个字节还没准备好。&lt;/strong>&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>子串可能会重复吗？ &lt;strong>是的&lt;/strong>。&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>我可以向 Reassembler 添加 private 成员函数吗？&lt;/p>
+&lt;p>&lt;strong>当然。子串可能以任何顺序到达，所以你的数据结构需要记住子串的顺序，直到他们被 push 进入 Stream，即在该子串的前面所有字节都写入完成。&lt;/strong>&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>我们的 re-assembly 结构可以存储重复子串吗？&lt;/p>
+&lt;p>&lt;strong>不可以。即使你可以正确的实现，但是这样会打破节约内存的规则。&lt;/strong>&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>Reassembler 会使用 ByteStream 的读端吗？&lt;/p>
+&lt;p>&lt;strong>不会。这是外部消费者做的。Reassembler 仅使用写端。&lt;/strong>&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>你们预期的实现是多少？&lt;/p>
+&lt;p>&lt;strong>运行 ./scripts/lines-of-code 会打印你的代码行数。我们希望 Reassembler 在 50 - 60行左右（starter code 的基础上）&lt;/strong>&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>更多 FAQs：https://cs144.github.io/lab_faq.html&lt;/p>
+&lt;/li>
+&lt;/ul>
+&lt;blockquote>
+&lt;p>经过几个小时的折磨，终于弄清楚了 &lt;code>insert&lt;/code> 的逻辑。&lt;/p>
+&lt;p>&lt;code>bytes_pending()&lt;/code> 很简单，记录一下 pending 长度就行，主要的问题在于 &lt;code>insert()&lt;/code> 的情况比较复杂。&lt;/p>
+&lt;p>按照 &lt;code>first_index&lt;/code> 参数来区分情况，首先先去重，也就是 &lt;code>first_index &amp;lt; next_index_&lt;/code> 的情况，把重复的内容去掉。&lt;/p>
+&lt;p>去重后记得更新 &lt;code>first_index&lt;/code>。&lt;/p>
+&lt;p>什么时候会写入呢？自己维护一个 &lt;code>next_index&lt;/code>，然后 &lt;code>first_index == next_index&lt;/code> 时就写入。&lt;/p>
+&lt;p>要注意容量吗？并不用，p0 我们实现的 byte stream 已经处理了。&lt;/p>
+&lt;p>此外，&lt;code>next_index&lt;/code> 大概对应上图的 &lt;code>first unassembled index&lt;/code>，而 &lt;code>first_index&lt;/code> 是每个子串的 index。注意看图中红色的部分是断开的，那我们自然也不能用 &lt;code>std::vector&amp;lt;char&amp;gt;&lt;/code> 来存储这些 bytes。我认为用 &lt;code>std::map&amp;lt;uint64_t, std::string&amp;gt;&lt;/code> 存就可以，这样少一些复制。&lt;/p>
+&lt;p>什么时候会保存在 Reassembler 中呢？**写入操作不需要保存，不会出现写一半存一半的情况。**只有前面的内容没收到时才保存。&lt;/p>
+&lt;p>保存非常麻烦，要考虑容量问题。&lt;/p>
+&lt;p>容量足够的话就不说了，直接存入；&lt;/p>
+&lt;p>容量不够的话，要截断，怎么截断？&lt;/p>
+&lt;p>&lt;strong>容量，指的是 output stream 的容量，上面的图里画了。&lt;/strong> 截断时要留下 &lt;code>first_index - next_index&lt;/code> 空间，这样才能够前文写入。&lt;/p>
+&lt;p>我的做法是，先在 map 中查找有没有 &lt;code>first_index&lt;/code> 的存在，有的话，比较两个字符串的大小，留下长的。&lt;/p>
+&lt;p>之后就是遍历所有的结点，去掉重复的内容，怎么去除呢？&lt;/p>
+&lt;p>插入字符串的 &lt;code>first_index ~ final_index&lt;/code> 期间的所有 map 结点都 erase 就好。&lt;/p>
+&lt;p>然后遍历所有的结点，把前一个结点和后一个结点重复的部分去除就行。&lt;/p>
+&lt;p>但是要注意插入的字符串已经是某个 pending 字符串子串的情况。这种情况直接返回。&lt;/p>
+&lt;p>记得要把 pending 的字符串写入，不会出现容量不够的情况，上面已经说了容量的计算了。然后把 &lt;code>first_index &amp;lt;= next_index_&lt;/code> 的内容全部写入，直接调用现有函数就行。&lt;/p>
+&lt;p>最后关于 &lt;code>close&lt;/code> 写端，需要在写入所有的字节后关闭，但可能字节为 0，所以我用了个 &lt;code>std::optional&lt;/code> 来记录，如果没有确定 last index，那么就是空，否则就不为空，之后判断就行。&lt;/p>
+&lt;p>这种解法已经是我能想到最快的了，跟字符串有关的操作全部都是 &lt;code>O(1)&lt;/code>，没有复制开销，全部是移动，然后要遍历所有的结点。&lt;/p>
+&lt;/blockquote>
+&lt;h2 id="开发和-debug-建议">开发和 Debug 建议
+&lt;/h2>&lt;ol>
+&lt;li>
+&lt;p>你可以通过 &lt;code>cmake --build build --target check1&lt;/code> 来测试代码（编译之后）&lt;/p>
+&lt;blockquote>
+&lt;p>我寻思 &lt;code>cmake --build&lt;/code> 不应该已经编译了吗，不过我好像也没怎么用过 cmake 的指令&amp;hellip;&lt;/p>
+&lt;/blockquote>
+&lt;/li>
+&lt;li>
+&lt;p>重新读一次 &lt;code>Lab 0 &lt;/code> 的 using git 部分，确保代码最新。&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>说了一堆，意思就是让你代码内容明确，然后写点注释&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>保证 Modern C++&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>如果你编译卡住了又没法修复，你可以删除 &lt;code>build&lt;/code> 目录，然后根目录下 &lt;code>cmake -S . -B build&lt;/code>&lt;/p>
+&lt;/li>
+&lt;/ol>
+&lt;h2 id="提交">提交
+&lt;/h2>&lt;ol>
+&lt;li>
+&lt;p>保证仅修改 &lt;code>/src&lt;/code> 下的 &lt;code>.hh&lt;/code> &lt;code>.cc&lt;/code> 文件，不要修改 &lt;code>public&lt;/code> 接口。&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>在你写作业之前，请按顺序运行：&lt;/p>
+&lt;ol>
+&lt;li>
+&lt;p>确保已经 commit 了所有的修改，可以用 &lt;code>git status&lt;/code> 查看。&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>&lt;code>cmake --build build --target format&lt;/code>&lt;/p>
+&lt;blockquote>
+&lt;p>VSCode + clang-format 大法好&lt;/p>
+&lt;/blockquote>
+&lt;/li>
+&lt;li>
+&lt;p>&lt;code>cmake --build build --target check1&lt;/code>（确保所有测试通过）&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>可选：&lt;code>cmake --build build --target tidy&lt;/code> （改进代码）&lt;/p>
+&lt;/li>
+&lt;/ol>
+&lt;/li>
+&lt;li>
+&lt;p>编写报告 &lt;code>check1.md&lt;/code>，一行控制在 80 个字符以内，最好 20~50，这样容易读。&lt;/p>
+&lt;blockquote>
+&lt;p>太长了我又不写这个，不翻译。&lt;/p>
+&lt;/blockquote>
+&lt;/li>
+&lt;li>
+&lt;p>注意填写你做了几个小时，以及其他的评论&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>The mechanics of “how to turn it in” will be announced before the deadline.&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>Please let the course staff know ASAP of any problems at the lab session, or by posting a question on Ed. Good luck&lt;/p>
+&lt;/li>
+&lt;/ol>
+&lt;h2 id="源代码">源代码
+&lt;/h2>&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
+&lt;/span>&lt;span class="lnt"> 2
+&lt;/span>&lt;span class="lnt"> 3
+&lt;/span>&lt;span class="lnt"> 4
+&lt;/span>&lt;span class="lnt"> 5
+&lt;/span>&lt;span class="lnt"> 6
+&lt;/span>&lt;span class="lnt"> 7
+&lt;/span>&lt;span class="lnt"> 8
+&lt;/span>&lt;span class="lnt"> 9
+&lt;/span>&lt;span class="lnt">10
+&lt;/span>&lt;span class="lnt">11
+&lt;/span>&lt;span class="lnt">12
+&lt;/span>&lt;span class="lnt">13
+&lt;/span>&lt;span class="lnt">14
+&lt;/span>&lt;span class="lnt">15
+&lt;/span>&lt;span class="lnt">16
+&lt;/span>&lt;span class="lnt">17
+&lt;/span>&lt;span class="lnt">18
+&lt;/span>&lt;span class="lnt">19
+&lt;/span>&lt;span class="lnt">20
+&lt;/span>&lt;span class="lnt">21
+&lt;/span>&lt;span class="lnt">22
+&lt;/span>&lt;span class="lnt">23
+&lt;/span>&lt;span class="lnt">24
+&lt;/span>&lt;span class="lnt">25
+&lt;/span>&lt;span class="lnt">26
+&lt;/span>&lt;span class="lnt">27
+&lt;/span>&lt;span class="lnt">28
+&lt;/span>&lt;span class="lnt">29
+&lt;/span>&lt;span class="lnt">30
+&lt;/span>&lt;span class="lnt">31
+&lt;/span>&lt;span class="lnt">32
+&lt;/span>&lt;span class="lnt">33
+&lt;/span>&lt;span class="lnt">34
+&lt;/span>&lt;span class="lnt">35
+&lt;/span>&lt;span class="lnt">36
+&lt;/span>&lt;span class="lnt">37
+&lt;/span>&lt;span class="lnt">38
+&lt;/span>&lt;span class="lnt">39
+&lt;/span>&lt;span class="lnt">40
+&lt;/span>&lt;span class="lnt">41
+&lt;/span>&lt;span class="lnt">42
+&lt;/span>&lt;span class="lnt">43
+&lt;/span>&lt;span class="lnt">44
+&lt;/span>&lt;span class="lnt">45
+&lt;/span>&lt;span class="lnt">46
+&lt;/span>&lt;span class="lnt">47
+&lt;/span>&lt;span class="lnt">48
+&lt;/span>&lt;span class="lnt">49
+&lt;/span>&lt;span class="lnt">50
+&lt;/span>&lt;span class="lnt">51
+&lt;/span>&lt;span class="lnt">52
+&lt;/span>&lt;span class="lnt">53
+&lt;/span>&lt;span class="lnt">54
+&lt;/span>&lt;span class="lnt">55
+&lt;/span>&lt;span class="lnt">56
+&lt;/span>&lt;span class="lnt">57
+&lt;/span>&lt;span class="lnt">58
+&lt;/span>&lt;span class="lnt">59
+&lt;/span>&lt;span class="lnt">60
+&lt;/span>&lt;span class="lnt">61
+&lt;/span>&lt;span class="lnt">62
+&lt;/span>&lt;span class="lnt">63
+&lt;/span>&lt;span class="lnt">64
+&lt;/span>&lt;span class="lnt">65
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-cpp" data-lang="cpp">&lt;span class="line">&lt;span class="cl">&lt;span class="cp">#pragma once
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cp">&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cp">#include&lt;/span> &lt;span class="cpf">&amp;#34;byte_stream.hh&amp;#34;&lt;/span>&lt;span class="cp">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cp">#include&lt;/span> &lt;span class="cpf">&amp;lt;map&amp;gt;&lt;/span>&lt;span class="cp">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cp">#include&lt;/span> &lt;span class="cpf">&amp;lt;optional&amp;gt;&lt;/span>&lt;span class="cp">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cp">&lt;/span>&lt;span class="k">class&lt;/span> &lt;span class="nc">Reassembler&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="k">public&lt;/span>&lt;span class="o">:&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1">// Construct Reassembler to write into given ByteStream.
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="k">explicit&lt;/span> &lt;span class="n">Reassembler&lt;/span>&lt;span class="p">(&lt;/span> &lt;span class="n">ByteStream&lt;/span>&lt;span class="o">&amp;amp;&amp;amp;&lt;/span> &lt;span class="n">output&lt;/span> &lt;span class="p">)&lt;/span> &lt;span class="o">:&lt;/span> &lt;span class="n">output_&lt;/span>&lt;span class="p">(&lt;/span> &lt;span class="n">std&lt;/span>&lt;span class="o">::&lt;/span>&lt;span class="n">move&lt;/span>&lt;span class="p">(&lt;/span> &lt;span class="n">output&lt;/span> &lt;span class="p">)&lt;/span> &lt;span class="p">)&lt;/span> &lt;span class="p">{}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="cm">/*
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm"> * Insert a new substring to be reassembled into a ByteStream.
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm"> * `first_index`: the index of the first byte of the substring
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm"> * `data`: the substring itself
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm"> * `is_last_substring`: this substring represents the end of the stream
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm"> * `output`: a mutable reference to the Writer
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm"> *
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm"> * The Reassembler&amp;#39;s job is to reassemble the indexed substrings (possibly out-of-order
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm"> * and possibly overlapping) back into the original ByteStream. As soon as the Reassembler
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm"> * learns the next byte in the stream, it should write it to the output.
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm"> *
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm"> * If the Reassembler learns about bytes that fit within the stream&amp;#39;s available capacity
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm"> * but can&amp;#39;t yet be written (because earlier bytes remain unknown), it should store them
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm"> * internally until the gaps are filled in.
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm"> *
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm"> * The Reassembler should discard any bytes that lie beyond the stream&amp;#39;s available capacity
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm"> * (i.e., bytes that couldn&amp;#39;t be written even if earlier gaps get filled in).
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm"> *
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm"> * The Reassembler should close the stream after writing the last byte.
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm"> */&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="kt">void&lt;/span> &lt;span class="nf">insert&lt;/span>&lt;span class="p">(&lt;/span> &lt;span class="kt">uint64_t&lt;/span> &lt;span class="n">first_index&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">std&lt;/span>&lt;span class="o">::&lt;/span>&lt;span class="n">string&lt;/span> &lt;span class="n">data&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="kt">bool&lt;/span> &lt;span class="n">is_last_substring&lt;/span> &lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1">// How many bytes are stored in the Reassembler itself?
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="kt">uint64_t&lt;/span> &lt;span class="nf">bytes_pending&lt;/span>&lt;span class="p">()&lt;/span> &lt;span class="k">const&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1">// Access output stream reader
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="n">Reader&lt;/span>&lt;span class="o">&amp;amp;&lt;/span> &lt;span class="n">reader&lt;/span>&lt;span class="p">()&lt;/span> &lt;span class="p">{&lt;/span> &lt;span class="k">return&lt;/span> &lt;span class="n">output_&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="n">reader&lt;/span>&lt;span class="p">();&lt;/span> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">const&lt;/span> &lt;span class="n">Reader&lt;/span>&lt;span class="o">&amp;amp;&lt;/span> &lt;span class="n">reader&lt;/span>&lt;span class="p">()&lt;/span> &lt;span class="k">const&lt;/span> &lt;span class="p">{&lt;/span> &lt;span class="k">return&lt;/span> &lt;span class="n">output_&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="n">reader&lt;/span>&lt;span class="p">();&lt;/span> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1">// Access output stream writer, but const-only (can&amp;#39;t write from outside)
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="k">const&lt;/span> &lt;span class="n">Writer&lt;/span>&lt;span class="o">&amp;amp;&lt;/span> &lt;span class="n">writer&lt;/span>&lt;span class="p">()&lt;/span> &lt;span class="k">const&lt;/span> &lt;span class="p">{&lt;/span> &lt;span class="k">return&lt;/span> &lt;span class="n">output_&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="n">writer&lt;/span>&lt;span class="p">();&lt;/span> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="k">private&lt;/span>&lt;span class="o">:&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="kt">void&lt;/span> &lt;span class="n">insert_or_store&lt;/span>&lt;span class="p">(&lt;/span> &lt;span class="kt">uint64_t&lt;/span> &lt;span class="n">first_index&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">std&lt;/span>&lt;span class="o">::&lt;/span>&lt;span class="n">string&lt;/span> &lt;span class="n">data&lt;/span> &lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="kt">void&lt;/span> &lt;span class="nf">write_stored_str&lt;/span>&lt;span class="p">();&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="kt">void&lt;/span> &lt;span class="nf">write&lt;/span>&lt;span class="p">(&lt;/span> &lt;span class="n">std&lt;/span>&lt;span class="o">::&lt;/span>&lt;span class="n">string&lt;/span> &lt;span class="n">data&lt;/span> &lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="kt">void&lt;/span> &lt;span class="nf">store&lt;/span>&lt;span class="p">(&lt;/span> &lt;span class="kt">uint64_t&lt;/span> &lt;span class="n">first_index&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">std&lt;/span>&lt;span class="o">::&lt;/span>&lt;span class="n">string&lt;/span> &lt;span class="n">data&lt;/span> &lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="kt">uint64_t&lt;/span> &lt;span class="nf">truncate_head&lt;/span>&lt;span class="p">(&lt;/span> &lt;span class="kt">uint64_t&lt;/span> &lt;span class="n">old_index&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">std&lt;/span>&lt;span class="o">::&lt;/span>&lt;span class="n">string&lt;/span>&lt;span class="o">&amp;amp;&lt;/span> &lt;span class="n">data&lt;/span> &lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="k">private&lt;/span>&lt;span class="o">:&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">ByteStream&lt;/span> &lt;span class="n">output_&lt;/span>&lt;span class="p">;&lt;/span> &lt;span class="c1">// the Reassembler writes to this ByteStream
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">std&lt;/span>&lt;span class="o">::&lt;/span>&lt;span class="n">map&lt;/span>&lt;span class="o">&amp;lt;&lt;/span>&lt;span class="kt">uint64_t&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">std&lt;/span>&lt;span class="o">::&lt;/span>&lt;span class="n">string&lt;/span>&lt;span class="o">&amp;gt;&lt;/span> &lt;span class="n">pending_substr_&lt;/span> &lt;span class="p">{};&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="kt">uint64_t&lt;/span> &lt;span class="n">bytes_pending_&lt;/span> &lt;span class="p">{};&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="kt">uint64_t&lt;/span> &lt;span class="n">next_index_&lt;/span> &lt;span class="p">{};&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">std&lt;/span>&lt;span class="o">::&lt;/span>&lt;span class="n">optional&lt;/span>&lt;span class="o">&amp;lt;&lt;/span>&lt;span class="kt">uint64_t&lt;/span>&lt;span class="o">&amp;gt;&lt;/span> &lt;span class="n">total_pushed_len_&lt;/span> &lt;span class="p">{&lt;/span> &lt;span class="n">std&lt;/span>&lt;span class="o">::&lt;/span>&lt;span class="n">nullopt&lt;/span> &lt;span class="p">};&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">};&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
+&lt;/span>&lt;span class="lnt"> 2
+&lt;/span>&lt;span class="lnt"> 3
+&lt;/span>&lt;span class="lnt"> 4
+&lt;/span>&lt;span class="lnt"> 5
+&lt;/span>&lt;span class="lnt"> 6
+&lt;/span>&lt;span class="lnt"> 7
+&lt;/span>&lt;span class="lnt"> 8
+&lt;/span>&lt;span class="lnt"> 9
+&lt;/span>&lt;span class="lnt"> 10
+&lt;/span>&lt;span class="lnt"> 11
+&lt;/span>&lt;span class="lnt"> 12
+&lt;/span>&lt;span class="lnt"> 13
+&lt;/span>&lt;span class="lnt"> 14
+&lt;/span>&lt;span class="lnt"> 15
+&lt;/span>&lt;span class="lnt"> 16
+&lt;/span>&lt;span class="lnt"> 17
+&lt;/span>&lt;span class="lnt"> 18
+&lt;/span>&lt;span class="lnt"> 19
+&lt;/span>&lt;span class="lnt"> 20
+&lt;/span>&lt;span class="lnt"> 21
+&lt;/span>&lt;span class="lnt"> 22
+&lt;/span>&lt;span class="lnt"> 23
+&lt;/span>&lt;span class="lnt"> 24
+&lt;/span>&lt;span class="lnt"> 25
+&lt;/span>&lt;span class="lnt"> 26
+&lt;/span>&lt;span class="lnt"> 27
+&lt;/span>&lt;span class="lnt"> 28
+&lt;/span>&lt;span class="lnt"> 29
+&lt;/span>&lt;span class="lnt"> 30
+&lt;/span>&lt;span class="lnt"> 31
+&lt;/span>&lt;span class="lnt"> 32
+&lt;/span>&lt;span class="lnt"> 33
+&lt;/span>&lt;span class="lnt"> 34
+&lt;/span>&lt;span class="lnt"> 35
+&lt;/span>&lt;span class="lnt"> 36
+&lt;/span>&lt;span class="lnt"> 37
+&lt;/span>&lt;span class="lnt"> 38
+&lt;/span>&lt;span class="lnt"> 39
+&lt;/span>&lt;span class="lnt"> 40
+&lt;/span>&lt;span class="lnt"> 41
+&lt;/span>&lt;span class="lnt"> 42
+&lt;/span>&lt;span class="lnt"> 43
+&lt;/span>&lt;span class="lnt"> 44
+&lt;/span>&lt;span class="lnt"> 45
+&lt;/span>&lt;span class="lnt"> 46
+&lt;/span>&lt;span class="lnt"> 47
+&lt;/span>&lt;span class="lnt"> 48
+&lt;/span>&lt;span class="lnt"> 49
+&lt;/span>&lt;span class="lnt"> 50
+&lt;/span>&lt;span class="lnt"> 51
+&lt;/span>&lt;span class="lnt"> 52
+&lt;/span>&lt;span class="lnt"> 53
+&lt;/span>&lt;span class="lnt"> 54
+&lt;/span>&lt;span class="lnt"> 55
+&lt;/span>&lt;span class="lnt"> 56
+&lt;/span>&lt;span class="lnt"> 57
+&lt;/span>&lt;span class="lnt"> 58
+&lt;/span>&lt;span class="lnt"> 59
+&lt;/span>&lt;span class="lnt"> 60
+&lt;/span>&lt;span class="lnt"> 61
+&lt;/span>&lt;span class="lnt"> 62
+&lt;/span>&lt;span class="lnt"> 63
+&lt;/span>&lt;span class="lnt"> 64
+&lt;/span>&lt;span class="lnt"> 65
+&lt;/span>&lt;span class="lnt"> 66
+&lt;/span>&lt;span class="lnt"> 67
+&lt;/span>&lt;span class="lnt"> 68
+&lt;/span>&lt;span class="lnt"> 69
+&lt;/span>&lt;span class="lnt"> 70
+&lt;/span>&lt;span class="lnt"> 71
+&lt;/span>&lt;span class="lnt"> 72
+&lt;/span>&lt;span class="lnt"> 73
+&lt;/span>&lt;span class="lnt"> 74
+&lt;/span>&lt;span class="lnt"> 75
+&lt;/span>&lt;span class="lnt"> 76
+&lt;/span>&lt;span class="lnt"> 77
+&lt;/span>&lt;span class="lnt"> 78
+&lt;/span>&lt;span class="lnt"> 79
+&lt;/span>&lt;span class="lnt"> 80
+&lt;/span>&lt;span class="lnt"> 81
+&lt;/span>&lt;span class="lnt"> 82
+&lt;/span>&lt;span class="lnt"> 83
+&lt;/span>&lt;span class="lnt"> 84
+&lt;/span>&lt;span class="lnt"> 85
+&lt;/span>&lt;span class="lnt"> 86
+&lt;/span>&lt;span class="lnt"> 87
+&lt;/span>&lt;span class="lnt"> 88
+&lt;/span>&lt;span class="lnt"> 89
+&lt;/span>&lt;span class="lnt"> 90
+&lt;/span>&lt;span class="lnt"> 91
+&lt;/span>&lt;span class="lnt"> 92
+&lt;/span>&lt;span class="lnt"> 93
+&lt;/span>&lt;span class="lnt"> 94
+&lt;/span>&lt;span class="lnt"> 95
+&lt;/span>&lt;span class="lnt"> 96
+&lt;/span>&lt;span class="lnt"> 97
+&lt;/span>&lt;span class="lnt"> 98
+&lt;/span>&lt;span class="lnt"> 99
+&lt;/span>&lt;span class="lnt">100
+&lt;/span>&lt;span class="lnt">101
+&lt;/span>&lt;span class="lnt">102
+&lt;/span>&lt;span class="lnt">103
+&lt;/span>&lt;span class="lnt">104
+&lt;/span>&lt;span class="lnt">105
+&lt;/span>&lt;span class="lnt">106
+&lt;/span>&lt;span class="lnt">107
+&lt;/span>&lt;span class="lnt">108
+&lt;/span>&lt;span class="lnt">109
+&lt;/span>&lt;span class="lnt">110
+&lt;/span>&lt;span class="lnt">111
+&lt;/span>&lt;span class="lnt">112
+&lt;/span>&lt;span class="lnt">113
+&lt;/span>&lt;span class="lnt">114
+&lt;/span>&lt;span class="lnt">115
+&lt;/span>&lt;span class="lnt">116
+&lt;/span>&lt;span class="lnt">117
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-cpp" data-lang="cpp">&lt;span class="line">&lt;span class="cl">&lt;span class="cp">#include&lt;/span> &lt;span class="cpf">&amp;#34;reassembler.hh&amp;#34;&lt;/span>&lt;span class="cp">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cp">#include&lt;/span> &lt;span class="cpf">&amp;lt;iostream&amp;gt;&lt;/span>&lt;span class="cp">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cp">#include&lt;/span> &lt;span class="cpf">&amp;lt;utility&amp;gt;&lt;/span>&lt;span class="cp">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cp">#include&lt;/span> &lt;span class="cpf">&amp;lt;vector&amp;gt;&lt;/span>&lt;span class="cp">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cp">&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="k">using&lt;/span> &lt;span class="k">namespace&lt;/span> &lt;span class="n">std&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="kt">void&lt;/span> &lt;span class="n">Reassembler&lt;/span>&lt;span class="o">::&lt;/span>&lt;span class="n">insert&lt;/span>&lt;span class="p">(&lt;/span> &lt;span class="kt">uint64_t&lt;/span> &lt;span class="n">first_index&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">string&lt;/span> &lt;span class="n">data&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="kt">bool&lt;/span> &lt;span class="n">is_last_substring&lt;/span> &lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">if&lt;/span> &lt;span class="p">(&lt;/span> &lt;span class="n">is_last_substring&lt;/span> &lt;span class="p">)&lt;/span> &lt;span class="na">[[unlikely]]&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">total_pushed_len_&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="n">first_index&lt;/span> &lt;span class="o">+&lt;/span> &lt;span class="n">data&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="n">length&lt;/span>&lt;span class="p">();&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">insert_or_store&lt;/span>&lt;span class="p">(&lt;/span> &lt;span class="n">first_index&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">std&lt;/span>&lt;span class="o">::&lt;/span>&lt;span class="n">move&lt;/span>&lt;span class="p">(&lt;/span> &lt;span class="n">data&lt;/span> &lt;span class="p">)&lt;/span> &lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">write_stored_str&lt;/span>&lt;span class="p">();&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">if&lt;/span> &lt;span class="p">(&lt;/span> &lt;span class="n">total_pushed_len_&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="n">has_value&lt;/span>&lt;span class="p">()&lt;/span> &lt;span class="o">&amp;amp;&amp;amp;&lt;/span> &lt;span class="n">output_&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="n">writer&lt;/span>&lt;span class="p">().&lt;/span>&lt;span class="n">bytes_pushed&lt;/span>&lt;span class="p">()&lt;/span> &lt;span class="o">==&lt;/span> &lt;span class="o">*&lt;/span>&lt;span class="n">total_pushed_len_&lt;/span> &lt;span class="p">)&lt;/span> &lt;span class="na">[[unlikely]]&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">output_&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="n">writer&lt;/span>&lt;span class="p">().&lt;/span>&lt;span class="n">close&lt;/span>&lt;span class="p">();&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="kt">void&lt;/span> &lt;span class="n">Reassembler&lt;/span>&lt;span class="o">::&lt;/span>&lt;span class="n">insert_or_store&lt;/span>&lt;span class="p">(&lt;/span> &lt;span class="kt">uint64_t&lt;/span> &lt;span class="n">first_index&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">std&lt;/span>&lt;span class="o">::&lt;/span>&lt;span class="n">string&lt;/span> &lt;span class="n">data&lt;/span> &lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">if&lt;/span> &lt;span class="p">(&lt;/span> &lt;span class="n">first_index&lt;/span> &lt;span class="o">&amp;lt;&lt;/span> &lt;span class="n">next_index_&lt;/span> &lt;span class="p">)&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">first_index&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="n">truncate_head&lt;/span>&lt;span class="p">(&lt;/span> &lt;span class="n">first_index&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">data&lt;/span> &lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">if&lt;/span> &lt;span class="p">(&lt;/span> &lt;span class="n">first_index&lt;/span> &lt;span class="o">&amp;gt;&lt;/span> &lt;span class="n">next_index_&lt;/span> &lt;span class="p">)&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">store&lt;/span>&lt;span class="p">(&lt;/span> &lt;span class="n">first_index&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">std&lt;/span>&lt;span class="o">::&lt;/span>&lt;span class="n">move&lt;/span>&lt;span class="p">(&lt;/span> &lt;span class="n">data&lt;/span> &lt;span class="p">)&lt;/span> &lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span> &lt;span class="k">else&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">write&lt;/span>&lt;span class="p">(&lt;/span> &lt;span class="n">std&lt;/span>&lt;span class="o">::&lt;/span>&lt;span class="n">move&lt;/span>&lt;span class="p">(&lt;/span> &lt;span class="n">data&lt;/span> &lt;span class="p">)&lt;/span> &lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="kt">void&lt;/span> &lt;span class="n">Reassembler&lt;/span>&lt;span class="o">::&lt;/span>&lt;span class="n">write_stored_str&lt;/span>&lt;span class="p">()&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">for&lt;/span> &lt;span class="p">(&lt;/span> &lt;span class="k">auto&lt;/span>&lt;span class="o">&amp;amp;&lt;/span> &lt;span class="p">[&lt;/span>&lt;span class="n">first_index&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">data&lt;/span>&lt;span class="p">]&lt;/span> &lt;span class="o">:&lt;/span> &lt;span class="n">pending_substr_&lt;/span> &lt;span class="p">)&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">if&lt;/span> &lt;span class="p">(&lt;/span> &lt;span class="n">first_index&lt;/span> &lt;span class="o">&amp;lt;=&lt;/span> &lt;span class="n">next_index_&lt;/span> &lt;span class="p">)&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">auto&lt;/span> &lt;span class="n">buf&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="n">std&lt;/span>&lt;span class="o">::&lt;/span>&lt;span class="n">exchange&lt;/span>&lt;span class="p">(&lt;/span> &lt;span class="n">data&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="s">&amp;#34;&amp;#34;&lt;/span> &lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">bytes_pending_&lt;/span> &lt;span class="o">-=&lt;/span> &lt;span class="n">buf&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="n">length&lt;/span>&lt;span class="p">();&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">insert_or_store&lt;/span>&lt;span class="p">(&lt;/span> &lt;span class="n">first_index&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">std&lt;/span>&lt;span class="o">::&lt;/span>&lt;span class="n">move&lt;/span>&lt;span class="p">(&lt;/span> &lt;span class="n">buf&lt;/span> &lt;span class="p">)&lt;/span> &lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">std&lt;/span>&lt;span class="o">::&lt;/span>&lt;span class="n">erase_if&lt;/span>&lt;span class="p">(&lt;/span> &lt;span class="n">pending_substr_&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="p">[](&lt;/span> &lt;span class="k">const&lt;/span> &lt;span class="k">auto&lt;/span>&lt;span class="o">&amp;amp;&lt;/span> &lt;span class="n">elem&lt;/span> &lt;span class="p">)&lt;/span> &lt;span class="p">{&lt;/span> &lt;span class="k">return&lt;/span> &lt;span class="n">elem&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="n">second&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="n">empty&lt;/span>&lt;span class="p">();&lt;/span> &lt;span class="p">}&lt;/span> &lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="kt">void&lt;/span> &lt;span class="n">Reassembler&lt;/span>&lt;span class="o">::&lt;/span>&lt;span class="n">write&lt;/span>&lt;span class="p">(&lt;/span> &lt;span class="n">std&lt;/span>&lt;span class="o">::&lt;/span>&lt;span class="n">string&lt;/span> &lt;span class="n">data&lt;/span> &lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">output_&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="n">writer&lt;/span>&lt;span class="p">().&lt;/span>&lt;span class="n">push&lt;/span>&lt;span class="p">(&lt;/span> &lt;span class="n">std&lt;/span>&lt;span class="o">::&lt;/span>&lt;span class="n">move&lt;/span>&lt;span class="p">(&lt;/span> &lt;span class="n">data&lt;/span> &lt;span class="p">)&lt;/span> &lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">next_index_&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="n">output_&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="n">writer&lt;/span>&lt;span class="p">().&lt;/span>&lt;span class="n">bytes_pushed&lt;/span>&lt;span class="p">();&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="kt">void&lt;/span> &lt;span class="n">Reassembler&lt;/span>&lt;span class="o">::&lt;/span>&lt;span class="n">store&lt;/span>&lt;span class="p">(&lt;/span> &lt;span class="kt">uint64_t&lt;/span> &lt;span class="n">first_index&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">std&lt;/span>&lt;span class="o">::&lt;/span>&lt;span class="n">string&lt;/span> &lt;span class="n">data&lt;/span> &lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">if&lt;/span> &lt;span class="p">(&lt;/span> &lt;span class="k">auto&lt;/span> &lt;span class="n">len&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="n">output_&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="n">writer&lt;/span>&lt;span class="p">().&lt;/span>&lt;span class="n">available_capacity&lt;/span>&lt;span class="p">()&lt;/span> &lt;span class="o">-&lt;/span> &lt;span class="p">(&lt;/span> &lt;span class="n">first_index&lt;/span> &lt;span class="o">-&lt;/span> &lt;span class="n">next_index_&lt;/span> &lt;span class="p">);&lt;/span> &lt;span class="n">data&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="n">length&lt;/span>&lt;span class="p">()&lt;/span> &lt;span class="o">&amp;gt;=&lt;/span> &lt;span class="n">len&lt;/span> &lt;span class="p">)&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">data&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="n">erase&lt;/span>&lt;span class="p">(&lt;/span> &lt;span class="n">data&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="n">begin&lt;/span>&lt;span class="p">()&lt;/span> &lt;span class="o">+&lt;/span> &lt;span class="n">len&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">data&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="n">end&lt;/span>&lt;span class="p">()&lt;/span> &lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">if&lt;/span> &lt;span class="p">(&lt;/span> &lt;span class="n">data&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="n">empty&lt;/span>&lt;span class="p">()&lt;/span> &lt;span class="p">)&lt;/span> &lt;span class="na">[[unlikely]]&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">return&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">if&lt;/span> &lt;span class="p">(&lt;/span> &lt;span class="n">pending_substr_&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="n">empty&lt;/span>&lt;span class="p">()&lt;/span> &lt;span class="p">)&lt;/span> &lt;span class="na">[[unlikely]]&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">bytes_pending_&lt;/span> &lt;span class="o">+=&lt;/span> &lt;span class="n">data&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="n">length&lt;/span>&lt;span class="p">();&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">pending_substr_&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="n">emplace&lt;/span>&lt;span class="p">(&lt;/span> &lt;span class="n">first_index&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">std&lt;/span>&lt;span class="o">::&lt;/span>&lt;span class="n">move&lt;/span>&lt;span class="p">(&lt;/span> &lt;span class="n">data&lt;/span> &lt;span class="p">)&lt;/span> &lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span> &lt;span class="k">else&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">auto&lt;/span> &lt;span class="n">final_index&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="n">first_index&lt;/span> &lt;span class="o">+&lt;/span> &lt;span class="n">data&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="n">length&lt;/span>&lt;span class="p">()&lt;/span> &lt;span class="o">-&lt;/span> &lt;span class="mi">1&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">if&lt;/span> &lt;span class="p">(&lt;/span> &lt;span class="n">pending_substr_&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="n">contains&lt;/span>&lt;span class="p">(&lt;/span> &lt;span class="n">first_index&lt;/span> &lt;span class="p">)&lt;/span> &lt;span class="p">)&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">if&lt;/span> &lt;span class="p">(&lt;/span> &lt;span class="n">pending_substr_&lt;/span>&lt;span class="p">[&lt;/span>&lt;span class="n">first_index&lt;/span>&lt;span class="p">].&lt;/span>&lt;span class="n">length&lt;/span>&lt;span class="p">()&lt;/span> &lt;span class="o">&amp;gt;=&lt;/span> &lt;span class="n">data&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="n">length&lt;/span>&lt;span class="p">()&lt;/span> &lt;span class="p">)&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">return&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">auto&lt;/span> &lt;span class="n">mapped_data&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="n">std&lt;/span>&lt;span class="o">::&lt;/span>&lt;span class="n">exchange&lt;/span>&lt;span class="p">(&lt;/span> &lt;span class="n">pending_substr_&lt;/span>&lt;span class="p">[&lt;/span>&lt;span class="n">first_index&lt;/span>&lt;span class="p">],&lt;/span> &lt;span class="s">&amp;#34;&amp;#34;&lt;/span> &lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">bytes_pending_&lt;/span> &lt;span class="o">-=&lt;/span> &lt;span class="n">mapped_data&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="n">length&lt;/span>&lt;span class="p">();&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">pending_substr_&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="n">erase&lt;/span>&lt;span class="p">(&lt;/span> &lt;span class="n">first_index&lt;/span> &lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">std&lt;/span>&lt;span class="o">::&lt;/span>&lt;span class="n">erase_if&lt;/span>&lt;span class="p">(&lt;/span> &lt;span class="n">pending_substr_&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="p">[&lt;/span>&lt;span class="o">&amp;amp;&lt;/span>&lt;span class="p">](&lt;/span> &lt;span class="k">const&lt;/span> &lt;span class="k">auto&lt;/span>&lt;span class="o">&amp;amp;&lt;/span> &lt;span class="n">node&lt;/span> &lt;span class="p">)&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">if&lt;/span> &lt;span class="p">(&lt;/span> &lt;span class="n">node&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="n">first&lt;/span> &lt;span class="o">&amp;gt;=&lt;/span> &lt;span class="n">first_index&lt;/span> &lt;span class="o">&amp;amp;&amp;amp;&lt;/span> &lt;span class="n">node&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="n">first&lt;/span> &lt;span class="o">+&lt;/span> &lt;span class="n">node&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="n">second&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="n">length&lt;/span>&lt;span class="p">()&lt;/span> &lt;span class="o">-&lt;/span> &lt;span class="mi">1&lt;/span> &lt;span class="o">&amp;lt;=&lt;/span> &lt;span class="n">final_index&lt;/span> &lt;span class="p">)&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">bytes_pending_&lt;/span> &lt;span class="o">-=&lt;/span> &lt;span class="n">node&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="n">second&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="n">length&lt;/span>&lt;span class="p">();&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">return&lt;/span> &lt;span class="nb">true&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">return&lt;/span> &lt;span class="nb">false&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span> &lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">for&lt;/span> &lt;span class="p">(&lt;/span> &lt;span class="k">const&lt;/span> &lt;span class="k">auto&lt;/span>&lt;span class="o">&amp;amp;&lt;/span> &lt;span class="p">[&lt;/span>&lt;span class="n">idx&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">str&lt;/span>&lt;span class="p">]&lt;/span> &lt;span class="o">:&lt;/span> &lt;span class="n">pending_substr_&lt;/span> &lt;span class="p">)&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">if&lt;/span> &lt;span class="p">(&lt;/span> &lt;span class="n">first_index&lt;/span> &lt;span class="o">&amp;gt;=&lt;/span> &lt;span class="n">idx&lt;/span> &lt;span class="o">&amp;amp;&amp;amp;&lt;/span> &lt;span class="n">final_index&lt;/span> &lt;span class="o">&amp;lt;=&lt;/span> &lt;span class="n">idx&lt;/span> &lt;span class="o">+&lt;/span> &lt;span class="n">str&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="n">length&lt;/span>&lt;span class="p">()&lt;/span> &lt;span class="o">-&lt;/span> &lt;span class="mi">1&lt;/span> &lt;span class="p">)&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">return&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">bytes_pending_&lt;/span> &lt;span class="o">+=&lt;/span> &lt;span class="n">data&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="n">length&lt;/span>&lt;span class="p">();&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">pending_substr_&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="n">emplace&lt;/span>&lt;span class="p">(&lt;/span> &lt;span class="n">first_index&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">std&lt;/span>&lt;span class="o">::&lt;/span>&lt;span class="n">move&lt;/span>&lt;span class="p">(&lt;/span> &lt;span class="n">data&lt;/span> &lt;span class="p">)&lt;/span> &lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">auto&lt;/span> &lt;span class="n">begin_node&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="n">pending_substr_&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="n">lower_bound&lt;/span>&lt;span class="p">(&lt;/span> &lt;span class="n">first_index&lt;/span> &lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">auto&lt;/span> &lt;span class="n">end_node&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="n">pending_substr_&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="n">upper_bound&lt;/span>&lt;span class="p">(&lt;/span> &lt;span class="n">final_index&lt;/span> &lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">if&lt;/span> &lt;span class="p">(&lt;/span> &lt;span class="n">begin_node&lt;/span> &lt;span class="o">!=&lt;/span> &lt;span class="n">std&lt;/span>&lt;span class="o">::&lt;/span>&lt;span class="n">begin&lt;/span>&lt;span class="p">(&lt;/span> &lt;span class="n">pending_substr_&lt;/span> &lt;span class="p">)&lt;/span> &lt;span class="p">)&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">begin_node&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="n">std&lt;/span>&lt;span class="o">::&lt;/span>&lt;span class="n">prev&lt;/span>&lt;span class="p">(&lt;/span> &lt;span class="n">begin_node&lt;/span> &lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">for&lt;/span> &lt;span class="p">(&lt;/span> &lt;span class="k">auto&lt;/span> &lt;span class="n">node&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="n">begin_node&lt;/span>&lt;span class="p">;&lt;/span> &lt;span class="n">std&lt;/span>&lt;span class="o">::&lt;/span>&lt;span class="n">next&lt;/span>&lt;span class="p">(&lt;/span> &lt;span class="n">node&lt;/span> &lt;span class="p">)&lt;/span> &lt;span class="o">!=&lt;/span> &lt;span class="n">end_node&lt;/span>&lt;span class="p">;&lt;/span> &lt;span class="o">++&lt;/span>&lt;span class="n">node&lt;/span> &lt;span class="p">)&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">auto&lt;/span> &lt;span class="n">next_node&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="n">std&lt;/span>&lt;span class="o">::&lt;/span>&lt;span class="n">next&lt;/span>&lt;span class="p">(&lt;/span> &lt;span class="n">node&lt;/span> &lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">auto&lt;/span> &lt;span class="n">this_final_index&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="n">node&lt;/span>&lt;span class="o">-&amp;gt;&lt;/span>&lt;span class="n">first&lt;/span> &lt;span class="o">+&lt;/span> &lt;span class="n">node&lt;/span>&lt;span class="o">-&amp;gt;&lt;/span>&lt;span class="n">second&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="n">length&lt;/span>&lt;span class="p">()&lt;/span> &lt;span class="o">-&lt;/span> &lt;span class="mi">1&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">auto&lt;/span> &lt;span class="n">next_first_index&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="n">next_node&lt;/span>&lt;span class="o">-&amp;gt;&lt;/span>&lt;span class="n">first&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">if&lt;/span> &lt;span class="p">(&lt;/span> &lt;span class="n">this_final_index&lt;/span> &lt;span class="o">&amp;gt;=&lt;/span> &lt;span class="n">next_first_index&lt;/span> &lt;span class="p">)&lt;/span> &lt;span class="na">[[likely]]&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">auto&lt;/span> &lt;span class="n">len&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="n">this_final_index&lt;/span> &lt;span class="o">-&lt;/span> &lt;span class="n">next_first_index&lt;/span> &lt;span class="o">+&lt;/span> &lt;span class="mi">1&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">bytes_pending_&lt;/span> &lt;span class="o">-=&lt;/span> &lt;span class="n">len&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">node&lt;/span>&lt;span class="o">-&amp;gt;&lt;/span>&lt;span class="n">second&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="n">erase&lt;/span>&lt;span class="p">(&lt;/span> &lt;span class="n">node&lt;/span>&lt;span class="o">-&amp;gt;&lt;/span>&lt;span class="n">second&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="n">begin&lt;/span>&lt;span class="p">()&lt;/span> &lt;span class="o">+&lt;/span> &lt;span class="n">node&lt;/span>&lt;span class="o">-&amp;gt;&lt;/span>&lt;span class="n">second&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="n">length&lt;/span>&lt;span class="p">()&lt;/span> &lt;span class="o">-&lt;/span> &lt;span class="n">len&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">node&lt;/span>&lt;span class="o">-&amp;gt;&lt;/span>&lt;span class="n">second&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="n">end&lt;/span>&lt;span class="p">()&lt;/span> &lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="kt">uint64_t&lt;/span> &lt;span class="n">Reassembler&lt;/span>&lt;span class="o">::&lt;/span>&lt;span class="n">truncate_head&lt;/span>&lt;span class="p">(&lt;/span> &lt;span class="kt">uint64_t&lt;/span> &lt;span class="n">old_index&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">std&lt;/span>&lt;span class="o">::&lt;/span>&lt;span class="n">string&lt;/span>&lt;span class="o">&amp;amp;&lt;/span> &lt;span class="n">data&lt;/span> &lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">data&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="n">erase&lt;/span>&lt;span class="p">(&lt;/span> &lt;span class="mi">0&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">next_index_&lt;/span> &lt;span class="o">-&lt;/span> &lt;span class="n">old_index&lt;/span> &lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">return&lt;/span> &lt;span class="n">next_index_&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="kt">uint64_t&lt;/span> &lt;span class="n">Reassembler&lt;/span>&lt;span class="o">::&lt;/span>&lt;span class="n">bytes_pending&lt;/span>&lt;span class="p">()&lt;/span> &lt;span class="k">const&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">return&lt;/span> &lt;span class="n">bytes_pending_&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div></description></item><item><title>CS144-2024 Winter - Lab 0</title><link>https://rossqaq.github.io/article/cs144-p0/</link><pubDate>Wed, 08 May 2024 00:00:00 +0000</pubDate><guid>https://rossqaq.github.io/article/cs144-p0/</guid><description>&lt;p>准备做一下 CS144 系列，恰好锻炼一下我的网络编程。&lt;/p>
+&lt;p>由于发现网上已经有很多代码了，所以我干脆也放出来了，其实这些公开课是不应该公开代码的。&lt;/p>
+&lt;h2 id="概述">概述
+&lt;/h2>&lt;p>讲了一大堆说明以及政策，大意就是实验和未来工作的难度类似，你可以从中学到东西；后面的实验通常会基于前面的实验，所以不要跳过前面的实验。&lt;/p>
+&lt;h2 id="配置环境">配置环境
+&lt;/h2>&lt;p>这里我的是 WSL Ubuntu-24.04，其他内容照着 pdf 装就可以。这个实验要求&lt;strong>使用 C++20&lt;/strong>，还挺好的，非常新。&lt;/p>
+&lt;h2 id="手动上网">手动上网
+&lt;/h2>&lt;ol>
+&lt;li>
+&lt;p>手动获取网页&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>发送 email&lt;/p>
+&lt;/li>
+&lt;/ol>
+&lt;h3 id="获取网页">获取网页
+&lt;/h3>&lt;ol>
+&lt;li>在浏览器中访问 &lt;a class="link" href="http://cs144.keithw.org/hello" target="_blank" rel="noopener"
+>cs144.keithw.org/hello&lt;/a> 然后观察结果&lt;/li>
+&lt;li>现在将要手动获取网页信息，就和浏览器一样。
+&lt;ul>
+&lt;li>在虚拟机里，&lt;code>telnet cs144.keithw.org http&lt;/code>, 这样 telnet 会建立 TCP 连接以及一个 http 服务。&lt;/li>
+&lt;li>[按照说明书继续即可]。&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;/ol>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
+&lt;/span>&lt;span class="lnt"> 2
+&lt;/span>&lt;span class="lnt"> 3
+&lt;/span>&lt;span class="lnt"> 4
+&lt;/span>&lt;span class="lnt"> 5
+&lt;/span>&lt;span class="lnt"> 6
+&lt;/span>&lt;span class="lnt"> 7
+&lt;/span>&lt;span class="lnt"> 8
+&lt;/span>&lt;span class="lnt"> 9
+&lt;/span>&lt;span class="lnt">10
+&lt;/span>&lt;span class="lnt">11
+&lt;/span>&lt;span class="lnt">12
+&lt;/span>&lt;span class="lnt">13
+&lt;/span>&lt;span class="lnt">14
+&lt;/span>&lt;span class="lnt">15
+&lt;/span>&lt;span class="lnt">16
+&lt;/span>&lt;span class="lnt">17
+&lt;/span>&lt;span class="lnt">18
+&lt;/span>&lt;span class="lnt">19
+&lt;/span>&lt;span class="lnt">20
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-bash" data-lang="bash">&lt;span class="line">&lt;span class="cl">❯ telnet cs144.keithw.org http
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">Trying 104.196.238.229...
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">Connected to cs144.keithw.org.
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">Escape character is &lt;span class="s1">&amp;#39;^]&amp;#39;&lt;/span>.
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">GET /hello HTTP/1.1
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">Host: cs144.keithw.org
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">Connection: close
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">HTTP/1.1 &lt;span class="m">200&lt;/span> OK
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">Date: Thu, &lt;span class="m">09&lt;/span> May &lt;span class="m">2024&lt;/span> 12:57:56 GMT
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">Server: Apache
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">Last-Modified: Thu, &lt;span class="m">13&lt;/span> Dec &lt;span class="m">2018&lt;/span> 15:45:29 GMT
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">ETag: &lt;span class="s2">&amp;#34;e-57ce93446cb64&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">Accept-Ranges: bytes
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">Content-Length: &lt;span class="m">14&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">Connection: close
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">Content-Type: text/plain
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">Hello, CS144!
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">Connection closed by foreign host.
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;ol start="3">
+&lt;li>&lt;strong>作业&lt;/strong>：使用上面的技巧来从 url &lt;a class="link" href="http://cs144.keithw.org/lab0/sunetid" target="_blank" rel="noopener"
+>cs144.keithw.org/lab0/sunetid&lt;/a> 中获得你自己的 id，把 &lt;code>sunetid&lt;/code> 替换成你自己的 id，然后查看自己的私有 SUNet ID, X-Your-Code-Is: blabla. 记得把它存一下。&lt;/li>
+&lt;/ol>
+&lt;blockquote>
+&lt;p>呃，发个 GET 请求，没什么好说。&lt;/p>
+&lt;/blockquote>
+&lt;hr>
+&lt;h3 id="发邮件">发邮件
+&lt;/h3>&lt;p>还是使用 TCP，这次换 SMTP 协议发邮件。&lt;/p>
+&lt;p>这一步前面似乎也没法连斯坦福的服务器，跳过好了。&lt;/p>
+&lt;p>&lt;strong>作业&lt;/strong>：给 &lt;code>cs144grader@gmail.com&lt;/code> 发邮件。&lt;/p>
+&lt;h3 id="监听和连接">监听和连接
+&lt;/h3>&lt;p>这一节主要使用的是 &lt;code>netcat&lt;/code> 来让自己作为服务器。照着做即可。&lt;/p>
+&lt;p>&lt;code>nc&lt;/code> 默认的实现基本可以看作为一个聊天服务器。&lt;/p>
+&lt;h2 id="使用-os-stream-socket-编写网络程序">使用 OS stream socket 编写网络程序
+&lt;/h2>&lt;p>这一节是编写一个 Socket Stream 程序，就是熟悉熟悉 Linux 的底层 socket API 而已。&lt;/p>
+&lt;p>提到现实生活中经常使用的 UDP datagrams（每个包上限 1500 字节）作为数据传输方式，介绍了一些 UDP 的不稳定性，以及 TCP 的来历。&lt;/p>
+&lt;p>lab 0 会使用 OS 内置的 TCP 编写一个叫做 &lt;code>webget&lt;/code> 的程序，获取一个网页的内容。之后会从 0 开始实现一个 TCP。&lt;/p>
+&lt;h3 id="getting-started---获取初始代码">Getting Started - 获取初始代码
+&lt;/h3>&lt;p>clone 个代码然后按说明来在 github 上 &lt;code>private&lt;/code> 备份并且完成其他的构建步骤。&lt;/p>
+&lt;h3 id="现代-c-介绍">现代 C++ 介绍
+&lt;/h3>&lt;p>这里介绍了一大堆 C++ 的内容，多用 RAII。以下需要遵守：&lt;/p>
+&lt;ol>
+&lt;li>多看 cppref&lt;/li>
+&lt;li>不要用 &lt;code>malloc()&lt;/code> 和 &lt;code>free()&lt;/code>&lt;/li>
+&lt;li>不要用 &lt;code>new&lt;/code>/&lt;code>delete&lt;/code>&lt;/li>
+&lt;li>使用 smart pointers 代替裸指针&lt;/li>
+&lt;li>CS144中，不要用模板、线程、锁、虚函数&lt;/li>
+&lt;li>避免 char* 以及 &lt;code>strlen&lt;/code> &lt;code>strcpy&lt;/code> 这种 C 字符串函数&lt;/li>
+&lt;li>不要用 C 风格转换。&lt;/li>
+&lt;li>多传 const ref&lt;/li>
+&lt;li>除非变量需要被修改，否则多让它 const&lt;/li>
+&lt;li>除非对象需要被修改，否则方法也 const&lt;/li>
+&lt;li>避免全局变量，每个变量尽可能让其作用域更小&lt;/li>
+&lt;li>在提交作业前，使用 &lt;code>cmake --build build --target tidy&lt;/code> 来改进代码，然后使用 &lt;code>cmake --build build --target format&lt;/code> 来格式化代码&lt;/li>
+&lt;/ol>
+&lt;p>在 git 的使用上：尽可能频繁的提交小的更改，并且用 commit message 描述清楚你的更改。&lt;/p>
+&lt;h3 id="读-minnow-support-code">读 Minnow support code
+&lt;/h3>&lt;p>为了支持这种格式的编程，Minnow 的类包装了 OS 接口，尤其是 socket fd。&lt;/p>
+&lt;p>&lt;strong>请阅读&lt;/strong> public API，(&lt;code>util/socket.hh&lt;/code>, &lt;code>util/file_descriptor.hh&lt;/code>) 注意，&lt;code>Socket&lt;/code> 是 &lt;code>FileDescriptor&lt;/code> 的一种， 而 &lt;code>TCPSocet&lt;/code> 是 &lt;code>Socket&lt;/code> 的一种。&lt;/p>
+&lt;h3 id="编写-webget">编写 webget
+&lt;/h3>&lt;p>该来实现 &lt;code>webget&lt;/code> 了~&lt;/p>
+&lt;ol>
+&lt;li>
+&lt;p>在 build 里，打开 &lt;code>../apps/webget.cc&lt;/code>&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>使用 &lt;code>TCPScoket&lt;/code> &lt;code>Address&lt;/code> 两个类在 &lt;code>get_URL&lt;/code> 函数里完成这个程序&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>提示&lt;/p>
+&lt;ul>
+&lt;li>
+&lt;p>注意 HTTP 每一个完整请求以 CRLF 结尾（&lt;code>\r\n&lt;/code>）&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>不要忘记在你的请求里写上 &lt;code>Conncetion: close&lt;/code>，这样就能告诉服务器，在这条报文后面没有其他的请求了，然后服务器才会立刻对你进行响应。&lt;strong>你会发现你收到的 stream 会以 EOF 结尾。&lt;/strong>&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>所以要 read 多次，直到 EOF&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>预计写个十几行代码&lt;/p>
+&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>
+&lt;p>使用 &lt;code>make&lt;/code> 编译你的程序&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>通过 &lt;code>./apps/webget cs144.keithw.org /hello&lt;/code> 来测试你的程序；你当然也可以跟其他 http 服务器做实验。&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>当它们看起来正常之后，使用 &lt;code>cmake --build build --target check_webget&lt;/code> 来运行测试。&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>&lt;code>graders&lt;/code> 会使用&lt;strong>不同的 host name&lt;/strong> 进行测试，所以你得保证它在任何服务器上正常工作。&lt;/p>
+&lt;/li>
+&lt;/ol>
+&lt;blockquote>
+&lt;p>想通过测试记得把 buf 的内容输出…&lt;/p>
+&lt;/blockquote>
+&lt;h2 id="in-memory-版本的可靠字节流">in-memory 版本的可靠字节流
+&lt;/h2>&lt;p>功能描述：&lt;/p>
+&lt;ol>
+&lt;li>写者在输入端写入字节流，读者在输出端读取字节流；&lt;/li>
+&lt;li>写入和读取的顺序相同；&lt;/li>
+&lt;li>字节流是有限的：写者在结束输入后，无法再写入其他字节；读者读到 EOF 代表没有数据可读；&lt;/li>
+&lt;li>字节流在构造时确定容量；容量指的是构造时某一方预期的最大存储量，这么做是为了限制写者写入的数量；&lt;/li>
+&lt;li>读者读取字节并且将其弹出后，写者被允许继续写入；&lt;/li>
+&lt;li>注意：字节流长度有限，但写者在输入结束前可以写入任意多数据，必须处理字节流长度比容量大的情况。容量为 1 的字节流也可以持有 TB 级别的字节数。&lt;/li>
+&lt;li>单线程下运行；&lt;/li>
+&lt;/ol>
+&lt;blockquote>
+&lt;p>被第六点迷惑了，我还以为是字节流保存所有输入的数据……实则只保存 available len 的数据。&lt;/p>
+&lt;p>那其实一点也不难，buffer 直接用 &lt;code>std::vector&amp;lt;char&amp;gt;&lt;/code> 即可。&lt;/p>
+&lt;p>当然，&lt;code>std::vector&amp;lt;char&amp;gt;&lt;/code> 无可避免的会有复制，这样实现吞吐量肯定比较低，不过我也懒得优化了。以后有空再说吧。&lt;/p>
+&lt;p>想优化的话你可以换成 &lt;code>std::vector&amp;lt;std::string&amp;gt;&lt;/code> 这样的容器，&lt;code>erase&lt;/code> 多余的内容然后直接移动就是了。&lt;code>erase&lt;/code> 擦除末尾的元素是 &lt;code>O(1)&lt;/code> 移动开销也很低，估计会快不少。&lt;/p>
+&lt;/blockquote>
+&lt;h2 id="源代码">源代码
+&lt;/h2>&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
+&lt;/span>&lt;span class="lnt"> 2
+&lt;/span>&lt;span class="lnt"> 3
+&lt;/span>&lt;span class="lnt"> 4
+&lt;/span>&lt;span class="lnt"> 5
+&lt;/span>&lt;span class="lnt"> 6
+&lt;/span>&lt;span class="lnt"> 7
+&lt;/span>&lt;span class="lnt"> 8
+&lt;/span>&lt;span class="lnt"> 9
+&lt;/span>&lt;span class="lnt">10
+&lt;/span>&lt;span class="lnt">11
+&lt;/span>&lt;span class="lnt">12
+&lt;/span>&lt;span class="lnt">13
+&lt;/span>&lt;span class="lnt">14
+&lt;/span>&lt;span class="lnt">15
+&lt;/span>&lt;span class="lnt">16
+&lt;/span>&lt;span class="lnt">17
+&lt;/span>&lt;span class="lnt">18
+&lt;/span>&lt;span class="lnt">19
+&lt;/span>&lt;span class="lnt">20
+&lt;/span>&lt;span class="lnt">21
+&lt;/span>&lt;span class="lnt">22
+&lt;/span>&lt;span class="lnt">23
+&lt;/span>&lt;span class="lnt">24
+&lt;/span>&lt;span class="lnt">25
+&lt;/span>&lt;span class="lnt">26
+&lt;/span>&lt;span class="lnt">27
+&lt;/span>&lt;span class="lnt">28
+&lt;/span>&lt;span class="lnt">29
+&lt;/span>&lt;span class="lnt">30
+&lt;/span>&lt;span class="lnt">31
+&lt;/span>&lt;span class="lnt">32
+&lt;/span>&lt;span class="lnt">33
+&lt;/span>&lt;span class="lnt">34
+&lt;/span>&lt;span class="lnt">35
+&lt;/span>&lt;span class="lnt">36
+&lt;/span>&lt;span class="lnt">37
+&lt;/span>&lt;span class="lnt">38
+&lt;/span>&lt;span class="lnt">39
+&lt;/span>&lt;span class="lnt">40
+&lt;/span>&lt;span class="lnt">41
+&lt;/span>&lt;span class="lnt">42
+&lt;/span>&lt;span class="lnt">43
+&lt;/span>&lt;span class="lnt">44
+&lt;/span>&lt;span class="lnt">45
+&lt;/span>&lt;span class="lnt">46
+&lt;/span>&lt;span class="lnt">47
+&lt;/span>&lt;span class="lnt">48
+&lt;/span>&lt;span class="lnt">49
+&lt;/span>&lt;span class="lnt">50
+&lt;/span>&lt;span class="lnt">51
+&lt;/span>&lt;span class="lnt">52
+&lt;/span>&lt;span class="lnt">53
+&lt;/span>&lt;span class="lnt">54
+&lt;/span>&lt;span class="lnt">55
+&lt;/span>&lt;span class="lnt">56
+&lt;/span>&lt;span class="lnt">57
+&lt;/span>&lt;span class="lnt">58
+&lt;/span>&lt;span class="lnt">59
+&lt;/span>&lt;span class="lnt">60
+&lt;/span>&lt;span class="lnt">61
+&lt;/span>&lt;span class="lnt">62
+&lt;/span>&lt;span class="lnt">63
+&lt;/span>&lt;span class="lnt">64
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-cpp" data-lang="cpp">&lt;span class="line">&lt;span class="cl">&lt;span class="cp">#pragma once
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cp">&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cp">#include&lt;/span> &lt;span class="cpf">&amp;lt;cstdint&amp;gt;&lt;/span>&lt;span class="cp">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cp">#include&lt;/span> &lt;span class="cpf">&amp;lt;deque&amp;gt;&lt;/span>&lt;span class="cp">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cp">#include&lt;/span> &lt;span class="cpf">&amp;lt;string&amp;gt;&lt;/span>&lt;span class="cp">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cp">#include&lt;/span> &lt;span class="cpf">&amp;lt;string_view&amp;gt;&lt;/span>&lt;span class="cp">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cp">#include&lt;/span> &lt;span class="cpf">&amp;lt;vector&amp;gt;&lt;/span>&lt;span class="cp">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cp">&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="k">class&lt;/span> &lt;span class="nc">Reader&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="k">class&lt;/span> &lt;span class="nc">Writer&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="k">class&lt;/span> &lt;span class="nc">ByteStream&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="k">public&lt;/span>&lt;span class="o">:&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">explicit&lt;/span> &lt;span class="n">ByteStream&lt;/span>&lt;span class="p">(&lt;/span> &lt;span class="kt">uint64_t&lt;/span> &lt;span class="n">capacity&lt;/span> &lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1">// Helper functions (provided) to access the ByteStream&amp;#39;s Reader and Writer interfaces
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="n">Reader&lt;/span>&lt;span class="o">&amp;amp;&lt;/span> &lt;span class="n">reader&lt;/span>&lt;span class="p">();&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">const&lt;/span> &lt;span class="n">Reader&lt;/span>&lt;span class="o">&amp;amp;&lt;/span> &lt;span class="n">reader&lt;/span>&lt;span class="p">()&lt;/span> &lt;span class="k">const&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">Writer&lt;/span>&lt;span class="o">&amp;amp;&lt;/span> &lt;span class="n">writer&lt;/span>&lt;span class="p">();&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">const&lt;/span> &lt;span class="n">Writer&lt;/span>&lt;span class="o">&amp;amp;&lt;/span> &lt;span class="n">writer&lt;/span>&lt;span class="p">()&lt;/span> &lt;span class="k">const&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="kt">void&lt;/span> &lt;span class="nf">set_error&lt;/span>&lt;span class="p">()&lt;/span> &lt;span class="p">{&lt;/span> &lt;span class="n">error_&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="nb">true&lt;/span>&lt;span class="p">;&lt;/span> &lt;span class="p">};&lt;/span> &lt;span class="c1">// Signal that the stream suffered an error.
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="kt">bool&lt;/span> &lt;span class="nf">has_error&lt;/span>&lt;span class="p">()&lt;/span> &lt;span class="k">const&lt;/span> &lt;span class="p">{&lt;/span> &lt;span class="k">return&lt;/span> &lt;span class="n">error_&lt;/span>&lt;span class="p">;&lt;/span> &lt;span class="p">};&lt;/span> &lt;span class="c1">// Has the stream had an error?
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="k">protected&lt;/span>&lt;span class="o">:&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="c1">// Please add any additional state to the ByteStream here, and not to the Writer and Reader interfaces.
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="kt">uint64_t&lt;/span> &lt;span class="n">capacity_&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="kt">bool&lt;/span> &lt;span class="n">error_&lt;/span> &lt;span class="p">{};&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="kt">uint64_t&lt;/span> &lt;span class="n">bytes_buffered_&lt;/span> &lt;span class="p">{};&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="kt">uint64_t&lt;/span> &lt;span class="n">bytes_pushed_&lt;/span> &lt;span class="p">{};&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="kt">uint64_t&lt;/span> &lt;span class="n">bytes_popped_&lt;/span> &lt;span class="p">{};&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="kt">bool&lt;/span> &lt;span class="n">closed_&lt;/span> &lt;span class="p">{&lt;/span> &lt;span class="nb">false&lt;/span> &lt;span class="p">};&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">std&lt;/span>&lt;span class="o">::&lt;/span>&lt;span class="n">vector&lt;/span>&lt;span class="o">&amp;lt;&lt;/span>&lt;span class="kt">char&lt;/span>&lt;span class="o">&amp;gt;&lt;/span> &lt;span class="n">buf_&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">};&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="k">class&lt;/span> &lt;span class="nc">Writer&lt;/span> &lt;span class="o">:&lt;/span> &lt;span class="k">public&lt;/span> &lt;span class="n">ByteStream&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="k">public&lt;/span>&lt;span class="o">:&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="kt">void&lt;/span> &lt;span class="n">push&lt;/span>&lt;span class="p">(&lt;/span> &lt;span class="n">std&lt;/span>&lt;span class="o">::&lt;/span>&lt;span class="n">string&lt;/span> &lt;span class="n">data&lt;/span> &lt;span class="p">);&lt;/span> &lt;span class="c1">// Push data to stream, but only as much as available capacity allows.
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="kt">void&lt;/span> &lt;span class="nf">close&lt;/span>&lt;span class="p">();&lt;/span> &lt;span class="c1">// Signal that the stream has reached its ending. Nothing more will be written.
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="kt">bool&lt;/span> &lt;span class="nf">is_closed&lt;/span>&lt;span class="p">()&lt;/span> &lt;span class="k">const&lt;/span>&lt;span class="p">;&lt;/span> &lt;span class="c1">// Has the stream been closed?
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="kt">uint64_t&lt;/span> &lt;span class="nf">available_capacity&lt;/span>&lt;span class="p">()&lt;/span> &lt;span class="k">const&lt;/span>&lt;span class="p">;&lt;/span> &lt;span class="c1">// How many bytes can be pushed to the stream right now?
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="kt">uint64_t&lt;/span> &lt;span class="nf">bytes_pushed&lt;/span>&lt;span class="p">()&lt;/span> &lt;span class="k">const&lt;/span>&lt;span class="p">;&lt;/span> &lt;span class="c1">// Total number of bytes cumulatively pushed to the stream
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span>&lt;span class="p">};&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="k">class&lt;/span> &lt;span class="nc">Reader&lt;/span> &lt;span class="o">:&lt;/span> &lt;span class="k">public&lt;/span> &lt;span class="n">ByteStream&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="k">public&lt;/span>&lt;span class="o">:&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">std&lt;/span>&lt;span class="o">::&lt;/span>&lt;span class="n">string_view&lt;/span> &lt;span class="n">peek&lt;/span>&lt;span class="p">()&lt;/span> &lt;span class="k">const&lt;/span>&lt;span class="p">;&lt;/span> &lt;span class="c1">// Peek at the next bytes in the buffer
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="kt">void&lt;/span> &lt;span class="nf">pop&lt;/span>&lt;span class="p">(&lt;/span> &lt;span class="kt">uint64_t&lt;/span> &lt;span class="n">len&lt;/span> &lt;span class="p">);&lt;/span> &lt;span class="c1">// Remove `len` bytes from the buffer
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="kt">bool&lt;/span> &lt;span class="nf">is_finished&lt;/span>&lt;span class="p">()&lt;/span> &lt;span class="k">const&lt;/span>&lt;span class="p">;&lt;/span> &lt;span class="c1">// Is the stream finished (closed and fully popped)?
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="kt">uint64_t&lt;/span> &lt;span class="nf">bytes_buffered&lt;/span>&lt;span class="p">()&lt;/span> &lt;span class="k">const&lt;/span>&lt;span class="p">;&lt;/span> &lt;span class="c1">// Number of bytes currently buffered (pushed and not popped)
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span> &lt;span class="kt">uint64_t&lt;/span> &lt;span class="nf">bytes_popped&lt;/span>&lt;span class="p">()&lt;/span> &lt;span class="k">const&lt;/span>&lt;span class="p">;&lt;/span> &lt;span class="c1">// Total number of bytes cumulatively popped from stream
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="c1">&lt;/span>&lt;span class="p">};&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm">/*
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm"> * read: A (provided) helper function thats peeks and pops up to `len` bytes
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm"> * from a ByteStream Reader into a string;
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cm"> */&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="kt">void&lt;/span> &lt;span class="nf">read&lt;/span>&lt;span class="p">(&lt;/span> &lt;span class="n">Reader&lt;/span>&lt;span class="o">&amp;amp;&lt;/span> &lt;span class="n">reader&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="kt">uint64_t&lt;/span> &lt;span class="n">len&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">std&lt;/span>&lt;span class="o">::&lt;/span>&lt;span class="n">string&lt;/span>&lt;span class="o">&amp;amp;&lt;/span> &lt;span class="n">out&lt;/span> &lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
+&lt;/span>&lt;span class="lnt"> 2
+&lt;/span>&lt;span class="lnt"> 3
+&lt;/span>&lt;span class="lnt"> 4
+&lt;/span>&lt;span class="lnt"> 5
+&lt;/span>&lt;span class="lnt"> 6
+&lt;/span>&lt;span class="lnt"> 7
+&lt;/span>&lt;span class="lnt"> 8
+&lt;/span>&lt;span class="lnt"> 9
+&lt;/span>&lt;span class="lnt">10
+&lt;/span>&lt;span class="lnt">11
+&lt;/span>&lt;span class="lnt">12
+&lt;/span>&lt;span class="lnt">13
+&lt;/span>&lt;span class="lnt">14
+&lt;/span>&lt;span class="lnt">15
+&lt;/span>&lt;span class="lnt">16
+&lt;/span>&lt;span class="lnt">17
+&lt;/span>&lt;span class="lnt">18
+&lt;/span>&lt;span class="lnt">19
+&lt;/span>&lt;span class="lnt">20
+&lt;/span>&lt;span class="lnt">21
+&lt;/span>&lt;span class="lnt">22
+&lt;/span>&lt;span class="lnt">23
+&lt;/span>&lt;span class="lnt">24
+&lt;/span>&lt;span class="lnt">25
+&lt;/span>&lt;span class="lnt">26
+&lt;/span>&lt;span class="lnt">27
+&lt;/span>&lt;span class="lnt">28
+&lt;/span>&lt;span class="lnt">29
+&lt;/span>&lt;span class="lnt">30
+&lt;/span>&lt;span class="lnt">31
+&lt;/span>&lt;span class="lnt">32
+&lt;/span>&lt;span class="lnt">33
+&lt;/span>&lt;span class="lnt">34
+&lt;/span>&lt;span class="lnt">35
+&lt;/span>&lt;span class="lnt">36
+&lt;/span>&lt;span class="lnt">37
+&lt;/span>&lt;span class="lnt">38
+&lt;/span>&lt;span class="lnt">39
+&lt;/span>&lt;span class="lnt">40
+&lt;/span>&lt;span class="lnt">41
+&lt;/span>&lt;span class="lnt">42
+&lt;/span>&lt;span class="lnt">43
+&lt;/span>&lt;span class="lnt">44
+&lt;/span>&lt;span class="lnt">45
+&lt;/span>&lt;span class="lnt">46
+&lt;/span>&lt;span class="lnt">47
+&lt;/span>&lt;span class="lnt">48
+&lt;/span>&lt;span class="lnt">49
+&lt;/span>&lt;span class="lnt">50
+&lt;/span>&lt;span class="lnt">51
+&lt;/span>&lt;span class="lnt">52
+&lt;/span>&lt;span class="lnt">53
+&lt;/span>&lt;span class="lnt">54
+&lt;/span>&lt;span class="lnt">55
+&lt;/span>&lt;span class="lnt">56
+&lt;/span>&lt;span class="lnt">57
+&lt;/span>&lt;span class="lnt">58
+&lt;/span>&lt;span class="lnt">59
+&lt;/span>&lt;span class="lnt">60
+&lt;/span>&lt;span class="lnt">61
+&lt;/span>&lt;span class="lnt">62
+&lt;/span>&lt;span class="lnt">63
+&lt;/span>&lt;span class="lnt">64
+&lt;/span>&lt;span class="lnt">65
+&lt;/span>&lt;span class="lnt">66
+&lt;/span>&lt;span class="lnt">67
+&lt;/span>&lt;span class="lnt">68
+&lt;/span>&lt;span class="lnt">69
+&lt;/span>&lt;span class="lnt">70
+&lt;/span>&lt;span class="lnt">71
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-cpp" data-lang="cpp">&lt;span class="line">&lt;span class="cl">&lt;span class="cp">#include&lt;/span> &lt;span class="cpf">&amp;#34;byte_stream.hh&amp;#34;&lt;/span>&lt;span class="cp">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cp">&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cp">#include&lt;/span> &lt;span class="cpf">&amp;lt;algorithm&amp;gt;&lt;/span>&lt;span class="cp">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="cp">&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="k">using&lt;/span> &lt;span class="k">namespace&lt;/span> &lt;span class="n">std&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">ByteStream&lt;/span>&lt;span class="o">::&lt;/span>&lt;span class="n">ByteStream&lt;/span>&lt;span class="p">(&lt;/span> &lt;span class="kt">uint64_t&lt;/span> &lt;span class="n">capacity&lt;/span> &lt;span class="p">)&lt;/span> &lt;span class="o">:&lt;/span> &lt;span class="n">capacity_&lt;/span>&lt;span class="p">(&lt;/span> &lt;span class="n">capacity&lt;/span> &lt;span class="p">),&lt;/span> &lt;span class="n">buf_&lt;/span>&lt;span class="p">()&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">buf_&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="n">reserve&lt;/span>&lt;span class="p">(&lt;/span> &lt;span class="n">capacity_&lt;/span> &lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="kt">bool&lt;/span> &lt;span class="n">Writer&lt;/span>&lt;span class="o">::&lt;/span>&lt;span class="n">is_closed&lt;/span>&lt;span class="p">()&lt;/span> &lt;span class="k">const&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">return&lt;/span> &lt;span class="n">closed_&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="kt">void&lt;/span> &lt;span class="n">Writer&lt;/span>&lt;span class="o">::&lt;/span>&lt;span class="n">push&lt;/span>&lt;span class="p">(&lt;/span> &lt;span class="n">string&lt;/span> &lt;span class="n">data&lt;/span> &lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">auto&lt;/span> &lt;span class="n">len&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="n">std&lt;/span>&lt;span class="o">::&lt;/span>&lt;span class="n">min&lt;/span>&lt;span class="p">(&lt;/span> &lt;span class="n">data&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="n">length&lt;/span>&lt;span class="p">(),&lt;/span> &lt;span class="n">available_capacity&lt;/span>&lt;span class="p">()&lt;/span> &lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">if&lt;/span> &lt;span class="p">(&lt;/span> &lt;span class="n">len&lt;/span> &lt;span class="o">&amp;gt;&lt;/span> &lt;span class="mi">0&lt;/span> &lt;span class="o">&amp;amp;&amp;amp;&lt;/span> &lt;span class="o">!&lt;/span>&lt;span class="n">closed_&lt;/span> &lt;span class="p">)&lt;/span> &lt;span class="na">[[likely]]&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">std&lt;/span>&lt;span class="o">::&lt;/span>&lt;span class="n">copy&lt;/span>&lt;span class="p">(&lt;/span> &lt;span class="n">data&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="n">begin&lt;/span>&lt;span class="p">(),&lt;/span> &lt;span class="n">data&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="n">begin&lt;/span>&lt;span class="p">()&lt;/span> &lt;span class="o">+&lt;/span> &lt;span class="n">len&lt;/span>&lt;span class="p">,&lt;/span> &lt;span class="n">std&lt;/span>&lt;span class="o">::&lt;/span>&lt;span class="n">back_inserter&lt;/span>&lt;span class="p">(&lt;/span> &lt;span class="n">buf_&lt;/span> &lt;span class="p">)&lt;/span> &lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">bytes_buffered_&lt;/span> &lt;span class="o">+=&lt;/span> &lt;span class="n">len&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">bytes_pushed_&lt;/span> &lt;span class="o">+=&lt;/span> &lt;span class="n">len&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="kt">void&lt;/span> &lt;span class="n">Writer&lt;/span>&lt;span class="o">::&lt;/span>&lt;span class="n">close&lt;/span>&lt;span class="p">()&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">closed_&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="nb">true&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="kt">uint64_t&lt;/span> &lt;span class="n">Writer&lt;/span>&lt;span class="o">::&lt;/span>&lt;span class="n">available_capacity&lt;/span>&lt;span class="p">()&lt;/span> &lt;span class="k">const&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">return&lt;/span> &lt;span class="n">capacity_&lt;/span> &lt;span class="o">-&lt;/span> &lt;span class="n">bytes_buffered_&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="kt">uint64_t&lt;/span> &lt;span class="n">Writer&lt;/span>&lt;span class="o">::&lt;/span>&lt;span class="n">bytes_pushed&lt;/span>&lt;span class="p">()&lt;/span> &lt;span class="k">const&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">return&lt;/span> &lt;span class="n">bytes_pushed_&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="kt">bool&lt;/span> &lt;span class="n">Reader&lt;/span>&lt;span class="o">::&lt;/span>&lt;span class="n">is_finished&lt;/span>&lt;span class="p">()&lt;/span> &lt;span class="k">const&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">return&lt;/span> &lt;span class="o">!&lt;/span>&lt;span class="k">static_cast&lt;/span>&lt;span class="o">&amp;lt;&lt;/span>&lt;span class="kt">bool&lt;/span>&lt;span class="o">&amp;gt;&lt;/span>&lt;span class="p">(&lt;/span> &lt;span class="n">bytes_buffered_&lt;/span> &lt;span class="p">)&lt;/span> &lt;span class="o">&amp;amp;&amp;amp;&lt;/span> &lt;span class="n">closed_&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="kt">uint64_t&lt;/span> &lt;span class="n">Reader&lt;/span>&lt;span class="o">::&lt;/span>&lt;span class="n">bytes_popped&lt;/span>&lt;span class="p">()&lt;/span> &lt;span class="k">const&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">return&lt;/span> &lt;span class="n">bytes_popped_&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="n">string_view&lt;/span> &lt;span class="n">Reader&lt;/span>&lt;span class="o">::&lt;/span>&lt;span class="n">peek&lt;/span>&lt;span class="p">()&lt;/span> &lt;span class="k">const&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">return&lt;/span> &lt;span class="n">std&lt;/span>&lt;span class="o">::&lt;/span>&lt;span class="n">string_view&lt;/span> &lt;span class="p">{&lt;/span> &lt;span class="n">buf_&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="n">data&lt;/span>&lt;span class="p">(),&lt;/span> &lt;span class="n">bytes_buffered_&lt;/span> &lt;span class="p">};&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="kt">void&lt;/span> &lt;span class="n">Reader&lt;/span>&lt;span class="o">::&lt;/span>&lt;span class="n">pop&lt;/span>&lt;span class="p">(&lt;/span> &lt;span class="kt">uint64_t&lt;/span> &lt;span class="n">len&lt;/span> &lt;span class="p">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">if&lt;/span> &lt;span class="p">(&lt;/span> &lt;span class="n">len&lt;/span> &lt;span class="o">&amp;gt;&lt;/span> &lt;span class="n">bytes_buffered_&lt;/span> &lt;span class="p">)&lt;/span> &lt;span class="na">[[unlikely]]&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">len&lt;/span> &lt;span class="o">=&lt;/span> &lt;span class="n">bytes_buffered_&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">buf_&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="n">erase&lt;/span>&lt;span class="p">(&lt;/span> &lt;span class="n">buf_&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="n">begin&lt;/span>&lt;span class="p">(),&lt;/span> &lt;span class="n">buf_&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="n">begin&lt;/span>&lt;span class="p">()&lt;/span> &lt;span class="o">+&lt;/span> &lt;span class="n">len&lt;/span> &lt;span class="p">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">bytes_buffered_&lt;/span> &lt;span class="o">-=&lt;/span> &lt;span class="n">len&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="n">bytes_popped_&lt;/span> &lt;span class="o">+=&lt;/span> &lt;span class="n">len&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="kt">uint64_t&lt;/span> &lt;span class="n">Reader&lt;/span>&lt;span class="o">::&lt;/span>&lt;span class="n">bytes_buffered&lt;/span>&lt;span class="p">()&lt;/span> &lt;span class="k">const&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="k">return&lt;/span> &lt;span class="n">bytes_buffered_&lt;/span>&lt;span class="p">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div></description></item></channel></rss>

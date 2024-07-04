@@ -1,0 +1,1009 @@
+<!doctype html><html lang=zh-cn dir=ltr><head><meta charset=utf-8><meta name=viewport content='width=device-width,initial-scale=1'><meta name=description content="跟随 Simon Tatham 一起学习 C++20 的协程。"><title>自定义你的 C++20 协程系统</title>
+<link rel=canonical href=https://rossqaq.github.io/article/coroutine-system/><link rel=stylesheet href=/scss/style.min.0304c6baf04e01a8fe70693791cb744d56a3578a3120a8796cefc66825aa39c7.css><meta property='og:title' content="自定义你的 C++20 协程系统"><meta property='og:description' content="跟随 Simon Tatham 一起学习 C++20 的协程。"><meta property='og:url' content='https://rossqaq.github.io/article/coroutine-system/'><meta property='og:site_name' content='Roses'><meta property='og:type' content='article'><meta property='article:section' content='Post'><meta property='article:published_time' content='2024-02-08T00:00:00+00:00'><meta property='article:modified_time' content='2024-02-08T00:00:00+00:00'><meta name=twitter:title content="自定义你的 C++20 协程系统"><meta name=twitter:description content="跟随 Simon Tatham 一起学习 C++20 的协程。"><link rel="shortcut icon" href=/favicon.png></head><body class=article-page><script>(function(){const e="StackColorScheme";localStorage.getItem(e)||localStorage.setItem(e,"auto")})()</script><script>(function(){const t="StackColorScheme",e=localStorage.getItem(t),n=window.matchMedia("(prefers-color-scheme: dark)").matches===!0;e=="dark"||e==="auto"&&n?document.documentElement.dataset.scheme="dark":document.documentElement.dataset.scheme="light"})()</script><div class="container main-container flex on-phone--column extended"><aside class="sidebar left-sidebar sticky"><button class="hamburger hamburger--spin" type=button id=toggle-menu aria-label=切换菜单>
+<span class=hamburger-box><span class=hamburger-inner></span></span></button><header><figure class=site-avatar><a href=/><img src=/img/avatar_hu57fe4ea25b3b752b8c24bca0d657f08c_427356_300x0_resize_box_3.png width=300 height=300 class=site-logo loading=lazy alt=Avatar>
+</a><span class=emoji>♉</span></figure><div class=site-meta><h1 class=site-name><a href=/>Roses</a></h1><h2 class=site-description>有限的时间，无尽的痛苦。</h2></div></header><ol class=menu-social><li><a href=https://space.bilibili.com/3078464 target=_blank title=Bilibili rel=me><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-brand-bilibili" width="44" height="44" viewBox="0 0 24 24" stroke-width="1.5" stroke="#2c3e50" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M3 10a4 4 0 014-4h10a4 4 0 014 4v6a4 4 0 01-4 4H7a4 4 0 01-4-4v-6z"/><path d="M8 3l2 3"/><path d="M16 3l-2 3"/><path d="M9 13v-2"/><path d="M15 11v2"/></svg></a></li><li><a href=https://github.com/RossQAQ target=_blank title=Github rel=me><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-brand-github" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M9 19c-4.3 1.4-4.3-2.5-6-3m12 5v-3.5c0-1 .1-1.4-.5-2 2.8-.3 5.5-1.4 5.5-6a4.6 4.6.0 00-1.3-3.2 4.2 4.2.0 00-.1-3.2s-1.1-.3-3.5 1.3a12.3 12.3.0 00-6.2.0C6.5 2.8 5.4 3.1 5.4 3.1a4.2 4.2.0 00-.1 3.2A4.6 4.6.0 004 9.5c0 4.6 2.7 5.7 5.5 6-.6.6-.6 1.2-.5 2V21"/></svg></a></li><li><a href='https://music.163.com/playlist?id=109571638&amp;userid=93740300' target=_blank title=网易云音乐 rel=me><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-brand-netease-music" width="44" height="44" viewBox="0 0 24 24" stroke-width="1.5" stroke="#2c3e50" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M9 4c-2.93 1.346-5 5.046-5 8.492C4 17 8 20 12 20s8-3 8-7c0-3.513-3.5-5.513-6-5.513S9 9 9 12c0 2 1.5 3 3 3s3-1 3-3c0-3.513-2-4.508-2-6.515.0-3.504 3.5-2.603 4-1.502"/></svg></a></li><li><a href=mailto:rossqaq@outlook.com target=_blank title=邮件 rel=me><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-mail" width="44" height="44" viewBox="0 0 24 24" stroke-width="1.5" stroke="#2c3e50" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M3 7a2 2 0 012-2h14a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2V7z"/><path d="M3 7l9 6 9-6"/></svg></a></li></ol><ol class=menu id=main-menu><li><a href=/><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-home" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><polyline points="5 12 3 12 12 3 21 12 19 12"/><path d="M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7"/><path d="M9 21v-6a2 2 0 012-2h2a2 2 0 012 2v6"/></svg>
+<span>主页</span></a></li><li><a href=/archives/><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-archive" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><rect x="3" y="4" width="18" height="4" rx="2"/><path d="M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
+<span>归档</span></a></li><li><a href=/search/><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-search" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="10" cy="10" r="7"/><line x1="21" y1="21" x2="15" y2="15"/></svg>
+<span>搜索</span></a></li><li><a href=/%E5%8F%8B%E6%83%85%E9%93%BE%E6%8E%A5/><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-link" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><path d="M10 14a3.5 3.5.0 005 0l4-4a3.5 3.5.0 00-5-5l-.5.5"/><path d="M14 10a3.5 3.5.0 00-5 0l-4 4a3.5 3.5.0 005 5l.5-.5"/></svg>
+<span>友情链接</span></a></li><li class=menu-bottom-section><ol class=menu><li id=dark-mode-toggle><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="8" cy="12" r="2"/><rect x="2" y="6" width="20" height="12" rx="6"/></svg>
+<svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="16" cy="12" r="2"/><rect x="2" y="6" width="20" height="12" rx="6"/></svg>
+<span>暗色模式</span></li></ol></li></ol></aside><aside class="sidebar right-sidebar sticky"><section class="widget archives"><div class=widget-icon><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-hash" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><line x1="5" y1="9" x2="19" y2="9"/><line x1="5" y1="15" x2="19" y2="15"/><line x1="11" y1="4" x2="7" y2="20"/><line x1="17" y1="4" x2="13" y2="20"/></svg></div><h2 class="widget-title section-title">目录</h2><div class=widget--toc><nav id=TableOfContents><ol><li><a href=#介绍>介绍</a></li><li><a href=#c-协程概览>C++ 协程概览</a></li><li><a href=#数据类型的总结>数据类型的总结</a></li><li><a href=#如何编写协程的-promise-class>如何编写协程的 promise class</a><ol><li><a href=#快速开始让他至少能编译>快速开始：让他至少能编译</a></li><li><a href=#使用-co_await-暂停协程>使用 co_await 暂停协程</a></li><li><a href=#恢复协程>恢复协程</a></li><li><a href=#处理协程状态>处理协程状态</a></li><li><a href=#通过-co_yield-传递值>通过 co_yield 传递值</a></li><li><a href=#检测协程是否执行完毕>检测协程是否执行完毕</a></li><li><a href=#通过-co_return-返回最终结果>通过 co_return 返回最终结果</a></li><li><a href=#处理协程抛出的异常>处理协程抛出的异常</a></li><li><a href=#编写自定义-awaiter>编写自定义 awaiter</a></li><li><a href=#使用-stdcoroutine_traits-分辨-promise-type>使用 std::coroutine_traits 分辨 promise type</a></li><li><a href=#允许-promise-type-访问协程的参数>允许 promise type 访问协程的参数</a></li></ol></li><li><a href=#非平凡的协程系统的例子>非平凡的协程系统的例子</a><ol><li><a href=#深入-produceradapterconsumer-链>深入 producer/adapter/consumer 链</a></li><li><a href=#有栈生成器>有栈生成器</a></li></ol></li><li><a href=#关于协程返回类型和位置的技巧>关于协程返回类型和位置的技巧</a><ol><li><a href=#在协程和普通函数之间共享类型>在协程和普通函数之间共享类型</a></li><li><a href=#在类中隐藏协程的实现>在类中隐藏协程的实现</a></li><li><a href=#让-lambda-成为协程>让 lambda 成为协程</a></li></ol></li><li><a href=#其他没有讨论到的细节>其他：没有讨论到的细节</a></li><li><a href=#conclusion>Conclusion</a></li></ol></nav></div></section></aside><main class="main full-width"><article class=main-article><header class=article-header><div class=article-details><header class=article-category><a href=/categories/coroutine/ style=background-color:#2a9d8f;color:#fff>协程渡劫
+</a><a href=/categories/cppnotes/ style=background-color:#2a9d8f;color:#fff>C++ 随记
+</a><a href=/categories/unfinished/ style=background-color:#2a9d8f;color:#fff>施工中</a></header><div class=article-title-wrapper><h2 class=article-title><a href=/article/coroutine-system/>自定义你的 C++20 协程系统</a></h2><h3 class=article-subtitle>跟随 Simon Tatham 一起学习 C++20 的协程。</h3></div><footer class=article-time><div><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><path d="M11.795 21H5a2 2 0 01-2-2V7a2 2 0 012-2h12a2 2 0 012 2v4"/><circle cx="18" cy="18" r="4"/><path d="M15 3v4"/><path d="M7 3v4"/><path d="M3 11h16"/><path d="M18 16.496V18l1 1"/></svg>
+<time class=article-time--published>Feb 08, 2024</time></div><div><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/></svg>
+<time class=article-time--reading>阅读时长: 41 分钟</time></div></footer></div></header><section class=article-content><h1 id=编写你自己的-c20-协程系统>编写你自己的 C++20 协程系统</h1><p>本文翻译自 <a class=link href=https://www.chiark.greenend.org.uk/~sgtatham/quasiblog/coroutines-c++20/ target=_blank rel=noopener>Writing custom C++20 coroutine systems</a></p><p>目前 5.2 generator 部分尚未翻译，其余已经烤制完毕。</p><h2 id=介绍>介绍</h2><p>在 2023 年，我给使用过 C++ 旧版本的人做了一个三天的 C++20 新特性介绍讲座。</p><p>其中的一个新特性那就是 built-in language 支持的协程。我个人非常期待讲那个部分，因为我已经把协程当做我的代码风格一部分了。我甚至花费了大量精力通过使用 C 的预处理来实现写成，PuTTY 在它的 SSH 协议实现中也大量使用了该技术。另外一个我的程序，spigot（交互式计算器）也在 C++ 中用了类似的技术。</p><p>所以我非常期待使用 C++ 的原生协程，<em>至少</em> 我需要知道是否可以将使用预处理器版本的 spigot 使用原生协程重构，以及其他一切我可能会用上的内容。</p><p>不幸的是，C++20 的协程系统非常庞大、复杂，需要很多笔墨来解释。所以那三天的讲座中并没有完全讲完 C++20 的新特性，事实证明，甚至没有时间解释太多细节。（更别提你还要从解释协程是什么开始，因为有很多人并不知道协程）</p><p>于是我写了这篇文章。</p><p>努力学习并把它写完后，似乎自己藏着不太好。所以这篇文章是我的学习笔记，经过精心打磨后希望对其他人也有用。</p><p>文章中我会展示所有的代码来阐述我自己的目的。大多数都不能工作：他们会缺失一部分，以免完全不相干的细节吸引了读者的注意力。有时为了清晰，我甚至会故意犯错（例如把函数定义放在类中，你应该避免这么做来防止前向声明）。大多数部分都有可下载的可以编译运行版本的代码。</p><h2 id=c-协程概览>C++ 协程概览</h2><p>C++ 协程有许多其他语言（例如 python generator）不具备的灵活性，但灵活也代表着你需要自定许多内容才能让其正常工作。他不像是协程系统，而更像是给你一个工具，让你自己搭建自己的协程系统。</p><p>函数和协程之间原点比较像。你不需要在函数体外将其声明为协程。（即，调用者不需要知道他们调用的是否是协程，他们只需要知道当调用函数，会返回一个对象）</p><p>在 Python 中，在函数中写一个 yield 即可，作用就是当你调用函数时，其内部的代码暂时不会执行，你只会得到一个 &lsquo;generator&rsquo; 对象，函数的代码是暂停的，直到你在 generator 对象上进行一些操作时才会执行一点。只有一种 generator，提供的操作也是固定的（next()和 send()），且他们做的内容也差不多。</p><p>C++ 中同理，不同的是有三个关键字：<code>co_yield</code>, <code>co_await</code> and <code>co_return</code>。函数中使用任何一个关键字都会让编译器认为其是一个协程。但你可以控制其下一步执行的流程。</p><p>举个例子，假如你的协程大部分情况下都是 <em>接收数据</em>，当其接收第一个 item 后你就希望立刻运行他。这样的话，当某人调用协程并创建它的实例时，这个实例已经处于准备好接收一个值的状态。Python 并不能这么做，因为 generator 总是在一开始暂停，由此正常的用法是在返回的对象上调用一次 <code>next()</code> 来获得第一项数据。但在 C++ 中，你可以按你的想法来定义协程的行为。</p><p>在 Python 中，在协程内调用 <code>yield</code> 会暂停这部分代码的执行并且将控制权返回给调用 <code>next()</code> 的调用者。所以如果你想生成一个值并且把它传递给另外一个协程（就是说，从一个生产者协程将对象传递给一个消费者协程），你需要手动在调用者方实现。在 C++ 中，你可以以你喜欢的方式实现，但是你<em>也可以</em> 让协程自动在它们之间转移控制权。因此，在调用方的所需要的值实际可用之前，控制权不会返回给调用方。或者你也可以 co_yield 生成一个值但是完全不暂停协程，继续运行。</p><p>在 Python 中，同样 yield 语句会生成一个值 <em>且</em> 接收一个输入值（如果协程需要）。在 C++ 中，<code>co_yield</code> 和 <code>co_await</code> 是分开的，你可以将其用于不同的用途：<code>co_yield</code> 向外传值，<code>co_await</code> 等待输入，或者（如果你喜欢的话）等待某些事件发生。所以如果你的协程需要从 “这里” 读取一个对象并把它写入 “那里”，那么这些语句可以帮在语义上你区分功能。</p><p>在 Python 中，协程实际不存在与生成值流可区分的 “返回值” 的概念。在 C++ 中，是：你可以使用 co_return 来结束整个协程，你可以给他一个值返回，可以跟你 yield 的值不同类型不同语义。</p><p>更复杂一点的例子，假设使用协程来实现一个网络协议，通过从 event loop 中重复调用回调来执行底层的网络 I/O 以发送或接收单独的协议消息或数据包。你可以 set it up 这样就可以通过 co_await 来获取下一个输入的数据包（可能不需要暂停协程，如果队列中已经存在收到的数据的话）可以调用 co_yield 来向外传递数据包；当其完成时，可以调用 co_return 来给整个流程发信号，例如整个事务是否成功。</p><p>然而，<strong>这些都得你自己完成</strong>。为了使用 C++20 的协程，你必须编写大量的前置代码（造轮子），然后回答以下问题：</p><ul><li>协程在启动时需要暂停吗？</li><li>co_yield, co_await, co_return 需要的数据类型是什么？每一个关键字是干什么的？传递给他们的值会发生什么？如果有的话，协程恢复时从 co_await, co_yield <em>传回</em> 的数据是什么？</li><li>co_await, co_yield 的具体哪一步会暂停协程？哪一个会立刻运行？</li><li>协程暂停时，会立刻将控制权返回给上次恢复他的 caller 吗？还是切换到另外暂停一个协程？</li></ul><p>Python 中，这些问题的答案是固定的。在 C++ 中，答案是：<strong>这些全部取决于你</strong>。你可以根据你的程序来决定具体采用哪种方式。但换句话说，你需要自己做完所有的工作才能找出答案。</p><p>至少，在C++20标准中你只能自己完成这些工作。C++23 引入了一些协程系统，如 <code>std::generator</code>，类似 Python 的 generator。如果你需要的是类似于 Python 的 generator，那么你可以使用 C++23。</p><p>但如果你想要额外的灵活性，或者无法使用 C++23，那么你需要自己完成全部工作，这也是这篇文章介绍的内容。</p><h2 id=数据类型的总结>数据类型的总结</h2><p>C++ 的协程系统包含了许多不同的数据类型。在深入理解之前，这一部分我们先区分并且理解一下他们在内部是怎么交互的。</p><p>C++ 实现自身提供了一个数据结构：<strong>coroutine handle</strong>。所有魔法都来自于他。它定义了你协程代码的一个特殊实例，包含了它内部的变量以及执行状态（例如它现在是否正在运行，如果不是的话，它下次会从哪里恢复）。<strong>它提供了一个 resume 方法，通过调用他就可以恢复协程执行</strong>。</p><p>其他的数据类型都由你也就是实现者提供，因此你可以根据你自己想让协程执行的方式来定义他们。</p><p>最明显的类型就是协程定义为返回值的类型。<em>用户</em> 唯一能看到的就是这个类型（不管他们是根据你的前置代码写协程，还是调用协程）。所以，在这篇文章我会把它称为：<strong>用户感知类型（user-facing type）</strong>，它的实例则为：<strong>用户感知对象（user-facing object）</strong></p><p>用户感知类型是协程的 caller 实际交互的类型。所以你对其定义的方法取决于你希望 <em>如何</em> 与用户交互。例如，你可能想让他可以迭代（提供 begin() and end()，并且迭代器可以和自增运算符交互），这样你就可以使用 range-based for loop 了。（C++23 已经提供了 std::generator）或者你也可以选择像使用 istream/ostream 一样使用他，当然也可以是其他任何的方法，这都取决于你。</p><p>实际上，C++对于用户感知类型 <em>没有</em> 什么特殊需求。不需要有任何特定名称的方法或者字段。甚至不需要是一个类类型，如果你不想的话。你可以让他是一个平凡类型，比如 int，让他扮演一个 index 来访问当前激活协程的一个巨大的表格。当然，让他成为类类型更常见，但不是<em>必须</em>。</p><p>在这个实现中，你的特殊协程首要的 data type 叫做 <strong>promise type</strong>。</p><blockquote><p>我个人更喜欢称之为 &lsquo;policy type&rsquo;, 因为它主要的作用是定义你的协程策略。C++ 称他为 &lsquo;promise&rsquo; 是因为他也可以代表异步计算模型中的 &lsquo;future/promise&rsquo;。但其语义上，policy type always, promise type sometimes，所以我经常叫他 &lsquo;policy type&rsquo;，更接近于设计初衷。但是 &lsquo;promise&rsquo; 是标准的叫法，而且作为标识，所以以下我们也会称之为 promise。</p></blockquote><p>This is inferred from the user-facing type (and, optionally, the rest of the coroutine’s arguments). 它必须是一个类类型，必须提供一些具有特殊名称的方法来控制执行策略，例如开始时是否暂停，结束时是否将控制权转移给其他协程，如果遇到 co_await, co_yield, co_return 后该如何执行。每个协程的实例只有一个（编译器在第一次调用协程时创建他），自然也方便存储协程有关的数据。例如，在 stacked 协程启动时，你可能需要一个指针在栈中来存储 promise object。在协程中通过 co_yield 向外传递值，放置 yielded value 最方便的地方就是在 promise object 中，之后用户感知对象就可以将其传递 caller。</p><p>最后，有一种叫做 <strong>awaiters</strong> 的类型（有时也称之为 awaitable）。他为每个事件来设置策略以暂停协程。特别地，每次协程执行 co_yield, co_await, co_return，promise type 都会构造一个新的 awaiter 用于特殊事件，调用 awaiter 的方法来决定发生什么（例如是否暂停协程本身；如果暂停的话，是否将控制权返回给 caller 或是其他协程；协程什么时候恢复；通过 co_yield 或者 co_await 返回什么）。Awaiter 类型可以指定你的特殊行为，或者在多个类型的协程中共享。总之，标准库提供了一些定义好的 Awaiter 以完成最简单的功能，他们是：<code>std::suspend_always</code> 以及 <code>std::suspend_never</code></p><h2 id=如何编写协程的-promise-class>如何编写协程的 promise class</h2><h3 id=快速开始让他至少能编译>快速开始：让他至少能编译</h3><p>在深入理解所有的方法是做什么的之前，我们先从最简单的协程开始，让他至少能够编译，并且执行一些代码。之后我会列出实现所必须的内容，你可以将他们与例子进行关联。</p><p>事不宜迟，以下是协程的 Hello World：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span><span class=lnt>20
+</span><span class=lnt>21
+</span><span class=lnt>22
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=cp>#include</span> <span class=cpf>&lt;coroutine&gt;</span><span class=cp>
+</span></span></span><span class=line><span class=cl><span class=cp>#include</span> <span class=cpf>&lt;iostream&gt;</span><span class=cp>
+</span></span></span><span class=line><span class=cl><span class=cp></span>
+</span></span><span class=line><span class=cl><span class=k>class</span> <span class=nc>UserFacing</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl><span class=k>public</span><span class=o>:</span>
+</span></span><span class=line><span class=cl>    <span class=k>struct</span> <span class=nc>promise_type</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=n>UserFacing</span> <span class=nf>get_return_object</span><span class=p>()</span> <span class=p>{</span> <span class=k>return</span> <span class=p>{};</span> <span class=p>}</span>
+</span></span><span class=line><span class=cl>        <span class=n>std</span><span class=o>::</span><span class=n>suspend_never</span> <span class=n>initial_suspend</span><span class=p>()</span> <span class=p>{</span> <span class=k>return</span> <span class=p>{};</span> <span class=p>}</span>
+</span></span><span class=line><span class=cl>        <span class=kt>void</span> <span class=nf>return_void</span><span class=p>()</span> <span class=p>{}</span>
+</span></span><span class=line><span class=cl>        <span class=kt>void</span> <span class=nf>unhandled_exception</span><span class=p>()</span> <span class=p>{}</span>
+</span></span><span class=line><span class=cl>        <span class=n>std</span><span class=o>::</span><span class=n>suspend_always</span> <span class=n>final_suspend</span><span class=p>()</span> <span class=k>noexcept</span> <span class=p>{</span> <span class=k>return</span> <span class=p>{};</span> <span class=p>}</span>
+</span></span><span class=line><span class=cl>    <span class=p>};</span>
+</span></span><span class=line><span class=cl><span class=p>};</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=n>UserFacing</span> <span class=nf>demo_coro</span><span class=p>()</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=n>std</span><span class=o>::</span><span class=n>cout</span> <span class=o>&lt;&lt;</span> <span class=s>&#34;Hello World</span><span class=se>\n</span><span class=s>&#34;</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=k>co_return</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=kt>int</span> <span class=nf>main</span><span class=p>()</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=n>UserFacing</span> <span class=n>demo</span> <span class=o>=</span> <span class=n>demo_coro</span><span class=p>();</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><p>以上代码片段是协程的最小实现，满足了其最小要求。</p><p>包括：</p><p><strong>用户感知类型中包含 promise_type</strong>。编译器看到你定义了协程的返回类型 <code>UserFacing</code> 时，<strong>首先要做的就是查找其关联的 promise_type</strong></p><p><em>默认</em> （但不是唯一）实现其的方式是实现 UserFacing::promise_type ，在这个简单的例子里我会直接把 promise type 写在 UserFacing 类中。第二种方法是分开定义，在 UserFacing 中包含其声明即可</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=k>class</span> <span class=nc>UserFacing</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl><span class=k>public</span><span class=o>:</span>
+</span></span><span class=line><span class=cl>    <span class=k>using</span> <span class=n>promise_type</span> <span class=o>=</span> <span class=n>TheActualPromiseType</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=p>};</span>
+</span></span></code></pre></td></tr></table></div></div><p>此外还有第三种方法，无需在用户感知类型中实现 <em>任何</em> 定义。这需要你提供你自己的 <code>std::coroutine_traits</code> 模板特化（重载默认寻找 <code>UserFacing::promise_type</code> 的版本）。我们之后会举例说明，例子中协程的返回值是 <code>std::unique_ptr</code></p><p><strong>构造一个用户感知类型返回的实例</strong>。你的协程初始化时，C++实现会创建 promise_type 的实例，并为其分配内存。不过 caller 接受到的返回对象取决于你。</p><p>这一步通过 promise_type 中的 <code>get_return_object()</code> 实现。在里子中，<code>UserFacing</code> 没有任何数据成员，所以 <code>get_return_object()</code> 通过完全平凡的方式来进行构造。</p><p>如果不是平凡类型，那么你可能需要给用户感知对象更多的信息。例如，<strong>用户感知对象几乎都需要访问 coroutine handle 以及 promise type，这样才能跟其他暂停的协程通信</strong>。由于现在是最小实现，所以目前我们还没有实现他，下一部分会看到的。</p><p><strong>指定协程启动时是否暂停，或者直接运行</strong>。通过 <code>initial_suspend()</code> 实现，必须返回一个 awaiter。我们之后会看到 awaiter 的全部细节。目前，我们只是使用了 C++ 标准库提供的：<code>std::suspend_never</code>。这样协程就 <em>不会</em> 在开始执行之前暂停自己，意味着在控制流返回给 main() 前，协程会一直运行，并且输出 Hello World。</p><p>如果我们让 initial_suspend() 返回另一个标准类型：<code>std::suspend_always</code>，那么新创建的协程会在函数体开始执行前就暂停，<em>before</em> 打印 hello world。所以直到 main 中的某一部分调用 resume 前都不会执行协程。但我们目前还没展示如何做。目前来看，我们的协程开始执行前不暂停，因为只有这样他才能打印正确的信息。</p><p>(std::suspend_always 和 std::suspend_never 都不包含任何有趣的数据，他们只是返回固定值的方法。所以你不需要在你构造时提供任何信息，只是单纯调用 <code>return {}</code> 即可)</p><p><strong>指定在协程正常返回时的行为</strong>。在这个例子中，协程不返回任何值（co_return 语句没有参数）。所以我们在 promise_type 中实现一个 <code>return_void()</code> 函数，这是 <code>co_return</code> 或者协程结束时实际执行的函数（因为没有返回值）。</p><p>如果我想让协程拥有一个 non-void 返回值，那么就应该实现 <code>return_value()</code> ，接受一个参数，之后会在执行 co_return 时被调用。</p><p>注意，你<em><strong>必须</strong></em> 在二者中选择一个实现！都不实现，或者都实现都是错误。</p><p>（如果你的协程想要返回值，而函数末尾不执行 co_return，那么这是ub，就像返回具体值的函数没有 non-void return 语句一样）</p><p><strong>指定异常从协程传出时的行为</strong>。如果协程内的代码抛出异常，并且没有东西 catch 住它，那么 promise 对象的 <code>unhandled_exception()</code> 方法会被调用。它会接受异常并存储它，之后做一些有用的事情。</p><p>在之后的部分我们会看到其执行细节，并且展示一些复杂的案例。在这个最小示例中，unhandled_exception 什么都没干，这意味着异常会被无视，协程会保持相同状态，仿佛其正常终止一样。</p><p><strong>指定协程结束时的行为</strong>。通过 final_suspend 方法指定，和 initial_suspend 一样，除了他被声明为 noexcept（如果这时候有异常，就像在析构函数有异常一样）</p><p>final_suspend 会在协程被以 <em>任何</em> 方式终止时调用，不管是 return 还是抛出异常。</p><p>示例中，final_suspend 返回 std::suspend_always，意味着协程结束时（不管是 co_return，还是单纯执行完函数体），它都会暂停当前状态并返回控制权。</p><p>你 <em>不可以</em> 通过 final_suspend 让协程继续运行来返回值，这会导致崩溃或者其他 ub。这里唯一的用途就是不直接将控制权返回给 caller，而是转给其他协程。后面会有示例。</p><p>Full source code for this section: <a class=link href=https://www.chiark.greenend.org.uk/~sgtatham/quasiblog/coroutines-c++20/co_demo.minimal.cpp target=_blank rel=noopener><code>co_demo.minimal.cpp</code></a>.</p><hr><h3 id=使用-co_await-暂停协程>使用 co_await 暂停协程</h3><p>目前，我们的协程功能很少，因为你不能暂停和恢复它，而暂停和恢复才是协程的关键。</p><p>C++ 提供了两个关键字来暂停协程：co_yield, co_await，co_await 更基础更常用。co_yield 是它的一个语法糖。所以我们先来介绍 co_await。</p><p>提供两个关键字的点在于：await 用于提醒你想要 <em>等待</em> 一个东西，而 yield 则是表明你想要给某些人传递一个值。你并不强制需要为实现不同的目的使用两个关键字，你写代码是为了做事情，所以你可以按你的想法来。但通常的语义是这样。</p><p>总的来说，不管你给 co_await 什么操作数，编译器都需要把它转换成 awaiter 这样才能管理暂停。</p><p><em>最简单</em> 的方法就是提供一个 <em>已经</em> 是 awaiter 的对象。我们前文已经提到了，std::suspend_always 和 std::suspend_never。所以我们可以简单改改 demo：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=n>UserFacing</span> <span class=nf>demo_coro</span><span class=p>()</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=n>std</span><span class=o>::</span><span class=n>cout</span> <span class=o>&lt;&lt;</span> <span class=s>&#34;we&#39;re about to suspend this coroutine&#34;</span> <span class=o>&lt;&lt;</span> <span class=n>std</span><span class=o>::</span><span class=n>endl</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=k>co_await</span> <span class=n>std</span><span class=o>::</span><span class=n>suspend_always</span><span class=p>{};</span>
+</span></span><span class=line><span class=cl>    <span class=n>std</span><span class=o>::</span><span class=n>cout</span> <span class=o>&lt;&lt;</span> <span class=s>&#34;this won&#39;t be printed until after we resume&#34;</span> <span class=o>&lt;&lt;</span> <span class=n>std</span><span class=o>::</span><span class=n>endl</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=k>co_return</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><p>这是最简单的暂停协程的方式，但更常见的，如果你的协程正等待什么事情，你需要在事件发生后恢复协程，所以你需要一些 handler。</p><p>有两个地方可以插入 handler：</p><ul><li>如果你的 promise type 有 <code>await_transform()</code> 方法，接受的参数类型为你传递给 co_await 的参数的类型，那么会调用这个方法，co_await 的参数也会变成该函数的返回值。（你当然可以重载这个函数）</li><li>如果在作用域中有一个函数叫做 <code>operator co_await()</code> 接收相应的类型，那么会调用这个函数，同样参数也会被替换为返回值。</li></ul><p>如果两个都存在，那么会按顺序调用，所以 <code>co_await foo;</code> 也许会通过 <code>operator co_await(promise.await_transform(foo))</code> 来构造 awaiter</p><blockquote><p>不太明白使用 operator co_await() 的意义，因为他不能是类成员，只能是全局函数，所以不能访问 promise type 的对象。看起来灵活性不高。在我的例子中，我只会使用 await_transform()。</p></blockquote><p>所以你可以把想要等待得到的结果传递给 co_await，然后其在背后通过你的 promise type 的 await_transform() 来实际返回合适的 awaiter。</p><p>实际的使用中，你大概会让 await_transform() 来做一些工作。<strong>例如，你的程序基于某些监听 I/O channel 的时间循环，比如网络连接，然后它可能持有一些数据结构来告诉它对于每个 IO 事件，当某些事件发生时该恢复哪个协程。</strong>（For example, if your program was based around some kind of event loop that was monitoring I/O channels like network connections, then it would have some data structure that told it what to do about each possible I/O event, perhaps including what coroutine(s) to resume when an event happened. ）</p><p>所以如果一个协程想要在做其他工作前等待 IO，你可能会写 <code>co_await event</code> （可能你会实现一些方便在协程内部操作代表 IO 事件的类型），然后相应的 await_transform() 会将调用协程的代码插入 event loop 的数据结构中来管理好实际发生的事情。</p><p>但我们在这个例子中不需要复杂的事件，我们尽量简单。我们假设存在一个 dummy event 类型，不包含数据，然后 await_transform() 接受他：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=k>struct</span> <span class=nc>Event</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=c1>// you could put a description of a specific event in here
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=p>};</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=k>class</span> <span class=nc>UserFacing</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=c1>// ...
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=k>class</span> <span class=nc>promise_type</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>      <span class=k>public</span><span class=o>:</span>
+</span></span><span class=line><span class=cl>        <span class=c1>// ...
+</span></span></span><span class=line><span class=cl><span class=c1></span>        <span class=n>std</span><span class=o>::</span><span class=n>suspend_always</span> <span class=n>await_transform</span><span class=p>(</span><span class=n>Event</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>            <span class=c1>// you could write code here that adjusted the main
+</span></span></span><span class=line><span class=cl><span class=c1></span>            <span class=c1>// program&#39;s data structures to ensure the coroutine would
+</span></span></span><span class=line><span class=cl><span class=c1></span>            <span class=c1>// be resumed at the right time
+</span></span></span><span class=line><span class=cl><span class=c1></span>            <span class=k>return</span> <span class=p>{};</span>
+</span></span><span class=line><span class=cl>        <span class=p>}</span>
+</span></span><span class=line><span class=cl>    <span class=p>};</span>
+</span></span><span class=line><span class=cl><span class=p>};</span>
+</span></span></code></pre></td></tr></table></div></div><p>然后你就可以 co_await 你的事件描述符了：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=n>UserFacing</span> <span class=nf>demo_coroutine</span><span class=p>()</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=n>std</span><span class=o>::</span><span class=n>cout</span> <span class=o>&lt;&lt;</span> <span class=s>&#34;we&#39;re about to suspend this coroutine&#34;</span> <span class=o>&lt;&lt;</span> <span class=n>std</span><span class=o>::</span><span class=n>endl</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=k>co_await</span> <span class=n>Event</span><span class=p>{};</span>
+</span></span><span class=line><span class=cl>    <span class=n>std</span><span class=o>::</span><span class=n>cout</span> <span class=o>&lt;&lt;</span> <span class=s>&#34;this won&#39;t be printed until after we resume&#34;</span> <span class=o>&lt;&lt;</span> <span class=n>std</span><span class=o>::</span><span class=n>endl</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=k>co_return</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><p>这个例子中，我的 await transform 返回的是 std::suspend_always。你也可以返回自定义 awaiter 类型，这样更加灵活。特别的，在某些时候，可能你等待的事件已经完成了，这时你自定义的 awaiter 类型最好不要暂停，而是继续执行。</p><p>自定义 awaiter 也可以控制 co_await 表达式的<em>返回值</em>，例如，假如你要等待网络事件并输出一个值，或者传出一个成功或者失败的状态。那么你的代码可能就会像：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=n>UserFacing</span> <span class=nf>demo_coro</span><span class=p>()</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=c1>// You might set up co_await to return actual data
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=n>ip_address</span> <span class=n>addr</span> <span class=o>=</span> <span class=k>co_await</span> <span class=n>async_dns_lookup</span><span class=p>(</span><span class=s>&#34;hostname.example.com&#34;</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    
+</span></span><span class=line><span class=cl>    <span class=c1>// Or a boolean indicating success or failure
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=k>if</span> <span class=p>(</span><span class=k>co_await</span> <span class=n>attempt_some_network_operation</span><span class=p>(</span><span class=n>addr</span><span class=p>))</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=n>std</span><span class=o>::</span><span class=n>cout</span> <span class=o>&lt;&lt;</span> <span class=s>&#34;succuess</span><span class=se>\n</span><span class=s>&#34;</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span> <span class=k>else</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=n>std</span><span class=o>::</span><span class=n>cout</span> <span class=o>&lt;&lt;</span> <span class=s>&#34;failure.</span><span class=se>\n</span><span class=s>&#34;</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><p>之后我们会实现一个自定义 awaiter。本节已经够长了。</p><p>Full source code for this section: <a class=link href=https://www.chiark.greenend.org.uk/~sgtatham/quasiblog/coroutines-c++20/co_demo.await.cpp target=_blank rel=noopener><code>co_demo.await.cpp</code></a>.</p><hr><h3 id=恢复协程>恢复协程</h3><p>现在我们几乎已经接近可用的协程了。我们可以构造一个协程，在里面运行代码，之后暂停它。但到这里协程依然没有用，我们需要在暂停后 <em>恢复</em> 协程。</p><p>恢复协程的办法是在它的 <em>coroutine handle</em> 上调用 <em>resume()</em> ，那么首先我们需要获取协程的句柄。</p><p>coroutine handle 是一个泛型类型，<strong>参数是promise type</strong>。所以如果你的 Promise type 叫做 P（举例），那么使用 P 作为 promise type 的协程其句柄就叫做 <code>std::coroutine_handle&lt;P></code></p><p>（还有泛型 <code>std::coroutine_handle&lt;></code>，是 <code>std::coroutine_handle&lt;void></code> 的简写。这个句柄使用的是类型擦除后的 void* 泛型指针：可以存储 <em>任何</em> 类型的协程句柄，不管其promise type是什么）</p><p>协程句柄和 promise type 在同一时间由编译器帮你构造，他们二者互相转化非常简单：</p><ul><li>通过 promise 得到 handle，调用 coroutine handle 的静态函数：from_promise() 即可，将你的 promise 对象传给他</li><li>通过 handle 得到 promise，调用 handle 的 promise() 方法，会返回响应 promise 对象的引用</li></ul><p>我能构造协程实例时，实现会调用 Promise type 的 get_return_object() ，他已经跟 promise 对象的引用关联了（即*this），我们可以通过他来构造协程句柄。</p><p>我们得到他之后要干什么呢？<strong>我们把它传递给用户感知类型的构造函数，因为那是用户通过操作对象来恢复协程</strong>，用户需要知道哪里来寻找 coroutine handle。</p><p><code>std::coroutine_handle&lt;P></code> 非常明确而且有点长，所以以后会通过 alias 来将他称为 handle_type。</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=k>class</span> <span class=nc>UserFacing</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>  <span class=k>public</span><span class=o>:</span>
+</span></span><span class=line><span class=cl>    <span class=k>class</span> <span class=nc>promise_type</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=k>using</span> <span class=n>handle_type</span> <span class=o>=</span> <span class=n>std</span><span class=o>::</span><span class=n>coroutine_handle</span><span class=o>&lt;</span><span class=n>promise_type</span><span class=o>&gt;</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=k>class</span> <span class=nc>promise_type</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>      <span class=k>public</span><span class=o>:</span>
+</span></span><span class=line><span class=cl>        <span class=n>UserFacing</span> <span class=n>get_return_object</span><span class=p>()</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>            <span class=k>auto</span> <span class=n>handle</span> <span class=o>=</span> <span class=n>handle_type</span><span class=o>::</span><span class=n>from_promise</span><span class=p>(</span><span class=o>*</span><span class=k>this</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>            <span class=k>return</span> <span class=n>UserFacing</span><span class=p>{</span><span class=n>handle</span><span class=p>};</span>
+</span></span><span class=line><span class=cl>        <span class=p>}</span>
+</span></span><span class=line><span class=cl>        <span class=c1>// ...
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=p>};</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=c1>// ...
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=p>};</span>
+</span></span></code></pre></td></tr></table></div></div><p>当然，你的构造函数也需要接受 coroutine handle 作为参数，然后把它作为数据保存。至少得是：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=k>class</span> <span class=nc>UserFacing</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>	<span class=c1>// ...
+</span></span></span><span class=line><span class=cl><span class=c1></span>  <span class=k>private</span><span class=o>:</span>
+</span></span><span class=line><span class=cl>    <span class=n>handle_type</span> <span class=n>handle</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=n>UserFacing</span><span class=p>(</span><span class=n>handle_type</span> <span class=n>handle</span><span class=p>)</span> <span class=o>:</span> <span class=n>handle</span><span class=p>(</span><span class=n>handle</span><span class=p>)</span> <span class=p>{}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  <span class=k>public</span><span class=o>:</span>
+</span></span><span class=line><span class=cl>    <span class=kt>void</span> <span class=n>resume</span><span class=p>()</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=n>handle</span><span class=p>.</span><span class=n>resume</span><span class=p>();</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl><span class=p>};</span>
+</span></span></code></pre></td></tr></table></div></div><p>实现了一个最简单的版本，通过给用户感知类型一个 resume 函数，单纯调用 handle 的 resume。</p><p>注意：构造函数现在是 private。我觉得这是一个使用 private 方法的不错例子：唯一合法的调用是在 promise_type 中调用的那个构造函数，这样的话 API 也完全是 promise type 和 用户感知类型之间内部的。因此你可以随心所欲的对其进行修改，而不用担心改变其他地方的用途。</p><p>在这种场景下，构造函数的调用在 promise_type 中，其定义在 UserFacing 内部，因此他自动是 UserFacing 的 private 成员。如果我们想把二者分开定义，我们需要显式声明 promise_type 为 friend，或者让构造函数 public。</p><p>现在我们就可以恢复我们的协程了，调用刚才实现的方法：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=n>UserFacing</span> <span class=nf>demo_coroutine</span><span class=p>()</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=n>std</span><span class=o>::</span><span class=n>cout</span> <span class=o>&lt;&lt;</span> <span class=s>&#34;we&#39;re about to suspend this coroutine&#34;</span> <span class=o>&lt;&lt;</span> <span class=n>std</span><span class=o>::</span><span class=n>endl</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=k>co_await</span> <span class=n>Event</span><span class=p>{};</span>
+</span></span><span class=line><span class=cl>    <span class=n>std</span><span class=o>::</span><span class=n>cout</span> <span class=o>&lt;&lt;</span> <span class=s>&#34;we&#39;ve successfully resumed the coroutine&#34;</span> <span class=o>&lt;&lt;</span> <span class=n>std</span><span class=o>::</span><span class=n>endl</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=kt>int</span> <span class=nf>main</span><span class=p>()</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=n>UserFacing</span> <span class=n>demo_instance</span> <span class=o>=</span> <span class=n>demo_coroutine</span><span class=p>();</span>
+</span></span><span class=line><span class=cl>    <span class=n>std</span><span class=o>::</span><span class=n>cout</span> <span class=o>&lt;&lt;</span> <span class=s>&#34;we&#39;re back in main()&#34;</span> <span class=o>&lt;&lt;</span> <span class=n>std</span><span class=o>::</span><span class=n>endl</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=n>demo_instance</span><span class=p>.</span><span class=n>resume</span><span class=p>();</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><p>结果：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>we&#39;re about to suspend this coroutine
+</span></span><span class=line><span class=cl>we&#39;re back in main()
+</span></span><span class=line><span class=cl>we&#39;ve successfully resumed the coroutine
+</span></span></code></pre></td></tr></table></div></div><p>终于……讲了三节，我们终于可以暂停和恢复协程了！</p><p>（注意这里我移除了 co_return，之前他存在的意义是让函数变为协程，但是现在有 co_await 了，也能干一样的事，且我们不需要 co_return 来返回，我们可以让协程执行到底来自动返回）</p><p>Full source code for this section: <a class=link href=https://www.chiark.greenend.org.uk/~sgtatham/quasiblog/coroutines-c++20/co_demo.resume.cpp target=_blank rel=noopener><code>co_demo.resume.cpp</code></a>.</p><hr><h3 id=处理协程状态>处理协程状态</h3><p>现在我们把协程句柄存储在用户感知对象里了，现在是时候处理无聊的部分：内存管理。</p><p>我们没有自己手动写分配 promise 对象的代码。C++ 实现帮我们在背后做了。所以我们需要担心的是他会如何被回收。如果我们不做的话，那么协程就会有 built-in 内存泄露。</p><p>并不能自动回收协程，你需要手动管理，通过调用 handle 的 destroy()</p><p>最简单的办法是先删除复制构造函数和复制赋值运算符，防止用户不小心赋值对象。其次，实现移动构造函数和移动赋值运算符，来移动 coroutine handle，这样的话如果用户移动了对象也不会造成 double free。</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span><span class=lnt>20
+</span><span class=lnt>21
+</span><span class=lnt>22
+</span><span class=lnt>23
+</span><span class=lnt>24
+</span><span class=lnt>25
+</span><span class=lnt>26
+</span><span class=lnt>27
+</span><span class=lnt>28
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=k>class</span> <span class=nc>UserFacing</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=c1>// ...
+</span></span></span><span class=line><span class=cl><span class=c1></span>
+</span></span><span class=line><span class=cl>  <span class=k>private</span><span class=o>:</span>
+</span></span><span class=line><span class=cl>    <span class=n>handle_type</span> <span class=n>handle</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=n>UserFacing</span><span class=p>(</span><span class=n>handle_type</span> <span class=n>handle</span><span class=p>)</span> <span class=o>:</span> <span class=n>handle</span><span class=p>(</span><span class=n>handle</span><span class=p>)</span> <span class=p>{}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=n>UserFacing</span><span class=p>(</span><span class=k>const</span> <span class=n>UserFacing</span> <span class=o>&amp;</span><span class=p>)</span> <span class=o>=</span> <span class=k>delete</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=n>UserFacing</span> <span class=o>&amp;</span><span class=k>operator</span><span class=o>=</span><span class=p>(</span><span class=k>const</span> <span class=n>UserFacing</span> <span class=o>&amp;</span><span class=p>)</span> <span class=o>=</span> <span class=k>delete</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  <span class=k>public</span><span class=o>:</span>
+</span></span><span class=line><span class=cl>    <span class=n>UserFacing</span><span class=p>(</span><span class=n>UserFacing</span> <span class=o>&amp;&amp;</span><span class=n>rhs</span><span class=p>)</span> <span class=o>:</span> <span class=n>handle</span><span class=p>(</span><span class=n>rhs</span><span class=p>.</span><span class=n>handle</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=n>rhs</span><span class=p>.</span><span class=n>handle</span> <span class=o>=</span> <span class=k>nullptr</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>    <span class=n>UserFacing</span> <span class=o>&amp;</span><span class=k>operator</span><span class=o>=</span><span class=p>(</span><span class=n>UserFacing</span> <span class=o>&amp;&amp;</span><span class=n>rhs</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=k>if</span> <span class=p>(</span><span class=n>handle</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>            <span class=n>handle</span><span class=p>.</span><span class=n>destroy</span><span class=p>();</span>
+</span></span><span class=line><span class=cl>        <span class=n>handle</span> <span class=o>=</span> <span class=n>rhs</span><span class=p>.</span><span class=n>handle</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>        <span class=n>rhs</span><span class=p>.</span><span class=n>handle</span> <span class=o>=</span> <span class=k>nullptr</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>        <span class=k>return</span> <span class=o>*</span><span class=k>this</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=o>~</span><span class=n>UserFacing</span><span class=p>()</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=k>if</span> <span class=p>(</span><span class=n>handle</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>            <span class=n>handle</span><span class=p>.</span><span class=n>destroy</span><span class=p>();</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl><span class=p>};</span>
+</span></span></code></pre></td></tr></table></div></div><p>如果你 <em>需要</em> 允许用户感知对象复制的话，那么你就得更小心谨慎的设计结构防止double free，最简单的方式可能就是使用 shared_ptr 来进行管理。</p><hr><h3 id=通过-co_yield-传递值>通过 co_yield 传递值</h3><p>现在我们理解了基础后，就可以进阶了。</p><p>第一件事是 co_yield</p><p>作为例子，我们让我们的 demo 协程生成一个值，并交给 caller，最后我们大致会写出类似：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=n>UserFacing</span> <span class=nf>demo_coro</span><span class=p>()</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=k>co_yield</span> <span class=mi>100</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=k>for</span> <span class=p>(</span><span class=kt>int</span> <span class=n>i</span> <span class=o>=</span> <span class=mi>1</span><span class=p>;</span> <span class=n>i</span> <span class=o>&lt;=</span> <span class=mi>3</span><span class=p>;</span> <span class=o>++</span><span class=n>i</span><span class=p>)</span> 
+</span></span><span class=line><span class=cl>        <span class=k>co_yield</span> <span class=n>i</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=k>co_yield</span> <span class=mi>200</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><p>然后提供一个接口 <code>next_value()</code> 会按顺序返回 100,1,2,3,200</p><p>为了让协程中使用 co_yield 合法，promise type 必须提供方法 <code>yield_value()</code>,接受你想要生成的值的类型作为参数。这个例子中，我们定义 <code>yield_value(int)</code></p><p>yield_value 的返回值接着会像你正常传给 co_await 一样，所以他必须是一个 awaiter，或者某些可以通过 await_transform 或者 operator co_await 转换为 awaiter 的类型。</p><p>这种情况中，最简单的办法是单纯让他返回一个 awaiter，使用平凡的 std::suspend_always 即可。然后，每个 co_yield 都会将控制权传递给 caller，以便于 caller 使用生成的值。</p><p>但是 co_yield 也会对他的参数做一些处理。C++实现本身不关心 yielded value 和协程的 caller 的交互。我们需要自己实现一些代码。</p><p>最简单的办法是将其存储在 promise 对象中，单独给一个字段存储：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=k>class</span> <span class=nc>UserFacing</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>	<span class=k>class</span> <span class=nc>promise_type</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    	<span class=k>public</span><span class=o>:</span>
+</span></span><span class=line><span class=cl>        <span class=kt>int</span> <span class=n>yielded_value</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>        <span class=n>std</span><span class=o>::</span><span class=n>suspend_always</span> <span class=n>yield_value</span><span class=p>(</span><span class=kt>int</span> <span class=n>value</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>            <span class=n>yieleded_value</span> <span class=o>=</span> <span class=n>value</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>            <span class=k>return</span> <span class=p>{};</span>
+</span></span><span class=line><span class=cl>        <span class=p>}</span>
+</span></span><span class=line><span class=cl>    <span class=p>};</span>
+</span></span><span class=line><span class=cl><span class=p>};</span>
+</span></span></code></pre></td></tr></table></div></div><p>现在，当协程执行到 co_yield 100时，promise 对象会调用 yield_value(100)，根据上面的实现，100会被存储到成员变量中，之后返回 awaiter 来暂停协程。</p><p>暂停协程意味着控制流交还给将会调用 handle.resume() 的东西，在前一部分，这个通过用户感知类型的方法调用。所以我们应该修改方法让其返回 int 而不是 void，并且取出存在于 promise type 中的值。</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span><span class=lnt>7
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=k>class</span> <span class=nc>UserFacing</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=k>public</span><span class=o>:</span>
+</span></span><span class=line><span class=cl>    <span class=kt>int</span> <span class=n>next_value</span><span class=p>()</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=n>handle</span><span class=p>.</span><span class=n>resume</span><span class=p>();</span>
+</span></span><span class=line><span class=cl>        <span class=k>return</span> <span class=n>handle</span><span class=p>.</span><span class=n>promise</span><span class=p>().</span><span class=n>yielded_value</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl><span class=p>};</span>
+</span></span></code></pre></td></tr></table></div></div><p>之后，前五次调用 next_value 会返回示例协程生成的值了。</p><p>但 <em>之后再</em> 调用一次会返回什么呢？</p><p>第六次调用 next_value() 协程会在 co_yield 200 语句后恢复，这是协程函数体中最后一个语句了，所以控制流会结束，之后协程执行完毕，并通过 final_suspend() 返回的 std::suspend_always 来暂停自己。</p><p>但什么都没有生成，没有东西调用 yield_value，也没有东西写入成员变量，仍然会获得跟之前一样的值。</p><p>换句话说，第六次调用会 <em>再返回</em> 一次 200，单纯是因为上一次调用产生的结果。</p><p>修复这个最简单的办法是在恢复协程 <em>之前</em> 写一些 dummy value，之后，他代表没有生成任何值，在 resume 后 dummy value 仍然在这。</p><p>我们可以考虑一些特殊的 int 值来代表 “没有被生成的值”，例如 0，-1，INT_MIN 或其他的东西。但是那不是 C++20 该做的，更好的办法是使用 <code>std::optional&lt;int></code>，</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=k>class</span> <span class=nc>UserFacing</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=c1>// ...
+</span></span></span><span class=line><span class=cl><span class=c1></span>
+</span></span><span class=line><span class=cl>  <span class=k>public</span><span class=o>:</span>
+</span></span><span class=line><span class=cl>    <span class=n>std</span><span class=o>::</span><span class=n>optional</span><span class=o>&lt;</span><span class=kt>int</span><span class=o>&gt;</span> <span class=n>next_value</span><span class=p>()</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=k>auto</span> <span class=o>&amp;</span><span class=n>promise</span> <span class=o>=</span> <span class=n>handle</span><span class=p>.</span><span class=n>promise</span><span class=p>();</span>
+</span></span><span class=line><span class=cl>        <span class=n>promise</span><span class=p>.</span><span class=n>yielded_value</span> <span class=o>=</span> <span class=n>std</span><span class=o>::</span><span class=n>nullopt</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>        <span class=n>handle</span><span class=p>.</span><span class=n>resume</span><span class=p>();</span>
+</span></span><span class=line><span class=cl>        <span class=k>return</span> <span class=n>promise</span><span class=p>.</span><span class=n>yielded_value</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl><span class=p>};</span>
+</span></span></code></pre></td></tr></table></div></div><p>现在的话，next_value 的返回值也是 <code>std::optional&lt;int></code>，这样 caller 就可以正确找到实际的值。</p><p>Full source code for this section: <a class=link href=https://www.chiark.greenend.org.uk/~sgtatham/quasiblog/coroutines-c++20/co_demo.yield.cpp target=_blank rel=noopener><code>co_demo.yield.cpp</code></a> (the simpler version without <code>std::optional</code>), and <a class=link href=https://www.chiark.greenend.org.uk/~sgtatham/quasiblog/coroutines-c++20/co_demo.yield_optional.cpp target=_blank rel=noopener><code>co_demo.yield_optional.cpp</code></a> (the full version that uses <code>std::optional</code> so it can can signal end of stream).</p><hr><h3 id=检测协程是否执行完毕>检测协程是否执行完毕</h3><p>在上一部分，我们假设你调用 next_value() 6次，你依次接收 <code>std::optional&lt;int></code> 5次，一次包括 100 1 2 3 200，之后返回代表空序列的 optional</p><p>那继续调用 next_value 会发生什么？</p><p>这时，协程已经到达结束的位置了；final_suspend() 已经被调用。在这之后恢复协程会发生错误，导致崩溃。</p><p>如果你调用的代码 100% 会判断 std::nullopt，那么大概可以避免这个问题，因为你可能不会再次调用 next_value()，但如果你的代码不那么有条理，你想让多次调用 next_value 也安全，那么你可能需要在 <em>所有</em> 调用 next_value 之前先把 value 清空。</p><p>我们需要了解协程什么时候完成，然后不应该再恢复他了。幸运的是这个很简单，因为 handle 提供了 done() 函数，返回 bool</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=k>class</span> <span class=nc>UserFacing</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=c1>// ...
+</span></span></span><span class=line><span class=cl><span class=c1></span>
+</span></span><span class=line><span class=cl>  <span class=k>public</span><span class=o>:</span>
+</span></span><span class=line><span class=cl>    <span class=n>std</span><span class=o>::</span><span class=n>optional</span><span class=o>&lt;</span><span class=kt>int</span><span class=o>&gt;</span> <span class=n>next_value</span><span class=p>()</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=k>auto</span> <span class=o>&amp;</span><span class=n>promise</span> <span class=o>=</span> <span class=n>handle</span><span class=p>.</span><span class=n>promise</span><span class=p>();</span>
+</span></span><span class=line><span class=cl>        <span class=n>promise</span><span class=p>.</span><span class=n>yielded_value</span> <span class=o>=</span> <span class=n>std</span><span class=o>::</span><span class=n>nullopt</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>        <span class=k>if</span> <span class=p>(</span><span class=o>!</span><span class=n>handle</span><span class=p>.</span><span class=n>done</span><span class=p>())</span>
+</span></span><span class=line><span class=cl>            <span class=n>handle</span><span class=p>.</span><span class=n>resume</span><span class=p>();</span>
+</span></span><span class=line><span class=cl>        <span class=k>return</span> <span class=n>promise</span><span class=p>.</span><span class=n>yielded_value</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl><span class=p>};</span>
+</span></span></code></pre></td></tr></table></div></div><p>好多了，现在你的协程就不会因为调用错误次数的 next_value() 而崩溃。</p><p>Full source code for this section: <a class=link href=https://www.chiark.greenend.org.uk/~sgtatham/quasiblog/coroutines-c++20/co_demo.done.cpp target=_blank rel=noopener><code>co_demo.done.cpp</code></a>.</p><hr><h3 id=通过-co_return-返回最终结果>通过 co_return 返回最终结果</h3><p>如何使用 co_return 返回一些额外的数据？</p><p>大多数情况下你大概率不会需要这个，但如果协程在执行一些网络任务，每次数据到达时 event loop 执行回调，那么可能使用 co_yield 和 co_await 跟网络设备交互（收发数据），之后使用 co_return 和 <em>程序</em> 中的其他需要该数据的部分交互，确定任务是否完成，或者查询的结果</p><p>如果你想 co_return 一个值，那么你需要定义 promise type 的 return_value 方法，接受一个你想 co_return 的类型的值。</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=k>class</span> <span class=nc>UserFacing</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=c1>// ...
+</span></span></span><span class=line><span class=cl><span class=c1></span>  <span class=k>public</span><span class=o>:</span>
+</span></span><span class=line><span class=cl>    <span class=k>class</span> <span class=nc>promise_type</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>      <span class=k>public</span><span class=o>:</span>
+</span></span><span class=line><span class=cl>        <span class=n>std</span><span class=o>::</span><span class=n>optional</span><span class=o>&lt;</span><span class=n>std</span><span class=o>::</span><span class=n>string</span><span class=o>&gt;</span> <span class=n>returned_value</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>        <span class=kt>void</span> <span class=nf>return_value</span><span class=p>(</span><span class=n>std</span><span class=o>::</span><span class=n>string</span> <span class=n>value</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>            <span class=n>returned_value</span> <span class=o>=</span> <span class=n>value</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>        <span class=p>}</span>
+</span></span><span class=line><span class=cl>    <span class=p>};</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=c1>// ...
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=n>std</span><span class=o>::</span><span class=n>optional</span><span class=o>&lt;</span><span class=n>std</span><span class=o>::</span><span class=n>string</span><span class=o>&gt;</span> <span class=n>final_result</span><span class=p>()</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=k>return</span> <span class=n>handle</span><span class=p>.</span><span class=n>promise</span><span class=p>().</span><span class=n>returned_value</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl><span class=p>};</span>
+</span></span></code></pre></td></tr></table></div></div><p>常规来讲，return value 的行为取决于你，我把它存到了另外一个成员变量，并且提供了一个根据要求返回它的方法。所以你可以实例化这种类型的协程，一直调用 next_value 直到协程完成，最后调用 final_result 来得到当前状态的信息。</p><p>如果你这么做最重要的事情是：<strong>你必须移除 return_void 方法</strong>，这是标准规定，你 <em>只能</em> 实现 return_void 和 return_value 其一。</p><p>Full source code for this section: <a class=link href=https://www.chiark.greenend.org.uk/~sgtatham/quasiblog/coroutines-c++20/co_demo.return.cpp target=_blank rel=noopener><code>co_demo.return.cpp</code></a>.</p><hr><h3 id=处理协程抛出的异常>处理协程抛出的异常</h3><p>我们已经实现了原始例子中的大部分方法，但是我们还有一个没有讲到的：<code>unhandled_exception()</code></p><p>你可以按往常一样在协程内部抛出、捕获异常（虽然你不可以在 catch 块中 co_await 或者 co_yield），如果你抛出的异常 <em>没有</em> 在协程内被捕获，那么会发生什么？</p><p>首先，协程会自动关闭，就像普通函数抛出异常一样。你无法再恢复协程：因为你<em>无从恢复</em>。</p><p>但是在那之前，unhandled_exception() 会被 promise 对象调用。它实际上不接收任何参数，但是可以通过调用 std::current_exception() 来获取现在发生的异常，它的返回值是 std::exception_ptr。然后你可以向外传播异常，通过 std::rethrow_exception 来重新抛出。</p><p>许多情况下，最方便的方法是将协程中的异常传播到上次恢复时的调用点。例如，在 generator 式的协程中，你比较能接受的方式可能是将协程传播给调用 next_value 的人</p><p>（如果没有其他副作用的话，这也是 python 中生成器的工作方式，所以如果你想要那种方式的话，可以参考这个做法）</p><p>你的代码可能会是：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span><span class=lnt>20
+</span><span class=lnt>21
+</span><span class=lnt>22
+</span><span class=lnt>23
+</span><span class=lnt>24
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=k>class</span> <span class=nc>UserFacing</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=c1>// ...
+</span></span></span><span class=line><span class=cl><span class=c1></span>  <span class=k>public</span><span class=o>:</span>
+</span></span><span class=line><span class=cl>    <span class=k>class</span> <span class=nc>promise_type</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=c1>// ...
+</span></span></span><span class=line><span class=cl><span class=c1></span>
+</span></span><span class=line><span class=cl>      <span class=k>public</span><span class=o>:</span>
+</span></span><span class=line><span class=cl>        <span class=n>std</span><span class=o>::</span><span class=n>exception_ptr</span> <span class=n>exception</span> <span class=o>=</span> <span class=k>nullptr</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>        <span class=kt>void</span> <span class=nf>unhandled_exception</span><span class=p>()</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>            <span class=n>exception</span> <span class=o>=</span> <span class=n>std</span><span class=o>::</span><span class=n>current_exception</span><span class=p>();</span>
+</span></span><span class=line><span class=cl>        <span class=p>}</span>
+</span></span><span class=line><span class=cl>    <span class=p>};</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=n>std</span><span class=o>::</span><span class=n>optional</span><span class=o>&lt;</span><span class=kt>int</span><span class=o>&gt;</span> <span class=n>next_value</span><span class=p>()</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=k>auto</span> <span class=o>&amp;</span><span class=n>promise</span> <span class=o>=</span> <span class=n>handle</span><span class=p>.</span><span class=n>promise</span><span class=p>();</span>
+</span></span><span class=line><span class=cl>        <span class=n>promise</span><span class=p>.</span><span class=n>yielded_value</span> <span class=o>=</span> <span class=n>std</span><span class=o>::</span><span class=n>nullopt</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>        <span class=n>promise</span><span class=p>.</span><span class=n>exception</span> <span class=o>=</span> <span class=k>nullptr</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>        <span class=k>if</span> <span class=p>(</span><span class=o>!</span><span class=n>handle</span><span class=p>.</span><span class=n>done</span><span class=p>())</span>
+</span></span><span class=line><span class=cl>            <span class=n>handle</span><span class=p>.</span><span class=n>resume</span><span class=p>();</span>
+</span></span><span class=line><span class=cl>        <span class=k>if</span> <span class=p>(</span><span class=n>promise</span><span class=p>.</span><span class=n>exception</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>            <span class=n>std</span><span class=o>::</span><span class=n>rethrow_exception</span><span class=p>(</span><span class=n>promise</span><span class=p>.</span><span class=n>exception</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>        <span class=k>return</span> <span class=n>promise</span><span class=p>.</span><span class=n>yielded_value</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl><span class=p>};</span>
+</span></span></code></pre></td></tr></table></div></div><p>注意我们让 promise.exception 初始化为 nullptr，原因与清除 promise.yielded_value 相同。如果不这么做的话，调用 next_value 时就会抛出跟上次相同的异常。</p><p>如果 unhandled_exception 什么都不做，那么异常会在协程退出后被丢弃。就好像协程体包含在隐式 try/catch 中一样，其中 catch 调用 unhandled_exception，然后假设这就是它需要执行的全部操作。</p><p>在协程抛出异常时，你可能<em>不仅仅</em> 想做这些事情，如果你的系统中的协程调用另外一个子协程（并且根据行为生成它），那么你可能会希望从子协程中抛出的异常传递给调用者协程，就像 caller/callee 普通函数一样。这种情况下，你可能仍然希望 unhandled_exception 存储异常，但是你需要在不同的场景下抛出。之后我们探讨这个问题。</p><p>Full source code for this section: <a class=link href=https://www.chiark.greenend.org.uk/~sgtatham/quasiblog/coroutines-c++20/co_demo.exception.cpp target=_blank rel=noopener><code>co_demo.exception.cpp</code></a>.</p><hr><h3 id=编写自定义-awaiter>编写自定义 awaiter</h3><p>每次你的协程暂停时，甚至是 <em>潜在</em> 暂停，都会构造一个 <em>awaiter object</em>，并且用它来控制是否发生暂停以及其影响。</p><p>目前，我们都是使用标准库提供的两个 Awaiter，std::suspend_always and std::suspend_never。终于可以自己实现了。</p><p>awaiter 类型不需要继承任何特殊的类，只是单纯实现三个方法（某些的类型并不是固定的）</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=k>class</span> <span class=nc>Awaiter</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>  <span class=k>public</span><span class=o>:</span>
+</span></span><span class=line><span class=cl>    <span class=kt>bool</span> <span class=n>await_ready</span><span class=p>();</span>
+</span></span><span class=line><span class=cl>    <span class=n>SuspendReturnType</span> <span class=nf>await_suspend</span><span class=p>(</span><span class=n>std</span><span class=o>::</span><span class=n>coroutine_handle</span><span class=o>&lt;</span><span class=n>OurPromiseType</span><span class=o>&gt;</span> <span class=n>handle</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=n>ResumeReturnType</span> <span class=nf>await_resume</span><span class=p>();</span>
+</span></span><span class=line><span class=cl><span class=p>};</span>
+</span></span></code></pre></td></tr></table></div></div><p>第一个 await_ready(), 控制协程是否暂停。如果其返回 true，那么协程会继续执行，如果返回 false 那么线程暂停。</p><p>（为什么这么设计？你执行 co_await 时大概是需要等待一些东西，例如，可能协程需要其他操作的返回结果，所以需要等待。那么这里的思想就是 await_ready() <em>一直测试</em> 你等待的东西是否完成，如果完成，返回 true，不然你也知道不需要继续等待了。）</p><p>如果 await_ready 返回 false，那么会调用 await_suspend，他接受协程 handle（这意味着他也可以访问 promise对象了，通过 handle.promise()），它的返回类型有几种选择：</p><ul><li>void，协程暂停并且将控制权返回给上次恢复它的东西</li><li>bool，返回 true 时暂停，false 代表协程不需要暂停</li><li>返回 <em>另外一个协程句柄</em>。这种情况下协程会暂停，但是控制权不会返回给上次恢复它的东西，而是恢复执行返回的 handle 对应的那个协程。当然那个协程 <em>也</em> 可以在暂停后转换到其他协程。只有协程暂停且 <em>没有</em> 指定需要恢复的另外一个协程时，控制权才会被返回给 resumer。</li></ul><p>如果让 await_suspend 在<em>某些条件下</em> 将控制权传给另外一个协程怎么样？那么你需要将其 handle 声明为函数的返回值（否则根本就无法获得其他协程了），但他最后还是需要返回一个值，用来不恢复其他东西，只是返回调用者。</p><p>为了实现这个，标准库提供了 &rsquo;no-op coroutine&rsquo; 总是暂停自己并且不做其他事情。所以如果你声明 await_suspend 返回协程 handle，然后在某些情况下你想返回给调用者，那么你通过返回 std::noop_coroutine 实现。</p><p>好了，那么怎么才能让 await_suspend 也可以 <em>在某些条件下</em> 不暂停呢？</p><p>这种情况，你需要返回你传入作为参数的那个协程 handle。然后同一个协程会被立马恢复，就好像一开始就没有暂停一样。</p><p>所以返回协程 handle 版本的 await_suspend 是最通用的形式：可以选择不暂停（返回其参数），暂停并且返回给 caller（返回 std::noop_coroutine），<em>或者</em> 转移到其他协程。</p><p>void 和 bool 版本是单纯上面行为的简化版子集。</p><p>最后，await_resume() 会在协程准备好继续执行时被调用（不管是因为他一开始暂停然后恢复了，还是根本就没暂停）。await_resume() 的返回值被传递给协程自己，作为 co_await 或者 co_yield 表达式的返回值。</p><p>例如，你决定写一个 awaiter，然后你可以使用 co_await 来等待一个网络任务完成，你就可以选择通过这个办法来将返回值传递给协程。你的代码会像是：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=n>UserFacing</span> <span class=nf>my_coroutine</span><span class=p>()</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=c1>// ...
+</span></span></span><span class=line><span class=cl><span class=c1></span>
+</span></span><span class=line><span class=cl>    <span class=n>std</span><span class=o>::</span><span class=n>optional</span><span class=o>&lt;</span><span class=n>SomeData</span><span class=o>&gt;</span> <span class=n>result</span> <span class=o>=</span> <span class=k>co_await</span> <span class=n>SomeNetworkTransaction</span><span class=p>();</span>
+</span></span><span class=line><span class=cl>    <span class=k>if</span> <span class=p>(</span><span class=n>result</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=c1>// do something with the output
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=p>}</span> <span class=k>else</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=c1>// error handling
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=c1>// ...
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><p>就像你平时调用函数一样。</p><p>以上是 awaiter 可以做的所有事情，这里总结一下：</p><ul><li>当协程被创建时，其让你可以选择它在开始时是否暂停，或者立刻执行直到遇到第一个 yield 或者 await 点。</li><li>在任何 co_await 或者 co_yield 调用时，awaiter 允许你配置那些操作是否暂停，或者将控制权交给不同的协程; 和程序交互，决定其他协程什么时候恢复；在 await 和 yield 结束后返回一个有用的值。</li><li>当协程结束时（不管是返回还是异常），这种情况下，不允许再运行协程，丹尼可以让他在终点暂停，或者将控制权转移给其他协程，作为其最后的行为。</li></ul><p>Full source code for this section, demonstrating lots of simple custom awaiters: <a class=link href=https://www.chiark.greenend.org.uk/~sgtatham/quasiblog/coroutines-c++20/co_demo.awaiters.cpp target=_blank rel=noopener><code>co_demo.awaiters.cpp</code></a>.</p><hr><h3 id=使用-stdcoroutine_traits-分辨-promise-type>使用 std::coroutine_traits 分辨 promise type</h3><p>在前面的所有例子中，我们的 promise type 都定义在用户感知类型中，但是前文也提到，我们不止可以这么做。</p><p>当你写一个协程时发生了什么？C++实现会根据协程的函数签名实例化一个模板类 std::coroutine_traits，然后 <em>询问</em> promise type 是什么。</p><p><em>默认</em> 的 STL 实现是寻找函数类型 T 的返回值，然后期望 T::promise_type 存在。但如果你不想在类中存储 promise type，你可以特化你自己的 std::coroutine_traits</p><p>这么做的目的是什么？</p><p>一个原因是有时候可能你无法将该类型放入你的类中，例如一些标准库类型，比如 std::unique_ptr。或者也可能是一些简单的东西，比如裸指针 甚至是 int。之后我们会展示一个例子，你可能会用到你无法控制的类型。</p><p>另外一个原因是 std::coroutine_traits 模板并不只是关注协程的 <em>返回</em> 类型，而且会关注参数的类型。所以如果你的 promise type 依赖那些的话，那么你就需要写一个模板特化。</p><p>以下是一个用来展示语法的简单示例：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=k>template</span> <span class=o>&lt;&gt;</span>
+</span></span><span class=line><span class=cl><span class=k>struct</span> <span class=nc>std</span><span class=o>::</span><span class=n>coroutine_traits</span><span class=o>&lt;</span><span class=n>UserFacing</span><span class=o>&gt;</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>  	<span class=k>using</span> <span class=n>promise_type</span> <span class=o>=</span> <span class=n>SomePromiseType</span><span class=p>;</span>  
+</span></span><span class=line><span class=cl><span class=p>};</span>
+</span></span></code></pre></td></tr></table></div></div><p>这会告诉编译器：如果一个协程的返回值类型是 UserFacing，<em>并且不接收任何参数</em>，那么它的 promise type 就应该是 SomePromiseType（假设你已经定义好了）</p><p>下一步，增加一些特殊参数：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=k>template</span> <span class=o>&lt;&gt;</span>
+</span></span><span class=line><span class=cl><span class=k>struct</span> <span class=nc>std</span><span class=o>::</span><span class=n>coroutine_traits</span><span class=o>&lt;</span><span class=n>UserFacing</span><span class=p>,</span> <span class=kt>bool</span><span class=p>,</span> <span class=kt>char</span><span class=o>*&gt;</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>  	<span class=k>using</span> <span class=n>promise_type</span> <span class=o>=</span> <span class=n>SomePromiseType</span><span class=p>;</span>  
+</span></span><span class=line><span class=cl><span class=p>};</span>
+</span></span></code></pre></td></tr></table></div></div><p>这个会精确匹配到返回值是 UserFacing 且接受那两个类型参数的协程。</p><p>但大部分情况下你应该不会关心参数，所以可能是这样：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=k>template</span> <span class=o>&lt;</span><span class=k>typename</span><span class=p>...</span> <span class=n>Ts</span><span class=o>&gt;</span>
+</span></span><span class=line><span class=cl><span class=k>struct</span> <span class=nc>std</span><span class=o>::</span><span class=n>coroutine_traits</span><span class=o>&lt;</span><span class=n>UserFacing</span><span class=p>,</span> <span class=n>Ts</span><span class=p>...</span><span class=o>&gt;</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>	<span class=k>using</span> <span class=n>promise_type</span> <span class=o>=</span> <span class=n>SomePromiseType</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=p>};</span>
+</span></span></code></pre></td></tr></table></div></div><p>这个特化会匹配 <em>任何</em> 返回值是 UserFacing 的协程，不管他几个参数。所以如果你的 promise type <em>只</em> 依赖协程的返回值，且你不想定义 UserFacing::promise_type，那么大概你就会这么做。</p><hr><h3 id=允许-promise-type-访问协程的参数>允许 promise type 访问协程的参数</h3><p>目前的示例中，我还没有展示 promise 类中的构造函数。所以，C++会自动生成一个默认构造。</p><p>但这不是唯一的方式，如果有一个合适的构造函数，那么 promise 类将会按照接收的参数进行构造。例如，你可能会：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=k>class</span> <span class=nc>UserFacing</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>  <span class=k>public</span><span class=o>:</span>
+</span></span><span class=line><span class=cl>    <span class=k>class</span> <span class=nc>promise_type</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>      <span class=k>public</span><span class=o>:</span>
+</span></span><span class=line><span class=cl>        <span class=n>promise_type</span><span class=p>(</span><span class=kt>int</span> <span class=n>x</span><span class=p>,</span> <span class=n>std</span><span class=o>::</span><span class=n>string_view</span> <span class=n>sv</span><span class=p>)</span> <span class=p>{</span> <span class=cm>/* ... */</span> <span class=p>}</span>
+</span></span><span class=line><span class=cl>        <span class=c1>// ...
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=p>};</span>
+</span></span><span class=line><span class=cl><span class=p>};</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=n>UserFacing</span> <span class=nf>demo_coroutine</span><span class=p>(</span><span class=kt>int</span> <span class=n>x</span><span class=p>,</span> <span class=n>std</span><span class=o>::</span><span class=n>string</span> <span class=n>y</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=c1>// ...
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=k>co_return</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><p>之后当你调用协程的时候，<code>demo_coroutine(1, "foo")</code>，promise type 的构造函数就会被调用，接收到两个参数。</p><p>参数的类型也不一定需要完全相同，只要可以转换到合适的类型即可，就像普通函数一样。例如，我这里的构造函数接受一个 std::string_view ，而函数体则是 std::string，并且一样能用，编译器会自动进行转换。</p><p>这样做的话可以避免额外的拷贝：如果 promise_type 的构造函数单纯接收一个 string，那么就会额外调用一次拷贝构造来传递这个副本。除非你真的需要这么干，不然尽量避免节外生枝。</p><p>（当然，promise type 的构造函数接收的也可以是 const std::string& ，以前的 C++可以这样，但是现在已经有 string_view了）</p><p><em>为什么</em> 要这么做？</p><p>这样的话协程的参数可以被当做控制 promise 类的办法，而不是让协程本身使用的。例如，假设你需要 promise 类包含一个指向 main-loop 的指针。最简单的办法就是通过构造 promise 对象时传入，所以你可能会做类似这样的事情：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=k>class</span> <span class=nc>UserFacing</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>  <span class=k>public</span><span class=o>:</span>
+</span></span><span class=line><span class=cl>    <span class=k>class</span> <span class=nc>promise_type</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=n>MainLoopThingy</span> <span class=o>*</span><span class=n>mlt</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>      <span class=k>public</span><span class=o>:</span>
+</span></span><span class=line><span class=cl>        <span class=k>template</span><span class=o>&lt;</span><span class=k>typename</span><span class=p>...</span> <span class=n>ArgTypes</span><span class=o>&gt;</span>
+</span></span><span class=line><span class=cl>        <span class=n>promise_type</span><span class=p>(</span><span class=n>MainLoopThingy</span> <span class=o>*</span><span class=n>mlt</span><span class=p>,</span> <span class=n>ArgTypes</span> <span class=o>&amp;&amp;</span><span class=p>...)</span> <span class=o>:</span> <span class=n>mlt</span><span class=p>(</span><span class=n>mlt</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>            <span class=c1>// maybe also tie this promise object into the main loop right here
+</span></span></span><span class=line><span class=cl><span class=c1></span>        <span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>        <span class=c1>// ...
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=p>};</span>
+</span></span><span class=line><span class=cl><span class=p>};</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=n>UserFacing</span> <span class=nf>demo_coroutine</span><span class=p>(</span><span class=n>MainLoopThingy</span> <span class=o>*</span><span class=p>,</span> <span class=kt>int</span> <span class=n>x</span><span class=p>,</span> <span class=n>std</span><span class=o>::</span><span class=n>string</span> <span class=n>y</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=c1>// this code ignores the MainLoopThingy and uses just the other parameters
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=k>co_return</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><p>这个例子中，我使用变参模板实现 promise type 的构造函数，所以它并不在意除了 MainLoopThingy 之外的任何参数。所以协程使用该 promise 类的协程不需要有相同的函数原型：他们 <em>只</em> 需要拥有 MainLoopThingy* 作为第一个参数即可。</p><p>如果你想这么干的话，你也许 <em>也</em> 会用到 std::coroutine_traits 来选择promise type，所以你可以使用不同的指针类型来定义协程，以此选择不同的 promise type。但这种情况的应用场景只在你需要让用户感知到的返回类型 <em>相同</em>。</p><p>另外一个特殊的情况是，你的协程是一个类成员函数。（这个情况完全支持，且之后我会更详细的描述。）在这种情况下，promise type 的构造函数（如果你只声明了一个参数），那么会接收类本身的引用作为第一个参数。如：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span><span class=lnt>20
+</span><span class=lnt>21
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=k>class</span> <span class=nc>MyClass</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=k>class</span> <span class=nc>UserFacing</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>  <span class=k>public</span><span class=o>:</span>
+</span></span><span class=line><span class=cl>    <span class=k>class</span> <span class=nc>promise_type</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=n>MyClass</span> <span class=o>*</span><span class=n>c</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>      <span class=k>public</span><span class=o>:</span>
+</span></span><span class=line><span class=cl>        <span class=k>template</span><span class=o>&lt;</span><span class=k>typename</span><span class=p>...</span> <span class=n>ArgTypes</span><span class=o>&gt;</span>
+</span></span><span class=line><span class=cl>        <span class=n>promise_type</span><span class=p>(</span><span class=n>MyClass</span> <span class=o>&amp;</span><span class=n>c</span><span class=p>,</span> <span class=n>ArgTypes</span> <span class=o>&amp;&amp;</span><span class=p>...)</span> <span class=o>:</span> <span class=n>c</span><span class=p>(</span><span class=o>&amp;</span><span class=n>c</span><span class=p>)</span> <span class=p>{}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>        <span class=c1>// ...
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=p>};</span>
+</span></span><span class=line><span class=cl><span class=p>};</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=k>class</span> <span class=nc>MyClass</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>  <span class=k>public</span><span class=o>:</span>
+</span></span><span class=line><span class=cl>    <span class=n>UserFacing</span> <span class=n>coroutine_method</span><span class=p>(</span><span class=kt>int</span> <span class=n>x</span><span class=p>,</span> <span class=n>std</span><span class=o>::</span><span class=n>string</span> <span class=n>y</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=c1>// ...
+</span></span></span><span class=line><span class=cl><span class=c1></span>        <span class=k>co_return</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl><span class=p>};</span>
+</span></span></code></pre></td></tr></table></div></div><p>这里，当 coroutine_method 被 MyClass 的实例调用时，promise type 的构造函数会接收该实例的引用（*this的引用），之后是 int 和 std::string 两个参数。</p><p>在 promise type 中，也存在一个跟之前示例类似的模板构造函数。但是构造函数希望接收 MyClass& 作为第一个参数，并且会存储指向该类的指针。这个保证 promise type 跟与他管理的类正常运作。</p><p>然而，注意！如果 MyClass 的实例是被拷贝的，那么 promise 类只能存储指向其中一个副本的指针。如果它被移动了，那么 promise 类也得更新指针。所以如果你这么做了，你就应该保证每个 MyClass 是不可移动的（delete copy ctor and move ctor <em>and</em> 运算符），或者让他是只能移动的类型并且在移动构造函数以及移动赋值运算符中更新与 promise type 管理的指针。</p><p>（这也是为什么用存储指向 MyClass 的指针而不是引用，指针才能被修改）</p><h2 id=非平凡的协程系统的例子>非平凡的协程系统的例子</h2><p>现在我已经列出了许多 C++ 允许你使用 promise 和 awaiter 干的事情。所以原则上你已经有了足够的知识可以上路了。</p><p>但是可能再展示一些有趣的例子会更有帮助。</p><h3 id=深入-produceradapterconsumer-链>深入 producer/adapter/consumer 链</h3><p>协程最初的用法之一 —— 可能是最早的用法，是 The Art of Computer Programming 中的展示。其中一个协程生产一系列对象，另一个进行消费。协程的特性会产生一种每一部分代码都是一个子例程的错觉，并且允许它以它认为最好的控制流执行代码，即使其中包括多个循环或者 if 语句，调用其他不同的例程。</p><p>最明显的扩展就是增加链长，使其拥有超过2个例程。这样中间的协程就可以从其左边的协程接收消息流，然后把它处理后传递给右边的协程。意味着中间的协程需要有两种暂停方式：收到新消息/有消息要传递。</p><p>C++ 中，我们恰好有两个语义代表这两种不同的行为：协程可以使用 co_await 来表明他正要等待一个值，使用 co_yield 来将值提供给消费者。当然，如果我们自定义了 awaiter，我们就可以让协程自动转移控制权并且沿着整个链前进，只有最终输出的值准备好时才返回给 caller。</p><p>（有很多种方法实现这个过程。另外一个可选的方法是在 main 中实现一个 &rsquo;executor&rsquo; 循环，其拥有一些暂停的协程，当一个协程暂停自己时，它就被传递给 executor 并且表明下一个应该恢复哪个协程。在某些情况下你需要选择这个方法，例如在线程间迁移信息，或者轮询 IO 源。但在这个例子中我想描述的是如何使用自定义 awaiters 来实现一个纯计算的多协程装置，<em>不需要</em> 单独的 executor。</p><p>我们来举一个例子：我会用协程来实现一个著名的 FizzBuzz 例子，从 1 开始迭代连续的整数，如果是3 的倍数输出 Fizz，5 的倍数输出 Buzz。如果既是3的倍数又是5的倍数就输出 FizzBuzz，都不是就输出数字自己。</p><p>为了让协程之间互相直接传递，他们需要以某种方式连接起来，这样才能互相找到对方。我们通过传递协程的用户感知对象作为函数参数以此构造下一个对象。</p><p>换句话说，我们大概是想写：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=n>UserFacing</span> <span class=nf>generate_numbers</span><span class=p>(</span><span class=kt>int</span> <span class=n>limit</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=k>for</span> <span class=p>(</span><span class=kt>int</span> <span class=n>i</span> <span class=o>=</span> <span class=mi>1</span><span class=p>;</span> <span class=n>i</span> <span class=o>&lt;=</span> <span class=n>limit</span><span class=p>;</span> <span class=o>++</span><span class=n>i</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=n>Value</span> <span class=n>v</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>        <span class=n>v</span><span class=p>.</span><span class=n>number</span> <span class=o>=</span> <span class=n>i</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>        <span class=k>co_yield</span> <span class=n>v</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=n>UserFacing</span> <span class=nf>check_multiple</span><span class=p>(</span><span class=n>UserFacing</span> <span class=n>source</span><span class=p>,</span> <span class=kt>int</span> <span class=n>divisor</span><span class=p>,</span> <span class=n>std</span><span class=o>::</span><span class=n>string</span> <span class=n>fizz</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=k>while</span> <span class=p>(</span><span class=n>std</span><span class=o>::</span><span class=n>optional</span><span class=o>&lt;</span><span class=n>Value</span><span class=o>&gt;</span> <span class=n>vopt</span> <span class=o>=</span> <span class=k>co_await</span> <span class=n>source</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=n>Value</span><span class=o>&amp;</span> <span class=n>v</span> <span class=o>=</span> <span class=o>*</span><span class=n>vopt</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>        <span class=k>if</span> <span class=p>(</span><span class=n>v</span><span class=p>.</span><span class=n>number</span> <span class=o>%</span> <span class=n>divisor</span> <span class=o>==</span> <span class=mi>0</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>            <span class=n>v</span><span class=p>.</span><span class=n>fizzes</span><span class=p>.</span><span class=n>push_back</span><span class=p>(</span><span class=n>fizz</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>        <span class=p>}</span>
+</span></span><span class=line><span class=cl>        <span class=k>co_yield</span> <span class=n>v</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><p>在 main 函数中的调用会像</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span><span class=lnt>7
+</span><span class=lnt>8
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=kt>int</span> <span class=nf>main</span><span class=p>()</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=n>UserFacing</span> <span class=n>c</span> <span class=o>=</span> <span class=n>generator_numbers</span><span class=p>(</span><span class=mi>200</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=n>c</span> <span class=o>=</span> <span class=n>check_multiple</span><span class=p>(</span><span class=n>std</span><span class=o>::</span><span class=n>move</span><span class=p>(</span><span class=n>c</span><span class=p>),</span> <span class=mi>3</span><span class=p>,</span> <span class=s>&#34;Fizz&#34;</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=n>c</span> <span class=o>=</span> <span class=n>check_multiple</span><span class=p>(</span><span class=n>std</span><span class=o>::</span><span class=n>move</span><span class=p>(</span><span class=n>c</span><span class=p>),</span> <span class=mi>5</span><span class=p>,</span> <span class=s>&#34;Buzz&#34;</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=k>while</span> <span class=p>(</span><span class=n>std</span><span class=o>::</span><span class=n>optional</span><span class=o>&lt;</span><span class=n>Value</span><span class=o>&gt;</span> <span class=n>vopt</span> <span class=o>=</span> <span class=n>c</span><span class=p>.</span><span class=n>next_value</span><span class=p>())</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=c1>// print;
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=p>}</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><p>我们先构造一个只生成一系列整数的协程，并且将他们包进 Value 中（where later coroutines can accumulate the fizzes and buzzes that will be printed for that number）。之后我们调用第二个协程 check_multiple() 来检查 3 和 5 的倍数并分别为其标记。</p><p>每个用户感知对象都被以 std::move 传递作为参数并消费它的输出，因为我们的用户感知对象是 uncopyable 以此来避免协程的 double free。</p><p>每个协程都通过 co_await 表达式，使用参数中的用户感知对象来请求输入，这代表我们的 promise type 必须实现 await_transform(UserFacing&) 这样才能返回正确的 awaiter。每个协程通过 co_yield 传递输出，这意味着我们需要实现 promise type 的 yield_value(Value) 来返回不同的 awaiter。</p><p>注意，协程们知道他们正在 <em>从哪</em> await 值，但不知道要把值 yield <em>给谁</em>。特别的，check_multiple() 的两个实例会根据 co_yield 做出两个完全不同的反应：Fizz 协程会将生成的值传递给 Buzz 协程，但是 Buzz 协程会执行完全一样的代码，但是 <em>它的</em> 输出值会传回 main 并且从 c.next_value() 返回。</p><p>同样，每个协程以 Value 形式生成值，但是当 values 到达消费者时（不管是另一个协程还是 main，都会变成 std::optional&lt;Value>。这允许我们通过 std::nullopt 来表示当前流是否结束）</p><p>好了，我们现在应该实现它了！</p><p>要实现上述的协程，我们从 yielded_value 的例子开始，调用用户感知对象的 next_value 可以获取值。新的难点是消费者协程 C 必须 co_await 另一个协程 P，大概是以下的方式</p><ul><li>C 通过调用 co_await P 让自定义 Awaiter 来在暂停时将控制权给 P</li><li>C 要告诉 P 它自己的身份，这样 P 才能知道把控制权给谁</li><li>P 把控制权传递给 C 通过 co_yield 自定义 Awaiter<ul><li>但如果协程执行 co_yield 时 <em>不是</em> 先被其他协程 awaited，那么同一个 awaiter 必须暂停，将值返回给 main 的最终调用者。</li></ul></li><li>当 C 的 awaiter 恢复 C，它必须取回 P 生成的值，这样才能变成 co_await 返回的值</li></ul><p>我们通过两个 Awaiter 来完成这个事情，<code>InputAwaiter</code> 来解决 co_await 的数据请求，<code>OutputAwaiter</code> 解决 co_yield 生成值</p><p>以下是 InputAwaiter，它通过 await_transform() 创建</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span><span class=lnt>20
+</span><span class=lnt>21
+</span><span class=lnt>22
+</span><span class=lnt>23
+</span><span class=lnt>24
+</span><span class=lnt>25
+</span><span class=lnt>26
+</span><span class=lnt>27
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=k>class</span> <span class=nc>UserFacing</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=c1>//...
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=k>class</span> <span class=nc>InputAwaiter</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=n>promise_type</span><span class=o>*</span> <span class=n>promise_</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>        <span class=k>public</span><span class=o>:</span>
+</span></span><span class=line><span class=cl>        <span class=n>InputAwaiter</span><span class=p>(</span><span class=n>promise_type</span><span class=o>*</span> <span class=n>promise</span><span class=p>)</span> <span class=o>:</span> <span class=n>promise_</span><span class=p>(</span><span class=n>promise</span><span class=p>)</span> <span class=p>{}</span>
+</span></span><span class=line><span class=cl>        
+</span></span><span class=line><span class=cl>        <span class=kt>bool</span> <span class=nf>await_ready</span><span class=p>()</span> <span class=p>{</span><span class=k>return</span> <span class=nb>false</span><span class=p>;}</span>
+</span></span><span class=line><span class=cl>        
+</span></span><span class=line><span class=cl>        <span class=n>std</span><span class=o>::</span><span class=n>coroutine_handle</span><span class=o>&lt;&gt;</span> <span class=n>await_suspend</span><span class=p>(</span><span class=n>std</span><span class=o>::</span><span class=n>coroutine_handle</span><span class=o>&lt;&gt;</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>            <span class=n>promise</span><span class=o>-&gt;</span><span class=n>yielded_value</span> <span class=o>=</span> <span class=n>std</span><span class=o>::</span><span class=n>nullopt</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>            <span class=k>return</span> <span class=n>handle_type</span><span class=o>::</span><span class=n>from_promise</span><span class=p>(</span><span class=o>*</span><span class=n>promise</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>        <span class=p>}</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>    <span class=c1>// ...
+</span></span></span><span class=line><span class=cl><span class=c1></span>    
+</span></span><span class=line><span class=cl>    <span class=k>class</span> <span class=nc>promise_type</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=n>promise_type</span><span class=o>*</span> <span class=n>consumer_</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>        
+</span></span><span class=line><span class=cl>        <span class=c1>//...
+</span></span></span><span class=line><span class=cl><span class=c1></span>        <span class=n>InputAwaiter</span> <span class=nf>await_transform</span><span class=p>(</span><span class=n>UserFacing</span><span class=o>&amp;</span> <span class=n>uf</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>            <span class=n>promise_type</span><span class=o>&amp;</span> <span class=n>producer</span> <span class=o>=</span> <span class=n>uf</span><span class=p>.</span><span class=n>handle</span><span class=p>.</span><span class=n>promise</span><span class=p>();</span>
+</span></span><span class=line><span class=cl>            <span class=n>producer</span><span class=p>.</span><span class=n>consumer_</span> <span class=o>=</span> <span class=k>this</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>            <span class=k>return</span> <span class=n>InputAwaiter</span><span class=p>{</span><span class=o>&amp;</span><span class=n>producer</span><span class=p>};</span>
+</span></span><span class=line><span class=cl>        <span class=p>}</span>
+</span></span><span class=line><span class=cl>    <span class=p>};</span>
+</span></span><span class=line><span class=cl><span class=p>};</span>
+</span></span></code></pre></td></tr></table></div></div><blockquote><p>译者：想看懂这个例子需要搞清楚前文所有的协程执行流程。译者翻译这里的时间和翻译前文的事件隔了很久，看了很久。</p></blockquote><p>上面的代码中，await_ready() 总是暂停协程。await_suspend() 将控制权交给我们输入的 awaiting 我们的结果的协程，实现方式是将指向那个协程 promise 对象的指针传递给 InputAwaiter 的构造函数。</p><p>为了获取 producer 传给我们这个协程的生成值，await_resume() 通过其他 promise 对象的 yielded_value 恢复，就像之前的<a class=link href=https://www.chiark.greenend.org.uk/~sgtatham/quasiblog/coroutines-c++20/#co_yield target=_blank rel=noopener>例子</a>中 UserFacing::next_value() 的行为一样。同样，为了检测 producer 协程 <em>没有</em> 生成任何值结束了，<code>await_suspend()</code> 清除之前 yieled_value 的值，之后再传递控制权。所以获取值的逻辑在这（链中值被传递给下一个协程）和 next_value() 中（被返回给 main）是一样的。</p><p>另外一个要点是我们的 promise 对象需要一个新的字段，这样 promise 对象才知道它的 consumer 是什么。就是说，协程要传递值的对象。这个通过 await_transform() 初始化：当一个 consumer 协程想要 await 一个 producer 的时候，它会被传递给 producer 的 <code>consumer_</code> 字段，指向他自己。<code>OutputAwaiter</code> 通过这个就可以知道将控制权传递给谁了。</p><p>以下是 OutputAwaiter，yield_value 方法返回他</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span><span class=lnt>20
+</span><span class=lnt>21
+</span><span class=lnt>22
+</span><span class=lnt>23
+</span><span class=lnt>24
+</span><span class=lnt>25
+</span><span class=lnt>26
+</span><span class=lnt>27
+</span><span class=lnt>28
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=k>class</span> <span class=nc>UserFacing</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=c1>// ...
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=k>class</span> <span class=nc>OutputAwaiter</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=n>promise_type</span><span class=o>*</span> <span class=n>promise_</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=k>public</span><span class=o>:</span>
+</span></span><span class=line><span class=cl>        <span class=n>OutputAwaiter</span><span class=p>(</span><span class=n>promise</span><span class=o>*</span> <span class=n>promise</span><span class=p>)</span> <span class=o>:</span> <span class=n>promise_</span><span class=p>(</span><span class=n>promise</span><span class=p>)</span> <span class=p>{}</span>
+</span></span><span class=line><span class=cl>        
+</span></span><span class=line><span class=cl>        <span class=kt>bool</span> <span class=nf>await_ready</span><span class=p>()</span> <span class=p>{</span><span class=k>return</span> <span class=nb>false</span><span class=p>;}</span>
+</span></span><span class=line><span class=cl>        
+</span></span><span class=line><span class=cl>        <span class=n>std</span><span class=o>::</span><span class=n>coroutine_handle</span><span class=o>&lt;&gt;</span> <span class=n>await_suspend</span><span class=p>(</span><span class=n>std</span><span class=o>::</span><span class=n>coroutine_handle</span><span class=o>&lt;&gt;</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>            <span class=k>if</span><span class=p>(</span><span class=n>promise</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>                <span class=k>return</span> <span class=n>handle_type</span><span class=o>::</span><span class=n>from_promise</span><span class=p>(</span><span class=o>*</span><span class=n>promise</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>        	<span class=k>else</span>
+</span></span><span class=line><span class=cl>                <span class=k>return</span> <span class=n>std</span><span class=o>::</span><span class=n>noop_coroutine</span><span class=p>();</span>
+</span></span><span class=line><span class=cl>        <span class=p>}</span>
+</span></span><span class=line><span class=cl>        
+</span></span><span class=line><span class=cl>        <span class=kt>void</span> <span class=nf>await_resume</span><span class=p>()</span> <span class=p>{}</span>
+</span></span><span class=line><span class=cl>        
+</span></span><span class=line><span class=cl>    <span class=p>};</span>
+</span></span><span class=line><span class=cl>    
+</span></span><span class=line><span class=cl>    <span class=k>class</span> <span class=nc>promise_type</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=c1>//...
+</span></span></span><span class=line><span class=cl><span class=c1></span>    	<span class=n>OutputAwaiter</span> <span class=nf>yield_value</span><span class=p>(</span><span class=n>Value</span> <span class=n>val</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>            <span class=n>yielded_value</span> <span class=o>=</span> <span class=n>val</span>
+</span></span><span class=line><span class=cl>        	<span class=k>return</span> <span class=n>OutputAwaiter</span><span class=p>{</span><span class=n>consumer</span><span class=p>};</span>
+</span></span><span class=line><span class=cl>        <span class=p>}</span>
+</span></span><span class=line><span class=cl>    <span class=p>};</span>
+</span></span><span class=line><span class=cl><span class=p>};</span>
+</span></span></code></pre></td></tr></table></div></div><p>比 InputAwaiter 简单很多，yield_value() 要填写 promise 对象的 yielded_value 字段，但是它并不需要知道消费者是谁，因为工作原理是一样的。</p><p>但是 await_suspend() <em>需要</em> 知道，因为它要决定是将控制权交给 consumer 还是暂停自己返回给 main。就像之前说过的，通过 std::noop_coroutine 完成；</p><p>Full source code for this example: <a class=link href=https://www.chiark.greenend.org.uk/~sgtatham/quasiblog/coroutines-c++20/co_shuttle.cpp target=_blank rel=noopener><code>co_shuttle.cpp</code></a>. (As I warned in the introduction, the real code will have to move some methods out of line that are shown inside the class definitions above.)</p><hr><h3 id=有栈生成器>有栈生成器</h3><p>很难不把C++ 和 python 的生成器一起比较。我在文章中已经提到了很多了。C++23 的 generator 和 python 自带的行为基本一致。他只能 co_yield 生成一系列值，并不能 co_await 输入或者 co_return 一个结果，并且用户感知类型是可以用于 for 循环迭代的，就像是views。</p><p>我们有一个 python 的特性没提到，那就是 yield_from，generator 可以指定为其他的可迭代对象，当然也可以是 generator。就是说，第一个生成器可以调用第二个生成器作为 subroutines，并且让他按照自己的行为生成值。</p><p>你可以伪造一个。让第一个 generator 在后来的 generator 上迭代，然后通过 <code>co_yield</code> 手动传递输出值。</p><h2 id=关于协程返回类型和位置的技巧>关于协程返回类型和位置的技巧</h2><h3 id=在协程和普通函数之间共享类型>在协程和普通函数之间共享类型</h3><p>我是协程的 fan，但即使是我也不推荐在程序的 <em>每一个</em> 部分使用协程。</p><p>有时候，你需要相同接口的一簇返回值，但是他们中的 <em>一些</em> 被实现为协程，其他的则是一些 C++ 的原生类型。</p><p>实现这个的方法是利用调用协程的 caller 不需要知道它是一个协程。假设你有两个函数，返回相同类型</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=n>SomeReturnType</span> <span class=nf>this_is_a_coroutine</span><span class=p>(</span><span class=n>Argument</span><span class=p>);</span>
+</span></span><span class=line><span class=cl><span class=n>SomeReturnType</span> <span class=nf>this_is_an_ordinary_function</span><span class=p>(</span><span class=n>Argument</span><span class=p>);</span>
+</span></span></code></pre></td></tr></table></div></div><p>从 caller 角度看，这些函数有相同的 API。你可以调用一个，然后获取特定返回类型。</p><p><em>函数定义</em> 决定了他是否是协程。假设一个函数有 co_await, co_yield 或者 co_return，另一个没有。那么没有 co_ 的函数会被当成普通的函数，它的函数体会按照常规返回合适类型的对象。</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=n>SomeReturnType</span> <span class=nf>this_is_an_ordinary_function</span><span class=p>(</span><span class=n>Argument</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=kt>int</span> <span class=n>value</span> <span class=o>=</span> <span class=n>some_intermediate_computation</span><span class=p>();</span>
+</span></span><span class=line><span class=cl>    <span class=n>SomeReturnType</span> <span class=n>to_return</span> <span class=p>{</span> <span class=n>value</span> <span class=p>};</span>
+</span></span><span class=line><span class=cl>    <span class=k>return</span> <span class=n>to_return</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><p>但如果另外一个函数 <em>有</em> co_ ，那么C++的协程机制会执行：根据函数签名找到 promise 对象并构造，然后 get_return_object() 来生成返回对象，最后返回给 caller。</p><p>但在 caller 的角度，是以同样的方式调用函数的，并且在每个情形下，它都会返回一个看起来一样的对象。但是对象会有一些方法（比如 get_value()）在某个情况下正常实现，在另一个情况下通过恢复协程在后台实现。</p><p>最明显的让一个对象有不同的行为的方式是使用一个抽象基类，通过虚方法，之后通过不同的方式继承并实现它。</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=k>class</span> <span class=nc>AbstractBaseClass</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>  <span class=k>public</span><span class=o>:</span>
+</span></span><span class=line><span class=cl>    <span class=k>virtual</span> <span class=o>~</span><span class=n>AbstractBaseClass</span><span class=p>()</span> <span class=o>=</span> <span class=k>default</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=k>virtual</span> <span class=n>std</span><span class=o>::</span><span class=n>string</span> <span class=n>get_value</span><span class=p>()</span> <span class=o>=</span> <span class=mi>0</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=p>};</span>
+</span></span></code></pre></td></tr></table></div></div><p>非协程的继承类实现一个原始 C++ 类型的接口</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span><span class=lnt>7
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=k>class</span> <span class=nc>ConventionalDerivedClass</span> <span class=o>:</span> <span class=k>public</span> <span class=n>AbstractBaseClass</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>  <span class=k>public</span><span class=o>:</span>
+</span></span><span class=line><span class=cl>    <span class=n>ConventionalDerivedClass</span><span class=p>()</span> <span class=o>=</span> <span class=k>default</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=n>std</span><span class=o>::</span><span class=n>string</span> <span class=n>get_value</span><span class=p>()</span> <span class=k>override</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=k>return</span> <span class=s>&#34;hello from ConventionalDerivedClass::get_value&#34;</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl><span class=p>};</span>
+</span></span></code></pre></td></tr></table></div></div><p>我们可以再实现一个包装了协程句柄的派生类，通过恢复协程并且与 promise 通信来实现 get_value</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=k>class</span> <span class=nc>CoroutineDerivedClass</span> <span class=o>:</span> <span class=k>public</span> <span class=n>AbstractBaseClass</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>  <span class=k>private</span><span class=o>:</span>
+</span></span><span class=line><span class=cl>    <span class=k>friend</span> <span class=k>class</span> <span class=nc>Promise</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=n>Handle</span> <span class=n>handle</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=n>CoroutineDerivedClass</span><span class=p>(</span><span class=n>Handle</span> <span class=n>handle</span><span class=p>)</span> <span class=o>:</span> <span class=n>handle</span><span class=p>(</span><span class=n>handle</span><span class=p>)</span> <span class=p>{}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  <span class=k>public</span><span class=o>:</span>
+</span></span><span class=line><span class=cl>    <span class=n>std</span><span class=o>::</span><span class=n>string</span> <span class=n>get_value</span><span class=p>()</span> <span class=k>override</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=n>handle</span><span class=p>.</span><span class=n>promise</span><span class=p>().</span><span class=n>yielded_value</span> <span class=o>=</span> <span class=s>&#34;&#34;</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>        <span class=n>handle</span><span class=p>.</span><span class=n>resume</span><span class=p>();</span>
+</span></span><span class=line><span class=cl>        <span class=k>return</span> <span class=n>handle</span><span class=p>.</span><span class=n>promise</span><span class=p>().</span><span class=n>yielded_value</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=o>~</span><span class=n>CoroutineDerivedClass</span><span class=p>()</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=n>handle</span><span class=p>.</span><span class=n>destroy</span><span class=p>();</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl><span class=p>};</span>
+</span></span></code></pre></td></tr></table></div></div><p>这里没有给出 promise 的实现，因为和之前实现过的例子大差不差。（get_value 返回了普通的 std::string 而不是 optional，只是为了看起来简单而已）</p><p>诶一的问题是：对于协程和非协程函数，实际的返回类型是什么？并不能是 AbstractBaseClass 自己，因为两个派生类大小不同。必须使用指针指向一个动态分配的类型：不管是裸指针，还是例如 std::unique_ptr。</p><p>无论哪种类型我们都不能返回包含 promise_type 的类。如果它是裸指针，那它根本不能包含命名字段，如果是智能指针，标准库可以控制它包含的命名字段，并且用户代码不能添加到那个字段（？），所以我们需要使用 std::coroutine_traits 来识别 promise type，和前文提到的一样。</p><p>Either way, we can’t make <em>that</em> return type contain a thing called <code>promise_type</code>. If it’s a raw pointer, it can’t contain named fields at all; if it’s a smart pointer from the standard library, then the standard library is in control of what named fields it has, and user code can’t add to that. So we’re going to have to use the <code>std::coroutine_traits</code> technique for identifying the promise type</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=k>template</span><span class=o>&lt;</span><span class=k>typename</span><span class=p>...</span> <span class=n>ArgTypes</span><span class=o>&gt;</span>
+</span></span><span class=line><span class=cl><span class=k>struct</span> <span class=nc>std</span><span class=o>::</span><span class=n>coroutine_traits</span><span class=o>&lt;</span><span class=n>std</span><span class=o>::</span><span class=n>unique_ptr</span><span class=o>&lt;</span><span class=n>AbstractBaseClass</span><span class=o>&gt;</span><span class=p>,</span> <span class=n>ArgTypes</span><span class=p>...</span><span class=o>&gt;</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=k>using</span> <span class=n>promise_type</span> <span class=o>=</span> <span class=n>Promise</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=p>};</span>
+</span></span></code></pre></td></tr></table></div></div><p>这样的话我们定义一个函数，返回 std::unique_ptr&lt;AbstractBaseClass>，并且它的函数体包含 co_ 关键字的话，那么它就会是一个协程，其 promise_type 是 Promise。之后 Promise::get_return_object() 就可以正常创建对象了，即 <code>std::unique_ptr&lt;AbstractBaseClass></code></p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span><span class=lnt>7
+</span><span class=lnt>8
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=k>class</span> <span class=nc>Promise</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=c1>// ...
+</span></span></span><span class=line><span class=cl><span class=c1></span>  <span class=k>public</span><span class=o>:</span>
+</span></span><span class=line><span class=cl>    <span class=n>std</span><span class=o>::</span><span class=n>unique_ptr</span><span class=o>&lt;</span><span class=n>CoroutineDerivedClass</span><span class=o>&gt;</span> <span class=n>get_return_object</span><span class=p>()</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=k>return</span> <span class=n>std</span><span class=o>::</span><span class=n>unique_ptr</span><span class=o>&lt;</span><span class=n>CoroutineDerivedClass</span><span class=o>&gt;</span><span class=p>(</span>
+</span></span><span class=line><span class=cl>            <span class=k>new</span> <span class=n>CoroutineDerivedClass</span><span class=p>(</span><span class=n>Handle</span><span class=o>::</span><span class=n>from_promise</span><span class=p>(</span><span class=o>*</span><span class=k>this</span><span class=p>)));</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl><span class=p>};</span>
+</span></span></code></pre></td></tr></table></div></div><blockquote><p>例子里没用 std::make_unique，因为它要求包装对象的构造函数是 public，但是例子中它是 private，Promise 因为是 friend 所以可以访问，但没办法更改 make_unique 的授权。</p></blockquote><p>现在就可以使函数拥有正确行为了：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span><span class=lnt>7
+</span><span class=lnt>8
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=n>std</span><span class=o>::</span><span class=n>unique_ptr</span><span class=o>&lt;</span><span class=n>AbstractBaseClass</span><span class=o>&gt;</span> <span class=n>demo_coroutine</span><span class=p>()</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=k>co_yield</span> <span class=s>&#34;hello from coroutine, part 1&#34;</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=k>co_yield</span> <span class=s>&#34;hello from coroutine, part 2&#34;</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=n>std</span><span class=o>::</span><span class=n>unique_ptr</span><span class=o>&lt;</span><span class=n>AbstractBaseClass</span><span class=o>&gt;</span> <span class=n>demo_non_coroutine</span><span class=p>()</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=k>return</span> <span class=n>std</span><span class=o>::</span><span class=n>make_unique</span><span class=o>&lt;</span><span class=n>ConventionalDerivedClass</span><span class=o>&gt;</span><span class=p>();</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><p>现在 <code>demo_non_coroutine()</code> 会在调用时立刻执行，且会构造返回的对象，而demo_coroutine() 会暂停，并且只会构造 promise 对象。caller 只会得到实现了同一个抽象类的对象，并且在每个上面都调用 get_value()，不需要知道他到底是协程还是对象的实例。</p><p>如果使用裸指针的话也一样可行。仍然可以使用 std::coroutine_traits 特化。区别在于 caller 需要自己管理内存了。</p><p>Full source code for this example: <a class=link href=https://www.chiark.greenend.org.uk/~sgtatham/quasiblog/coroutines-c++20/co_abstract.cpp target=_blank rel=noopener><code>co_abstract.cpp</code></a>. (Again, the full source code fills in details I glossed over for clarity, like having to define methods out of line.)</p><h3 id=在类中隐藏协程的实现>在类中隐藏协程的实现</h3><p>协程的一个有用的属性是，有一个数据对象表明正在进行的计算，并且程序的其他部分也能访问这个对象，也就是说可以进行通信，而不单单是运行。</p><p>例如，C++ 协程可以轻松<em>放弃</em> 掉一个你不需要的计算，通过销毁用户感知类型，同时也会销毁协程句柄，自然就会释放协程的 promise 对象，这样自然会销毁协程内部的所有状态。假设所有的析构器都做了他们的工作，释放了所有内存，所有资源，并且没崩溃。（类比之下释放一个线程就非常困难）</p><p>另外一个你需要知道的是，你可能想要在协程暂停时 &lsquo;peek into&rsquo; 协程状态。例如，如果协程代表了 GUI 程序的正在进行的计算，那么可能需要经常看 GUI 来更新进度条。但在 free-function 风格中很尴尬，因为协程内部的变量无法从外部访问。</p><p>你可以通过让协程成为类的方法来 work around。这样就可以像访问它的 local 变量一样访问类成员 - 所以如果你想在协程暂停期间监视的变量的话，你可以把它写作类成员。</p><blockquote><p>另外一种方法是参考 std::generator</p></blockquote><p>换句话说，我们想要让类的某个方法是协程；类的构造函数调用那个函数来获取协程句柄；但是类 <em>自己</em> 需要完成协程返回的用户感知对象所负责的任务。然后，类的某个方法实现是恢复协程，这样就可以以有状态的方式对每个调用进行一系列操作；但是其他方法可以跟那个方法互动，来访问同样的成员。</p><p>简单的实现如下：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=k>class</span> <span class=nc>Promise</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=k>template</span><span class=o>&lt;</span><span class=k>class</span><span class=err>... </span><span class=nc>ArgTypes</span><span class=o>&gt;</span>
+</span></span><span class=line><span class=cl><span class=k>struct</span> <span class=nc>std</span><span class=o>::</span><span class=n>coroutine_traits</span><span class=o>&lt;</span><span class=n>std</span><span class=o>::</span><span class=n>coroutine_handle</span><span class=o>&lt;</span><span class=n>Promise</span><span class=o>&gt;</span><span class=p>,</span> <span class=n>ArgTypes</span><span class=p>...</span><span class=o>&gt;</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=k>using</span> <span class=n>promise_type</span> <span class=o>=</span> <span class=n>Promise</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=p>};</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=k>class</span> <span class=nc>Promise</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=c1>// ...
+</span></span></span><span class=line><span class=cl><span class=c1></span>
+</span></span><span class=line><span class=cl>  <span class=k>public</span><span class=o>:</span>
+</span></span><span class=line><span class=cl>    <span class=n>std</span><span class=o>::</span><span class=n>coroutine_handle</span><span class=o>&lt;</span><span class=n>Promise</span><span class=o>&gt;</span> <span class=n>get_return_object</span><span class=p>()</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=k>return</span> <span class=n>std</span><span class=o>::</span><span class=n>coroutine_handle</span><span class=o>&lt;</span><span class=n>Promise</span><span class=o>&gt;::</span><span class=n>from_promise</span><span class=p>(</span><span class=o>*</span><span class=k>this</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl><span class=p>};</span>
+</span></span></code></pre></td></tr></table></div></div><p>同样，我们用了 std::coroutine_tratis 特化来确定协程句柄返回的 promise 对象，然后它的 promise_type 就是 Promise。</p><p>然后我们可以让协程作为 private 方法，并且之后就可以让协程句柄和该类分开</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span><span class=lnt>20
+</span><span class=lnt>21
+</span><span class=lnt>22
+</span><span class=lnt>23
+</span><span class=lnt>24
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=k>class</span> <span class=nc>CoroutineHolder</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=kt>int</span> <span class=n>param</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=n>SomeType</span> <span class=n>mutable_state</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=n>std</span><span class=o>::</span><span class=n>coroutine_handle</span><span class=o>&lt;</span><span class=n>Promise</span><span class=o>&gt;</span> <span class=n>handle</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=n>std</span><span class=o>::</span><span class=n>coroutine_handle</span><span class=o>&lt;</span><span class=n>Promise</span><span class=o>&gt;</span> <span class=n>coroutine</span><span class=p>()</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=k>for</span> <span class=p>(</span><span class=kt>int</span> <span class=n>i</span> <span class=o>=</span> <span class=mi>0</span><span class=p>;</span> <span class=n>i</span> <span class=o>&lt;</span> <span class=n>param</span><span class=p>;</span> <span class=n>i</span><span class=o>++</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>            <span class=k>co_await</span> <span class=n>something_or_other</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>            <span class=n>adjust</span><span class=p>(</span><span class=n>mutable_state</span><span class=p>);</span>
+</span></span><span class=line><span class=cl>            <span class=k>co_yield</span> <span class=n>something_else</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>        <span class=p>}</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  <span class=k>public</span><span class=o>:</span>
+</span></span><span class=line><span class=cl>    <span class=n>CoroutineHolder</span><span class=p>(</span><span class=kt>int</span> <span class=n>param</span><span class=p>)</span> <span class=o>:</span> <span class=n>param</span><span class=p>(</span><span class=n>param</span><span class=p>),</span> <span class=n>handle</span><span class=p>(</span><span class=n>coroutine</span><span class=p>())</span> <span class=p>{}</span>
+</span></span><span class=line><span class=cl>    <span class=o>~</span><span class=n>CoroutineHolder</span><span class=p>()</span> <span class=p>{</span> <span class=n>handle</span><span class=p>.</span><span class=n>destroy</span><span class=p>();</span> <span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=kt>void</span> <span class=nf>do_stateful_thing</span><span class=p>()</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=k>if</span> <span class=p>(</span><span class=o>!</span><span class=n>handle</span><span class=p>.</span><span class=n>done</span><span class=p>())</span>
+</span></span><span class=line><span class=cl>            <span class=n>handle</span><span class=p>.</span><span class=n>resume</span><span class=p>();</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=kt>int</span> <span class=nf>query_state</span><span class=p>()</span> <span class=p>{</span> <span class=k>return</span> <span class=n>mutable_state</span><span class=p>.</span><span class=n>some_field</span><span class=p>;</span> <span class=p>}</span>
+</span></span><span class=line><span class=cl><span class=p>};</span>
+</span></span></code></pre></td></tr></table></div></div><p>这样的话协程就可以读取成员变量，比如 <code>param</code>，然后因此他也不需要自己额外的参数就可以调用。并且它可以 <em>写</em> 成员变量（例如 mutable_state），这样用户就可以通过查询当前状态，然后来决定是不是恢复协程。</p><p>当然，你仍然可以通过 promise 对象来让 co_await 和 co_yield 有正确行为。</p><p>（实现这个的方法可能是你给与 promise 对象一个指针，使用之前 [允许 promise type 访问协程的参数] 中的例子，然后通过完美转发将类的方法委托给 await_transform() 以及 yield_value()。这样你就可以使用不同的 promise 让协程有不同的行为。但我不会展示，应该已经超越本文的范畴了。）</p><p>Full source code for this example: <a class=link href=https://www.chiark.greenend.org.uk/~sgtatham/quasiblog/coroutines-c++20/co_class.cpp target=_blank rel=noopener><code>co_class.cpp</code></a>.</p><h3 id=让-lambda-成为协程>让 lambda 成为协程</h3><p>除了普通函数还是类方法，lambda 也可以是协程。lambda 和其他协程一样 work，只要你显式指明了它的返回类型</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-cpp data-lang=cpp><span class=line><span class=cl><span class=kt>int</span> <span class=nf>main</span><span class=p>()</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=k>auto</span> <span class=n>lambda_coroutine</span> <span class=o>=</span> <span class=p>[]()</span> <span class=o>-&gt;</span> <span class=n>UserFacing</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=k>co_yield</span> <span class=mi>100</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>        <span class=k>for</span> <span class=p>(</span><span class=kt>int</span> <span class=n>i</span> <span class=o>=</span> <span class=mi>1</span><span class=p>;</span> <span class=n>i</span> <span class=o>&lt;=</span> <span class=mi>3</span><span class=p>;</span> <span class=n>i</span><span class=o>++</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>            <span class=k>co_yield</span> <span class=n>i</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>        <span class=k>co_yield</span> <span class=mi>200</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=p>};</span>
+</span></span><span class=line><span class=cl>    <span class=n>UserFacing</span> <span class=n>lambda_coroutine_instance</span> <span class=o>=</span> <span class=n>lambda_coroutine</span><span class=p>();</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=c1>// now do something with that user-facing object
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=p>}</span>
+</span></span></code></pre></td></tr></table></div></div><p>拥有普通函数拥有的一切优点，此外你可以把协程的代码放在紧挨着使用它的代码旁，并且可以捕获变量。</p><p>如果你在另外一个协程内这么干，它可能会拓宽一些有趣的并行方法。举个例子，你可能会写一些 &lsquo;parallel while&rsquo; ，通过使用这种形式的多个协程，发明一种 co_await 类型，将所有协程插入到程序的主事件循环，然后再继续包含协程之前等待所有协程完成。或者在其他情景下你可能想等待它们中的某一个完成，然后销毁剩余的，有无穷的可能性！</p><h2 id=其他没有讨论到的细节>其他：没有讨论到的细节</h2><p>文章已经很长很长了，并且我仍然有一些 C++ 协程的细节没有说到。这里是一个 quick list。</p><p>当一个协程被创建时，内部状态（包含协程的内部变量）动态分配。在嵌入的上下文中，你可能需要控制 <em>how</em>， 或者 <em>where</em> 关于内存分配。你可能通过重载协程 promise 的 operator new 或者 operator delete 来实现。同时，如果分配失败，你可能需要提供 <code>get_return_object_on_allocation_failure()</code> handler，作为 get_return_object 的补充。但我还没尝试那些，如果我要用的话会探索它的细节。</p><p>在许多关于异常的例子中，我们向协程的 caller 传播异常，通过 promise 方法 unhandled_exception() 来存储异常，并且通过用户感知对象获取异常然后重新抛出（在协程的 resume() 方法返回时）。根据 C++ 标准，还有一个方法来实现，可能需要在 unhandled_exception() <em>内</em> 重新抛出异常。但是没有什么 Example，不知道为什么没有使用其他的方法，可能是因为缺少灵活性吧。</p><p>我通常认为协程是线程的代替品。但是，显然，C++拥有如此灵活的协程系统的原因是它可以和线程 <em><strong>结合</strong></em>：你可能在另外一个线程上恢复协程，这样协程可能有时会在同一个线程中互相让步（yield），也有可能在在不同协程中并行运行。（这可能是 promise type 命名的原因，而且一些标准例子中的用户感知类型称之为 future）我还没有讨论这个，因为我基本是单线程的程序员。但是如果你有 1000 个协程代表不同的进行中的特定任务，在 16 个硬件线程上调度可能会有额外的复杂性，可能需要互相共享数据，或者线程同步，或者避免死锁。</p><p>最后，我只讨论了用户感知类型和协程的交互，并不是提供给用户的 API。对于我 generator 的例子 - 类型协程（一种产生一系列值的协程），我仅仅只使用了一个简单的 next_value() 方法，来让客户端调用来获取协程生成的下一个值。但是关于 API 仍然有很多值得讨论的。例如，generator 协程可能也可以支持迭代器，这样你可以使用 range-based for，或者结合 views。（C++23 的 generator 就是这么做的）我甚至还没有谈到那一步，因为他并不是关于协程的，而是关于range一个类支持 range based for，或者行为像 views 或者 iostream 等等，明显是 C++ 的部分，而不是协程的部分。可能是我之后的文章。</p><p>当然，可能还有其他需要说的，甚至我都不知道是什么！</p><h2 id=conclusion>Conclusion</h2><p>Phew, that was a lot of words! No wonder it didn’t fit in that training course I went on.</p><p>I said in the introduction that one of my aims in learning about all this was to find out whether it would be good to convert my existing C++ program <code>spigot</code> so that it uses C++ language coroutines in place of my preprocessor-based strategy. Now I’m done, I think the answer is: it would certainly be good to do that one way or another, but I have several options for exactly <em>how</em> to do it, and I’ll need to decide which!</p><p>(The natural way to use my preprocessor-based coroutine system in C++ is to put the coroutine macros in one method of a class, so that the class’s member variables store all the coroutine state that persists between yields, and every time that particular method is called, it resumes from the last place it left off. In that respect, the closest thing to a drop-in replacement is the technique I <a class=link href=https://www.chiark.greenend.org.uk/~sgtatham/quasiblog/coroutines-c++20/#class target=_blank rel=noopener>described above</a> for hiding a coroutine inside a class implementation. That gets you almost exactly the same code structure, without preprocessor hacks, and with the new ability to have the coroutine declare its local variables more like a normal function. But it also doesn’t get you any <em>extra</em> usefulness – it’s very possible that a more profound redesign of <code>spigot</code> would be a better idea.)</p><p>I also wanted to find out what else this facility might be useful for. I’ve got a lot of ideas about that, but I’ve no idea which ones will be useful yet. I look forward to seeing what the rest of the world comes up with!</p></section><footer class=article-footer><section class=article-copyright><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-copyright" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="12" r="9"/><path d="M14.5 9a3.5 4 0 100 6"/></svg>
+<span>Licensed under CC BY-NC-SA 4.0</span></section><section class=article-lastmod><svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentcolor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/></svg>
+<span>最后更新于 Feb 08, 2024 00:00 UTC</span></section></footer></article><footer class=site-footer><section class=copyright>&copy;
+2023 -
+2024 Roses</section><section class=powerby>使用 <a href=https://gohugo.io/ target=_blank rel=noopener>Hugo</a> 构建<br>主题 <b><a href=https://github.com/CaiJimmy/hugo-theme-stack target=_blank rel=noopener data-version=3.26.0>Stack</a></b> 由 <a href=https://jimmycai.com target=_blank rel=noopener>Jimmy</a> 设计</section></footer><div class=pswp tabindex=-1 role=dialog aria-hidden=true><div class=pswp__bg></div><div class=pswp__scroll-wrap><div class=pswp__container><div class=pswp__item></div><div class=pswp__item></div><div class=pswp__item></div></div><div class="pswp__ui pswp__ui--hidden"><div class=pswp__top-bar><div class=pswp__counter></div><button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
+<button class="pswp__button pswp__button--share" title=Share></button>
+<button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
+<button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button><div class=pswp__preloader><div class=pswp__preloader__icn><div class=pswp__preloader__cut><div class=pswp__preloader__donut></div></div></div></div></div><div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap"><div class=pswp__share-tooltip></div></div><button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
+</button>
+<button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)"></button><div class=pswp__caption><div class=pswp__caption__center></div></div></div></div></div><script src=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo=" crossorigin=anonymous defer></script><script src=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU=" crossorigin=anonymous defer></script><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css crossorigin=anonymous><link rel=stylesheet href=https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css crossorigin=anonymous></main></div><script src=https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z+KMkF24hUW8WePSA9HM=" crossorigin=anonymous></script><script type=text/javascript src=/ts/main.js defer></script><script>(function(){const e=document.createElement("link");e.href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap",e.type="text/css",e.rel="stylesheet",document.head.appendChild(e)})()</script></body></html>
