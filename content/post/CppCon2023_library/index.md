@@ -7,7 +7,7 @@ image: cppcon2023-cover.png
 categories:
     - cppcon
     - techs
-    - finished
+    - unfinished
 tags: 
 weight: 1       # You can add weight to some posts to override the default sorting (date descending)
 comments: false
